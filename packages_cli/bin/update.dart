@@ -28,6 +28,7 @@ class UpdateRunner extends CommandRunner<int> {
         ) {
     addCommand(PackagesCommand());
     addCommand(SdkCommand());
+    addCommand(RepositoriesCommand());
     addCommand(SheetsCommand());
   }
 }
@@ -49,6 +50,27 @@ class PackagesCommand extends Command<int> {
     PackageManager packageManager = PackageManager();
     await packageManager.setup();
     await packageManager.updateFromPub();
+    await packageManager.close();
+    return 0;
+  }
+}
+
+// todo: support updating a specific repo
+class RepositoriesCommand extends Command<int> {
+  @override
+  final String name = 'repositories';
+
+  @override
+  final String description =
+      'Update repository information sourced from github.';
+
+  RepositoriesCommand();
+
+  @override
+  Future<int> run() async {
+    PackageManager packageManager = PackageManager();
+    await packageManager.setup();
+    await packageManager.updateRepositories();
     await packageManager.close();
     return 0;
   }

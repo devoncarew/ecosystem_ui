@@ -5,14 +5,18 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart' as url;
-import 'package:pub_semver/pub_semver.dart';
 
+import 'data_model.dart';
 import 'firebase_options.dart';
 import 'table.dart';
 
 // todo: flash some part of the screen when a package updates
-// todo: show maintainers
 // todo: have a search / filter field
+// todo: move the information gathering up the stack
+// todo: put in place a model for the packages
+// todo: gather repo info
+// todo: google3 data
+// todo: remove some state objects?
 
 const String addName = 'Package Dashboard';
 
@@ -29,7 +33,7 @@ class PackagesApp extends StatefulWidget {
 
 class _PackagesAppState extends State<PackagesApp> {
   FirebaseFirestore? firestore;
-  List<String>? publishers;
+  DataModel? dataModel;
 
   @override
   void initState() {
@@ -43,12 +47,17 @@ class _PackagesAppState extends State<PackagesApp> {
     // Set up firebase.
     await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform);
+    final _firestore = FirebaseFirestore.instance;
 
-    QuerySnapshot<SnapshotItems> snapshot =
-        await FirebaseFirestore.instance.collection('publishers').get();
+    // Set up the datamodel.
+    final _dataModel = DataModel(firestore: _firestore);
+    await _dataModel.init();
+    await _dataModel.loaded();
+
+    // Rebuild the widget.
     setState(() {
-      firestore = FirebaseFirestore.instance;
-      publishers = snapshot.docs.map((doc) => doc.id).toList()..sort();
+      firestore = _firestore;
+      dataModel = _dataModel;
     });
   }
 
@@ -59,10 +68,18 @@ class _PackagesAppState extends State<PackagesApp> {
       theme: ThemeData(primarySwatch: Colors.blue),
       home: firestore == null
           ? const LoadingScreen()
-          : Provider.value(
-              value: firestore!,
-              child: MainPage(
-                publishers: publishers!,
+          : MultiProvider(
+              providers: [
+                Provider<FirebaseFirestore>(create: (_) => firestore!),
+                Provider<DataModel>(create: (_) => dataModel!)
+              ],
+              child: ValueListenableBuilder<List<String>>(
+                valueListenable: dataModel!.publishers,
+                builder: (context, List<String> publishers, _) {
+                  return MainPage(
+                    publishers: publishers,
+                  );
+                },
               ),
             ),
     );
@@ -81,8 +98,7 @@ class MainPage extends StatefulWidget {
   State<MainPage> createState() => _MainPageState();
 }
 
-class _MainPageState extends State<MainPage>
-    with SingleTickerProviderStateMixin {
+class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   late TabController tabController;
 
   @override
@@ -96,8 +112,20 @@ class _MainPageState extends State<MainPage>
   }
 
   @override
+  void didUpdateWidget(covariant MainPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    tabController.dispose();
+    tabController = TabController(
+      length: widget.publishers.length,
+      initialIndex: tabController.index,
+      vsync: this,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final FirebaseFirestore firestore = Provider.of<FirebaseFirestore>(context);
+    final dataModel = DataModel.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -116,10 +144,7 @@ class _MainPageState extends State<MainPage>
           unselectedLabelColor: Colors.white,
           labelColor: Colors.amber,
           tabs: [
-            for (var publisher in widget.publishers)
-              Tab(
-                text: publisher,
-              ),
+            for (var publisher in widget.publishers) Tab(text: publisher),
           ],
           controller: tabController,
         ),
@@ -127,7 +152,10 @@ class _MainPageState extends State<MainPage>
       body: TabBarView(
         children: [
           for (var publisher in widget.publishers)
-            PublisherPackagesWidget(publisher: publisher, firestore: firestore),
+            PublisherPackagesWidget(
+              publisher: publisher,
+              key: ValueKey(publisher),
+            ),
         ],
         controller: tabController,
       ),
@@ -142,219 +170,178 @@ class _MainPageState extends State<MainPage>
                 style: TextStyle(color: Colors.white, fontSize: 24),
               ),
             ),
-            for (var tmp in [
-              'SDK Packages',
-              'Google3 Packages',
-              'Changelog',
-            ])
-              ListTile(
-                leading: const Icon(Icons.table_chart),
-                title: Text(tmp),
-                onTap: () {
-                  Navigator.pop(context);
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return ChangeLogWidget(title: tmp);
-                    },
-                  );
-                },
-              ),
+            ListTile(
+              leading: const Icon(Icons.table_chart),
+              title: const Text('Changelog'),
+              onTap: () {
+                Navigator.pop(context);
+                _showChangeLogDialog(dataModel);
+              },
+            ),
           ],
         ),
       ),
     );
   }
+
+  void _showChangeLogDialog(DataModel dataModel) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return LargeDialog(
+          title: 'Changelog',
+          child: ValueListenableBuilder<List<LogItem>>(
+            valueListenable: dataModel.changeLogItems,
+            builder: (context, items, _) {
+              return PicnicTable<LogItem>(
+                items: items,
+                columns: [
+                  PicnicColumn(
+                    label: 'Entity',
+                    width: 150,
+                    grow: 0.2,
+                    transformFunction: (item) => item.entity,
+                  ),
+                  PicnicColumn(
+                    label: 'Change',
+                    width: 250,
+                    grow: 0.4,
+                    transformFunction: (item) => item.change,
+                  ),
+                  PicnicColumn(
+                    label: 'Timestamp',
+                    width: 150,
+                    grow: 0.1,
+                    transformFunction: (item) {
+                      return item.timestamp.toDate().toIso8601String();
+                    },
+                    compareFunction: (a, b) {
+                      return a.timestamp.compareTo(b.timestamp);
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
 }
 
-typedef SnapshotItems = Map<String, dynamic>;
-
-class PublisherPackagesWidget extends StatefulWidget {
+class PublisherPackagesWidget extends StatelessWidget {
   final String publisher;
-  final FirebaseFirestore firestore;
 
   const PublisherPackagesWidget({
     required this.publisher,
-    required this.firestore,
     Key? key,
   }) : super(key: key);
 
   @override
-  State<PublisherPackagesWidget> createState() =>
-      _PublisherPackagesWidgetState();
-}
-
-class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
-  late final Stream<QuerySnapshot<SnapshotItems>> stream;
-
-  // todo: save the query results as state
-  // todo: I think that means I have to move the stream stuff above this widget
-  // in the tree
-
-  @override
-  void initState() {
-    super.initState();
-
-    stream = widget.firestore
-        .collection('packages')
-        .where('publisher', isEqualTo: widget.publisher)
-        .orderBy('name')
-        .snapshots();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<SnapshotItems>>(
-      stream: stream,
-      builder: (BuildContext context,
-          AsyncSnapshot<QuerySnapshot<SnapshotItems>> snapshot) {
-        if (snapshot.hasError) {
-          return Center(
-            child: Text('Something went wrong: ${snapshot.error}'),
-          );
-        } else if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        } else {
-          // todo: use docChanges to flash affected packages
-          final docs = snapshot.data!.docs;
+    var dataModel = DataModel.of(context);
 
-          // todo: move this into a toolbar widget
-          return Column(
-            children: [
-              Container(
-                height: 50,
+    return ValueListenableBuilder<List<PackageInfo>>(
+      valueListenable: dataModel.getPackagesForPublisher(publisher),
+      builder: (context, packages, _) {
+        // todo: flash affected packages
+        // todo: move this into a toolbar widget
+        return Column(
+          children: [
+            Container(
+              height: 50,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Colors.grey)),
+                ),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: SizedBox(),
+                    ),
+                    Center(
+                      child: Text('${packages.length} packages'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Colors.grey)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Expanded(
-                        child: SizedBox(),
-                      ),
-                      Center(
-                        child: Text('${docs.length} packages'),
-                      ),
-                    ],
-                  ),
-                ),
+                child: createTable(packages),
               ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: createTable(docs),
-                ),
-              ),
-            ],
-          );
-        }
+            ),
+          ],
+        );
       },
     );
   }
 
-  PicnicTable createTable(List<QueryDocumentSnapshot<SnapshotItems>> docs) {
-    // todo: move sorting into the table
-    // docs.sort((a, b) {
-    //   bool aDiscontinued =
-    //       a.data().containsKey('discontinued') ? a['discontinued'] : false;
-    //   bool bDiscontinued =
-    //       b.data().containsKey('discontinued') ? b['discontinued'] : false;
-    //   if (aDiscontinued == bDiscontinued) {
-    //     return (a['name'] as String).compareTo(b['name']);
-    //   } else {
-    //     return aDiscontinued ? 1 : -1;
-    //   }
-    // });
-
-    fn(QueryDocumentSnapshot<SnapshotItems> snapshot) {
+  PicnicTable createTable(List<PackageInfo> packages) {
+    fn(PackageInfo package) {
       const discontinuedStyle = TextStyle(color: Colors.grey);
-
-      final data = snapshot.data();
-      bool discontinued =
-          data.containsKey('discontinued') ? data['discontinued'] : false;
-      return discontinued ? discontinuedStyle : null;
+      return package.discontinued ? discontinuedStyle : null;
     }
 
-    return PicnicTable(
-      items: docs,
-      columns: <PicnicColumn>[
-        PicnicColumn<QueryDocumentSnapshot<SnapshotItems>>(
+    return PicnicTable<PackageInfo>(
+      items: packages,
+      columns: [
+        PicnicColumn<PackageInfo>(
           label: 'Name',
           width: 140,
           grow: 0.1,
-          transformFunction: (data) => data.get('name'),
+          transformFunction: (package) => package.name,
           styleFunction: fn,
           compareFunction: (a, b) {
-            bool aDiscontinued = a.data().containsKey('discontinued')
-                ? a['discontinued']
-                : false;
-            bool bDiscontinued = b.data().containsKey('discontinued')
-                ? b['discontinued']
-                : false;
+            bool aDiscontinued = a.discontinued;
+            bool bDiscontinued = b.discontinued;
             if (aDiscontinued == bDiscontinued) {
-              return (a['name'] as String).compareTo(b['name']);
+              return (a.name.compareTo(b.name));
             } else {
               return aDiscontinued ? 1 : -1;
             }
           },
         ),
-        PicnicColumn<QueryDocumentSnapshot<SnapshotItems>>(
+        PicnicColumn<PackageInfo>(
           label: 'Publisher',
           width: 100,
           grow: 0.1,
-          transformFunction: (snapshot) {
-            String publisher = snapshot.get('publisher');
-            var data = snapshot.data();
-            bool discontinued = data.containsKey('discontinued')
-                ? snapshot['discontinued']
-                : false;
-            bool unlisted =
-                data.containsKey('unlisted') ? snapshot['unlisted'] : false;
-            if (discontinued) {
+          transformFunction: (package) {
+            String publisher = package.publisher;
+            if (package.discontinued) {
               publisher += ' (discontinued)';
             }
-            if (unlisted) {
+            if (package.unlisted) {
               publisher += ' (unlisted)';
             }
             return publisher;
           },
           styleFunction: fn,
         ),
-        PicnicColumn<QueryDocumentSnapshot<SnapshotItems>>(
+        PicnicColumn<PackageInfo>(
           label: 'Version',
           width: 100,
-          transformFunction: (data) => data.get('version'),
+          alignment: Alignment.centerRight,
+          transformFunction: (package) => package.version.toString(),
           styleFunction: fn,
-          compareFunction: (QueryDocumentSnapshot<SnapshotItems> a,
-              QueryDocumentSnapshot<SnapshotItems> b) {
-            var strA = a.get('version');
-            var strB = b.get('version');
-            // todo: handle bad versions
-            var versionA = Version.parse(strA);
-            var versionB = Version.parse(strB);
-            return versionA.compareTo(versionB);
+          compareFunction: (a, b) {
+            return a.version.compareTo(b.version);
           },
         ),
-        PicnicColumn<QueryDocumentSnapshot<SnapshotItems>>(
+        PicnicColumn<PackageInfo>(
           label: 'Maintainer',
           width: 110,
           grow: 0.1,
-          transformFunction: (snapshot) {
-            var data = snapshot.data();
-            return data.containsKey('maintainer')
-                ? snapshot.get('maintainer')
-                : '';
-          },
+          transformFunction: (package) => package.maintainer,
           styleFunction: fn,
         ),
-        PicnicColumn<QueryDocumentSnapshot<SnapshotItems>>(
+        PicnicColumn<PackageInfo>(
           label: 'Repository',
           width: 250,
           grow: 0.2,
-          transformFunction: (data) => data.get('repository'),
+          transformFunction: (package) => package.repository,
           styleFunction: fn,
         ),
       ],
@@ -378,11 +365,13 @@ class LoadingScreen extends StatelessWidget {
   }
 }
 
-class ChangeLogWidget extends StatelessWidget {
+class LargeDialog extends StatelessWidget {
   final String title;
+  final Widget child;
 
-  const ChangeLogWidget({
+  const LargeDialog({
     required this.title,
+    required this.child,
     Key? key,
   }) : super(key: key);
 
@@ -397,14 +386,7 @@ class ChangeLogWidget extends StatelessWidget {
         content: SizedBox(
           width: width,
           height: height,
-          child: PicnicTable(
-            items: List.generate(100, (index) => index),
-            columns: [
-              PicnicColumn(label: 'One', width: 100),
-              PicnicColumn(label: 'Two', width: 100),
-              PicnicColumn(label: 'Three', width: 100, grow: 1),
-            ],
-          ),
+          child: child,
         ),
         actions: <Widget>[
           TextButton(

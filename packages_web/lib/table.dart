@@ -2,8 +2,7 @@
 
 import 'package:flutter/material.dart';
 
-// todo: sorting
-// todo: selection
+// todo: try adding keys
 
 class PicnicTable<T> extends StatefulWidget {
   static const double _rowHeight = 42;
@@ -29,8 +28,6 @@ class _PicnicTableState<T> extends State<PicnicTable<T>> {
   int? sortColumnIndex;
   bool sortAscending = true;
 
-  List<PicnicColumn<T>> get columns => widget.columns;
-
   @override
   void initState() {
     super.initState();
@@ -43,6 +40,8 @@ class _PicnicTableState<T> extends State<PicnicTable<T>> {
     }
   }
 
+  List<PicnicColumn<T>> get columns => widget.columns;
+
   @override
   Widget build(BuildContext context) {
     final rowSeparator = BoxDecoration(
@@ -52,7 +51,6 @@ class _PicnicTableState<T> extends State<PicnicTable<T>> {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         Map<PicnicColumn, double> colWidths = _layoutColumns(constraints);
-
         var sortColumn =
             sortColumnIndex == null ? null : columns[sortColumnIndex!];
 
@@ -66,6 +64,7 @@ class _PicnicTableState<T> extends State<PicnicTable<T>> {
                     child: _ColumnHeader(
                       title: column.label,
                       width: colWidths[column],
+                      alignment: column.alignment,
                       sortAscending:
                           column == sortColumn ? sortAscending : null,
                     ),
@@ -74,6 +73,7 @@ class _PicnicTableState<T> extends State<PicnicTable<T>> {
             ),
             Expanded(
               child: ListView.builder(
+                key: ObjectKey(widget.items),
                 controller: scrollController,
                 itemCount: sortedItems.length,
                 itemExtent: PicnicTable._rowHeight,
@@ -95,7 +95,8 @@ class _PicnicTableState<T> extends State<PicnicTable<T>> {
                                 vertical: PicnicTable._vertPadding,
                               ),
                               child: Align(
-                                alignment: Alignment.centerLeft,
+                                alignment:
+                                    column.alignment ?? Alignment.centerLeft,
                                 child: column.widgetFor(
                                   context,
                                   sortedItems[index],
@@ -165,18 +166,22 @@ class _PicnicTableState<T> extends State<PicnicTable<T>> {
 
 class _ColumnHeader extends StatelessWidget {
   final String title;
+  final Alignment? alignment;
   final double? width;
   final bool? sortAscending;
 
   const _ColumnHeader({
     required this.title,
     required this.width,
+    this.alignment,
     this.sortAscending,
     Key? key,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    var swapSortIconSized = alignment != null && alignment!.x > 0;
+
     return SizedBox(
       height: PicnicTable._rowHeight,
       width: width,
@@ -185,14 +190,24 @@ class _ColumnHeader extends StatelessWidget {
           horizontal: PicnicTable._horizPadding,
           vertical: PicnicTable._vertPadding,
         ),
-        alignment: Alignment.centerLeft,
+        //alignment: alignment ?? Alignment.centerLeft,
         child: Row(
+          //mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            if (sortAscending != null && swapSortIconSized)
+              AnimatedRotation(
+                turns: sortAscending! ? 0 : 0.5,
+                duration: const Duration(milliseconds: 200),
+                child: const Icon(Icons.keyboard_arrow_up),
+              ),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+                textAlign: swapSortIconSized ? TextAlign.end : null,
+              ),
             ),
-            if (sortAscending != null)
+            if (sortAscending != null && !swapSortIconSized)
               AnimatedRotation(
                 turns: sortAscending! ? 0 : 0.5,
                 duration: const Duration(milliseconds: 200),
@@ -214,6 +229,7 @@ class PicnicColumn<T> {
   final String label;
   final int width;
   final double grow;
+  final Alignment? alignment;
 
   final TransformFunction<T>? transformFunction;
   final StyleFunction<T>? styleFunction;
@@ -223,6 +239,7 @@ class PicnicColumn<T> {
   PicnicColumn({
     required this.label,
     required this.width,
+    this.alignment,
     this.grow = 0,
     this.transformFunction,
     this.styleFunction,

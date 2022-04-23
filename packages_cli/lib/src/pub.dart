@@ -107,6 +107,7 @@ class PackageInfo {
   String get name => json['name'];
   String get version => _latest['version'];
   String? get repository => _pubspec['repository'];
+  String? get homepage => _pubspec['homepage'];
   String? get published => _latest['published'];
 
   late final Map<String, dynamic> _latest = json['latest'];

@@ -3,6 +3,7 @@ import 'package:googleapis_auth/auth_io.dart';
 import 'package:packages_cli/src/pub.dart';
 import 'package:packages_cli/src/sdk.dart';
 
+import 'github.dart';
 import 'sheets.dart';
 
 class Firestore {
@@ -34,16 +35,40 @@ class Firestore {
 
   /// Return the publishers we should care about from the firebase datastore.
   Future<List<String>> queryPublishers() async {
-    ListDocumentsResponse response =
-        await documents.list(documentsPath, 'publishers');
-    return response.documents!.map((doc) {
-      // Convert:
-      //   projects/dart-package-dashboard/databases/(default)/documents/publishers/dart.dev
-      // to:
-      //   dart.dev
-      final name = doc.name!;
-      return name.substring(name.lastIndexOf('/') + 1);
+    ListDocumentsResponse response = await documents.list(
+      documentsPath,
+      'publishers',
+    );
+    return response.documents!.map((Document doc) {
+      // Return the last segment of the document name.
+      return doc.name!.split('/').last;
     }).toList();
+  }
+
+  Future<List<String>> queryRepositoriesForPublishers(
+    Set<String> publishers,
+  ) async {
+    final Set<String> repositories = {};
+    ListDocumentsResponse? response;
+    do {
+      response = await documents.list(
+        documentsPath,
+        'packages',
+        pageToken: response?.nextPageToken,
+      );
+
+      for (var doc in response.documents!) {
+        var publisher = doc.fields!['publisher']?.stringValue;
+        var repository = doc.fields!['repository']?.stringValue;
+        if (publishers.contains(publisher)) {
+          if (repository != null && repository.isNotEmpty) {
+            repositories.add(repository);
+          }
+        }
+      }
+    } while (response.nextPageToken != null);
+
+    return repositories.toList()..sort();
   }
 
   Future updatePackageInfo(
@@ -53,13 +78,23 @@ class Firestore {
   }) async {
     // todo: include the pubspec? as structured data? as text?
 
+    var repository = packageInfo.repository;
+    if (repository == null) {
+      var homepage = packageInfo.homepage;
+      if (homepage != null &&
+          homepage.startsWith('https://github.com/') &&
+          !homepage.endsWith('.git')) {
+        repository = homepage;
+      }
+    }
+
     // todo: make sure we don't write over fields that we're not updating here
     final Document doc = Document(
       fields: {
         'name': valueStr(packageName),
         'publisher': valueStr(publisher),
         'version': valueStr(packageInfo.version),
-        'repository': valueStr(packageInfo.repository ?? ''),
+        'repository': valueStr(repository ?? ''),
         'discontinued': valueBool(packageInfo.isDiscontinued),
         'unlisted': valueBool(packageInfo.isUnlisted),
       },
@@ -105,8 +140,11 @@ class Firestore {
   }
 
   Future<List<String>> getSdkDependencies() async {
-    ListDocumentsResponse response =
-        await documents.list(documentsPath, 'sdk_deps');
+    ListDocumentsResponse response = await documents.list(
+      documentsPath,
+      'sdk_deps',
+      pageSize: 100,
+    );
     return response.documents!.map((Document doc) {
       return doc.fields!['name']!.stringValue!;
     }).toList();
@@ -117,10 +155,10 @@ class Firestore {
     final List<String> currentDeps = await getSdkDependencies();
 
     // Update commit info
-    for (var package in sdk.getDartPackages()) {
+    for (var dep in sdk.getDartPackages()) {
       // TODO: add logging
-      print('  package:${package.name}');
-      await updateSdkDependency(package);
+      print('  ${dep.repository}');
+      await updateSdkDependency(dep);
     }
 
     // Remove any repos which are no longer deps.
@@ -155,17 +193,66 @@ class Firestore {
     }
   }
 
-  Future updateSdkDependency(DartPackage package) async {
+  Future updateRepositoryInfo(RepositoryInfo repo) async {
     final Document doc = Document(
       fields: {
-        'name': valueStr(package.name),
-        'commit': valueStr(package.commit),
-        'repository': valueStr(package.repository),
+        'org': valueStr(repo.org),
+        'name': valueStr(repo.name),
+      },
+    );
+
+    List<Commit> commits = repo.commits.toList()..sort();
+    if (commits.isNotEmpty) {
+      doc.fields!['lastCommit'] = valueStr(commits.first.oid);
+    }
+
+    final repositoryPath =
+        getDocumentName('repositories', repo.firestoreEntityId);
+
+    final DocumentMask mask = DocumentMask(
+      fieldPaths: doc.fields!.keys.toList(),
+    );
+
+    // todo: handle error conditions
+    await documents.patch(
+      doc,
+      repositoryPath,
+      updateMask_fieldPaths: mask.fieldPaths,
+    );
+
+    // Handle commit information.
+    // todo: only send up commits that don't exist already (though generally,
+    // we should only be presented with new commits)
+    for (var commit in commits) {
+      final Document doc = Document(
+        fields: {
+          'oid': valueStr(commit.oid),
+          'user': valueStr(commit.user),
+          'message': valueStr(commit.message),
+          'committedDate': Value(
+            timestampValue: commit.committedDate.toIso8601String(),
+          ),
+        },
+      );
+      // todo: handle error conditions
+      await documents.patch(
+        doc,
+        '$repositoryPath/commits/${commit.oid}',
+      );
+    }
+  }
+
+  Future updateSdkDependency(SdkDependency dependency) async {
+    final Document doc = Document(
+      fields: {
+        'name': valueStr(dependency.name),
+        'commit': valueStr(dependency.commit),
+        'repository': valueStr(dependency.repository),
       },
     );
 
     // todo: handle error conditions
-    await documents.patch(doc, getDocumentName('sdk_deps', package.name));
+    await documents.patch(doc, getDocumentName('sdk_deps', dependency.name));
   }
 }
 

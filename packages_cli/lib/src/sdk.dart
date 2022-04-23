@@ -48,8 +48,7 @@ class Sdk {
 
   Sdk._(this._packages, this._repoHash, this._externalRepos);
 
-  List<DartPackage> getDartPackages() {
-    // todo: we need to normalize the DEPS file a bit
+  List<SdkDependency> getDartPackages() {
     return _packages
         .map((String name) {
           String? hash = _repoHash[name];
@@ -59,33 +58,38 @@ class Sdk {
               orElse: () => null);
 
           if (externalRepo != null && externalRepo.endsWith('.git')) {
+            print('  normalizing $externalRepo');
             externalRepo =
                 externalRepo.substring(0, externalRepo.length - '.git'.length);
+            print('    ==> $externalRepo');
           }
 
           if (hash == null) {
             print('No hash found for package:$name');
             return null;
           } else {
-            return DartPackage(
+            return SdkDependency(
               name: name,
               commit: hash,
               externalRepo: externalRepo,
             );
           }
         })
-        .whereType<DartPackage>()
+        .whereType<SdkDependency>()
         .toList();
   }
 }
 
-class DartPackage {
+class SdkDependency {
   final String name;
   final String commit;
   final String? _externalRepo;
 
-  DartPackage({required this.name, required this.commit, String? externalRepo})
-      : _externalRepo = externalRepo;
+  SdkDependency({
+    required this.name,
+    required this.commit,
+    String? externalRepo,
+  }) : _externalRepo = externalRepo;
 
   String get repository {
     return _externalRepo != null
