@@ -124,6 +124,19 @@ class Firestore {
     await documents.createDocument(doc, documentsPath, 'log');
   }
 
+  Future<Map<String, Value>?> getRepoInfo(String repoPath) async {
+    try {
+      var repo = RepositoryInfo(path: repoPath);
+      final repositoryPath =
+          getDocumentName('repositories', repo.firestoreEntityId);
+      var result = await documents.get(repositoryPath);
+      return result.fields;
+    } catch (e) {
+      print(e);
+      return null;
+    }
+  }
+
   void close() {
     _client.close();
   }
@@ -201,9 +214,12 @@ class Firestore {
       },
     );
 
+    // lastCommitTimestamp
     List<Commit> commits = repo.commits.toList()..sort();
     if (commits.isNotEmpty) {
-      doc.fields!['lastCommit'] = valueStr(commits.first.oid);
+      doc.fields!['lastCommitTimestamp'] = Value(
+        timestampValue: commits.first.committedDate.toIso8601String(),
+      );
     }
 
     final repositoryPath =
@@ -221,8 +237,6 @@ class Firestore {
     );
 
     // Handle commit information.
-    // todo: only send up commits that don't exist already (though generally,
-    // we should only be presented with new commits)
     for (var commit in commits) {
       final Document doc = Document(
         fields: {
@@ -234,6 +248,8 @@ class Firestore {
           ),
         },
       );
+
+      print('  $commit');
       // todo: handle error conditions
       await documents.patch(
         doc,

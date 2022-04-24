@@ -136,7 +136,9 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
             splashRadius: 20,
             tooltip: 'Send feedback',
             onPressed: () {
-              url.launch('https://github.com/dart-lang/repo_manager/issues');
+              url.launchUrl(
+                Uri.parse('https://github.com/dart-lang/repo_manager/issues'),
+              );
             },
           ),
         ],

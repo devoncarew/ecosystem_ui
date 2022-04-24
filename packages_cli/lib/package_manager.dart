@@ -71,13 +71,15 @@ class PackageManager {
   }
 
   final RegExp repoRegex =
-      RegExp(r'https:\/\/github\.com\/([\w\d\-_]+)\/([\w\d\-_]+)([\/\S]*)');
+      RegExp(r'https:\/\/github\.com\/([\w\d\-_]+)\/([\w\d\-_\.]+)([\/\S]*)');
+
+  // todo: switch to having all the commits recorded in the package itself
+  //   the commits would be just those that affected the package directory
 
   Future updateRepositories() async {
     final publishers = await firestore.queryPublishers();
 
-    // todo: for now, ignore the flutter repos (just to scope the work)
-    publishers.remove('flutter.dev');
+    // todo: ignore discoutinued packages
 
     print('Getting repos for $publishers.');
     var repos =
@@ -89,12 +91,18 @@ class PackageManager {
     // todo: fix all these issues upstream
     // ignore anything ending in '.git'
     repos = repos.where((repo) {
+      if (repo.endsWith('.git')) {
+        print('* ignoring $repo');
+      }
       return !repo.endsWith('.git');
     }).toList();
 
     // todo: fix all these issues upstream
     // ignore 'https://www.' anything
     repos = repos.where((repo) {
+      if (repo.startsWith('https://www.')) {
+        print('* ignoring $repo');
+      }
       return !repo.startsWith('https://www.');
     }).toList();
 
@@ -118,30 +126,46 @@ class PackageManager {
     print('${repos.length} sanitized repos');
     print(repos.map((r) => '  $r').join('\n'));
 
-    // todo: get commit information from github
-
+    // Get commit information from github.
     List<RepositoryInfo> repositories = repos.map((name) {
       return RepositoryInfo(path: name);
     }).toList();
 
-    // todo: for a monorepo, we'll need to do some work to identity whether a
-    // commit involves specific packages
-    RepositoryInfo r = repositories[1];
+    // // TODO: for a monorepo, we'll need to do some work to identity whether a
+    // // commit involves specific packages
+    // RepositoryInfo r = repositories[1];
+
+    // var commits = await github.queryRecentCommits(repo: r, count: 20);
+    // // for (var commit in commits) {
+    // //   print(commit);
+    // // }
+    // r.addCommits(commits);
+    // r = repositories.firstWhere((r) => r.name == 'sdk');
+
+    // commits = await github.queryRecentCommits(repo: r, count: 10);
+    // r.addCommits(commits);
 
     final Github github = Github();
-    var commits = await github.queryRecentCommits(repo: r, count: 10);
-    // for (var commit in commits) {
-    //   print(commit);
-    // }
-    r.addCommits(commits);
-    r = repositories.firstWhere((r) => r.name == 'sdk');
-
-    commits = await github.queryRecentCommits(repo: r, count: 10);
-    r.addCommits(commits);
 
     // todo: use package:pool for several operations
     for (var repo in repositories) {
       print('updating $repo');
+      var firestoreRepoInfo = await firestore.getRepoInfo(repo.path);
+      var lastCommitTimestamp = firestoreRepoInfo?['lastCommitTimestamp'];
+
+      if (firestoreRepoInfo != null && lastCommitTimestamp != null) {
+        // Look for new commits.
+        var commits = await github.queryCommitsAfter(
+          repo: repo,
+          afterTimestamp: lastCommitTimestamp.timestampValue!,
+        );
+        repo.addCommits(commits);
+      } else {
+        // Load the last n recent commits.
+        var commits = await github.queryRecentCommits(repo: repo, count: 20);
+        repo.addCommits(commits);
+      }
+
       await firestore.updateRepositoryInfo(repo);
     }
   }

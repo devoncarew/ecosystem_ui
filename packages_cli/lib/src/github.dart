@@ -23,10 +23,6 @@ class Github {
     );
   }
 
-  // todo: we'll also want something like commits since a certain date
-  // todo: or, all commits after commit x?
-  //   after: "05eaa07627376626902bd7acde35406edf1bb2f2" ?
-  //   we'll want to support paging for the 'after commit' query
   Future<List<Commit>> queryRecentCommits({
     required RepositoryInfo repo,
     required int count,
@@ -41,12 +37,17 @@ class Github {
                   node {
                     oid
                     messageHeadline
+                    committedDate
                     author {
                       user {
                         login
                       }
                     }
-                    committedDate
+                    committer {
+                      user {
+                        login
+                      }
+                    }
                   }
                 }
               }
@@ -56,16 +57,69 @@ class Github {
       }
     }
 ''';
+    // todo: use a parser function (options.parserFn)?
     final result = await query(QueryOptions(document: gql(queryString)));
+    if (result.hasException) {
+      throw result.exception!;
+    }
+    return _getCommitsFromResult(result);
+  }
 
+  // todo: support paging
+  Future<List<Commit>> queryCommitsAfter({
+    required RepositoryInfo repo,
+    required String afterTimestamp,
+  }) async {
+    final DateTime afterTime = DateTime.parse(afterTimestamp);
+
+    // history parameter:
+    // path: String
+    //   If non-null, filters history to only show commits touching files under
+    //    this path.
+    final queryString = '''{
+      repository(owner: "${repo.org}", name: "${repo.name}") {
+        defaultBranchRef {
+          target {
+            ... on Commit {
+              history(since: "$afterTimestamp") {
+                edges {
+                  node {
+                    oid
+                    messageHeadline
+                    committedDate
+                    author {
+                      user {
+                        login
+                      }
+                    }
+                    committer {
+                      user {
+                        login
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+''';
+    // todo: use a parser function (options.parserFn)?
+    final result = await query(QueryOptions(document: gql(queryString)));
     if (result.hasException) {
       throw result.exception!;
     }
 
-    if (result.exception != null) {
-      throw result.exception!;
-    }
+    // Filter any commits not newer than afterTime (i.e., the commit ==
+    // afterTime).
+    return _getCommitsFromResult(result)
+        .where((commit) => commit.committedDate != afterTime)
+        .toList();
+  }
 
+  List<Commit> _getCommitsFromResult(QueryResult result) {
     Map history =
         result.data!['repository']['defaultBranchRef']['target']['history'];
     var edges = (history['edges'] as List).cast<Map>();
@@ -114,7 +168,8 @@ class Commit implements Comparable<Commit> {
   factory Commit.fromQuery(Map<String, dynamic> node) {
     String oid = node['oid'];
     String messageHeadline = node['messageHeadline'];
-    String login = node['author']['user']['login'];
+    Map? user = node['author']['user'] ?? node['committer']['user'];
+    String login = user == null ? '' : user['login'];
     // 2021-07-23T18:37:57Z
     String committedDate = node['committedDate'];
 
@@ -131,6 +186,8 @@ class Commit implements Comparable<Commit> {
     return other.committedDate.compareTo(committedDate);
   }
 
+  String get _shortDate => committedDate.toIso8601String().substring(0, 10);
+
   @override
-  String toString() => '${oid.substring(0, 8)} $user $message';
+  String toString() => '${oid.substring(0, 8)} $_shortDate $user $message';
 }
