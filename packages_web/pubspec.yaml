@@ -16,6 +16,7 @@ dependencies:
   provider: any
   pub_semver: any
   url_launcher: any
+  yaml: any
 
 dev_dependencies:
   flutter_test:

@@ -112,7 +112,7 @@ class Github {
       throw result.exception!;
     }
 
-    // Filter any commits not newer than afterTime (i.e., the commit ==
+    // Filter any commits not newer than 'afterTime' (i.e., where the commit ==
     // afterTime).
     return _getCommitsFromResult(result)
         .where((commit) => commit.committedDate != afterTime)

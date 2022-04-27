@@ -45,9 +45,14 @@ class Firestore {
     }).toList();
   }
 
+  /// Return all the pubspec reported repositories for the packages for the
+  /// given set of publishers.
+  ///
+  /// By default, repositories for discontinued packages are not reported.
   Future<List<String>> queryRepositoriesForPublishers(
-    Set<String> publishers,
-  ) async {
+    Set<String> publishers, {
+    bool excludeDiscontinued = true,
+  }) async {
     final Set<String> repositories = {};
     ListDocumentsResponse? response;
     do {
@@ -60,6 +65,10 @@ class Firestore {
       for (var doc in response.documents!) {
         var publisher = doc.fields!['publisher']?.stringValue;
         var repository = doc.fields!['repository']?.stringValue;
+        var discontinued = doc.fields!['discontinued']?.booleanValue ?? false;
+        if (excludeDiscontinued && discontinued) {
+          continue;
+        }
         if (publishers.contains(publisher)) {
           if (repository != null && repository.isNotEmpty) {
             repositories.add(repository);
@@ -88,7 +97,8 @@ class Firestore {
       }
     }
 
-    // todo: make sure we don't write over fields that we're not updating here
+    // Make sure we don't write over fields that we're not updating here (like
+    // the 'maintainers' field).
     final Document doc = Document(
       fields: {
         'name': valueStr(packageName),
@@ -97,6 +107,7 @@ class Firestore {
         'repository': valueStr(repository ?? ''),
         'discontinued': valueBool(packageInfo.isDiscontinued),
         'unlisted': valueBool(packageInfo.isUnlisted),
+        'pubspec': valueStr(packageInfo.encodedPubspec),
       },
     );
 

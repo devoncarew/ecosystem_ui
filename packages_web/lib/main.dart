@@ -1,5 +1,7 @@
 // ignore_for_file: avoid_print
 
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -12,9 +14,6 @@ import 'table.dart';
 
 // todo: flash some part of the screen when a package updates
 // todo: have a search / filter field
-// todo: move the information gathering up the stack
-// todo: put in place a model for the packages
-// todo: gather repo info
 // todo: google3 data
 // todo: remove some state objects?
 
@@ -195,22 +194,22 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
           child: ValueListenableBuilder<List<LogItem>>(
             valueListenable: dataModel.changeLogItems,
             builder: (context, items, _) {
-              return PicnicTable<LogItem>(
+              return VTable<LogItem>(
                 items: items,
                 columns: [
-                  PicnicColumn(
+                  VTableColumn(
                     label: 'Entity',
                     width: 150,
                     grow: 0.2,
                     transformFunction: (item) => item.entity,
                   ),
-                  PicnicColumn(
+                  VTableColumn(
                     label: 'Change',
                     width: 250,
                     grow: 0.4,
                     transformFunction: (item) => item.change,
                   ),
-                  PicnicColumn(
+                  VTableColumn(
                     label: 'Timestamp',
                     width: 150,
                     grow: 0.1,
@@ -231,7 +230,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   }
 }
 
-class PublisherPackagesWidget extends StatelessWidget {
+class PublisherPackagesWidget extends StatefulWidget {
   final String publisher;
 
   const PublisherPackagesWidget({
@@ -240,11 +239,19 @@ class PublisherPackagesWidget extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<PublisherPackagesWidget> createState() =>
+      _PublisherPackagesWidgetState();
+}
+
+class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
+  PackageInfo? selectedPackage;
+
+  @override
   Widget build(BuildContext context) {
     var dataModel = DataModel.of(context);
 
     return ValueListenableBuilder<List<PackageInfo>>(
-      valueListenable: dataModel.getPackagesForPublisher(publisher),
+      valueListenable: dataModel.getPackagesForPublisher(widget.publisher),
       builder: (context, packages, _) {
         // todo: flash affected packages
         // todo: move this into a toolbar widget
@@ -275,22 +282,35 @@ class PublisherPackagesWidget extends StatelessWidget {
                 child: createTable(packages),
               ),
             ),
+            if (selectedPackage != null)
+              PackageDetailsWidget(package: selectedPackage!),
           ],
         );
       },
     );
   }
 
-  PicnicTable createTable(List<PackageInfo> packages) {
+  void _onTap(PackageInfo package) {
+    setState(() {
+      if (selectedPackage == package) {
+        selectedPackage = null;
+      } else {
+        selectedPackage = package;
+      }
+    });
+  }
+
+  VTable createTable(List<PackageInfo> packages) {
     fn(PackageInfo package) {
       const discontinuedStyle = TextStyle(color: Colors.grey);
       return package.discontinued ? discontinuedStyle : null;
     }
 
-    return PicnicTable<PackageInfo>(
+    return VTable<PackageInfo>(
       items: packages,
+      onTap: _onTap,
       columns: [
-        PicnicColumn<PackageInfo>(
+        VTableColumn<PackageInfo>(
           label: 'Name',
           width: 140,
           grow: 0.1,
@@ -306,7 +326,7 @@ class PublisherPackagesWidget extends StatelessWidget {
             }
           },
         ),
-        PicnicColumn<PackageInfo>(
+        VTableColumn<PackageInfo>(
           label: 'Publisher',
           width: 100,
           grow: 0.1,
@@ -322,7 +342,7 @@ class PublisherPackagesWidget extends StatelessWidget {
           },
           styleFunction: fn,
         ),
-        PicnicColumn<PackageInfo>(
+        VTableColumn<PackageInfo>(
           label: 'Version',
           width: 100,
           alignment: Alignment.centerRight,
@@ -331,20 +351,29 @@ class PublisherPackagesWidget extends StatelessWidget {
           compareFunction: (a, b) {
             return a.version.compareTo(b.version);
           },
+          validators: [
+            PackageInfo.validateVersion,
+          ],
         ),
-        PicnicColumn<PackageInfo>(
+        VTableColumn<PackageInfo>(
           label: 'Maintainer',
           width: 110,
           grow: 0.1,
           transformFunction: (package) => package.maintainer,
           styleFunction: fn,
+          validators: [
+            PackageInfo.validateMaintainers,
+          ],
         ),
-        PicnicColumn<PackageInfo>(
+        VTableColumn<PackageInfo>(
           label: 'Repository',
           width: 250,
           grow: 0.2,
           transformFunction: (package) => package.repository,
           styleFunction: fn,
+          validators: [
+            PackageInfo.validateRepositoryInfo,
+          ],
         ),
       ],
     );
@@ -398,5 +427,78 @@ class LargeDialog extends StatelessWidget {
         ],
       );
     });
+  }
+}
+
+class PackageDetailsWidget extends StatefulWidget {
+  final PackageInfo package;
+
+  const PackageDetailsWidget({
+    required this.package,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  State<PackageDetailsWidget> createState() => _PackageDetailsWidgetState();
+}
+
+class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
+    with SingleTickerProviderStateMixin {
+  late TabController tabController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      child: Container(
+        height: 240,
+        padding: const EdgeInsets.only(top: 8),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Colors.grey)),
+        ),
+        child: Column(
+          children: [
+            TabBar(
+              controller: tabController,
+              unselectedLabelColor: Colors.black,
+              labelColor: Colors.black,
+              tabs: [
+                Tab(text: 'package:${widget.package.name}'),
+                const Tab(text: 'Pubspec'),
+                const Tab(text: 'Commits'),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: tabController,
+                children: [
+                  const Text('One'),
+                  SingleChildScrollView(
+                    // todo: use a monospaced font
+                    child: Text(
+                      pubspecText,
+                      // style: const TextStyle(fontFamily: 'RobotoMono'),
+                    ),
+                  ),
+                  const Text('Three'),
+                ],
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  String get pubspecText {
+    var encoder = const JsonEncoder.withIndent('  ');
+    return encoder.convert(widget.package.parsedPubspec);
   }
 }

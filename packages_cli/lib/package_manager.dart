@@ -79,8 +79,6 @@ class PackageManager {
   Future updateRepositories() async {
     final publishers = await firestore.queryPublishers();
 
-    // todo: ignore discoutinued packages
-
     print('Getting repos for $publishers.');
     var repos =
         await firestore.queryRepositoriesForPublishers(publishers.toSet());
@@ -88,7 +86,6 @@ class PackageManager {
     print('retrieved ${repos.length} repos');
     print(repos.map((r) => '  $r').join('\n'));
 
-    // todo: fix all these issues upstream
     // ignore anything ending in '.git'
     repos = repos.where((repo) {
       if (repo.endsWith('.git')) {
@@ -97,7 +94,6 @@ class PackageManager {
       return !repo.endsWith('.git');
     }).toList();
 
-    // todo: fix all these issues upstream
     // ignore 'https://www.' anything
     repos = repos.where((repo) {
       if (repo.startsWith('https://www.')) {
@@ -147,7 +143,7 @@ class PackageManager {
 
     final Github github = Github();
 
-    // todo: use package:pool for several operations
+    // TODO: use package:pool for some of our operations
     for (var repo in repositories) {
       print('updating $repo');
       var firestoreRepoInfo = await firestore.getRepoInfo(repo.path);
@@ -161,7 +157,7 @@ class PackageManager {
         );
         repo.addCommits(commits);
       } else {
-        // Load the last n recent commits.
+        // Prime the info with the last n recent commits.
         var commits = await github.queryRecentCommits(repo: repo, count: 20);
         repo.addCommits(commits);
       }

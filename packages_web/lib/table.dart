@@ -4,25 +4,29 @@ import 'package:flutter/material.dart';
 
 // todo: try adding keys
 
-class PicnicTable<T> extends StatefulWidget {
+typedef OnTap<T> = void Function(T object);
+
+class VTable<T> extends StatefulWidget {
   static const double _rowHeight = 42;
   static const double _vertPadding = 4;
   static const double _horizPadding = 8;
 
   final List<T> items;
-  final List<PicnicColumn<T>> columns;
+  final List<VTableColumn<T>> columns;
+  final OnTap<T>? onTap;
 
-  const PicnicTable({
+  const VTable({
     required this.items,
     required this.columns,
+    this.onTap,
     Key? key,
   }) : super(key: key);
 
   @override
-  State<PicnicTable> createState() => _PicnicTableState<T>();
+  State<VTable> createState() => _VTableState<T>();
 }
 
-class _PicnicTableState<T> extends State<PicnicTable<T>> {
+class _VTableState<T> extends State<VTable<T>> {
   late ScrollController scrollController;
   late List<T> sortedItems;
   int? sortColumnIndex;
@@ -40,7 +44,7 @@ class _PicnicTableState<T> extends State<PicnicTable<T>> {
     }
   }
 
-  List<PicnicColumn<T>> get columns => widget.columns;
+  List<VTableColumn<T>> get columns => widget.columns;
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +54,7 @@ class _PicnicTableState<T> extends State<PicnicTable<T>> {
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        Map<PicnicColumn, double> colWidths = _layoutColumns(constraints);
+        Map<VTableColumn, double> colWidths = _layoutColumns(constraints);
         var sortColumn =
             sortColumnIndex == null ? null : columns[sortColumnIndex!];
 
@@ -76,30 +80,39 @@ class _PicnicTableState<T> extends State<PicnicTable<T>> {
                 key: ObjectKey(widget.items),
                 controller: scrollController,
                 itemCount: sortedItems.length,
-                itemExtent: PicnicTable._rowHeight,
+                itemExtent: VTable._rowHeight,
                 itemBuilder: (BuildContext context, int index) {
+                  T item = sortedItems[index];
+
                   return InkWell(
                     onTap: () {
-                      print('ontap: row $index');
+                      if (widget.onTap != null) {
+                        widget.onTap!(item);
+                      }
                     },
                     child: DecoratedBox(
                       decoration: rowSeparator,
                       child: Row(children: [
+                        // todo: we're running the validation twice here
                         for (var column in columns)
-                          SizedBox(
-                            height: PicnicTable._rowHeight - 1,
-                            width: colWidths[column],
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: PicnicTable._horizPadding,
-                                vertical: PicnicTable._vertPadding,
-                              ),
-                              child: Align(
-                                alignment:
-                                    column.alignment ?? Alignment.centerLeft,
-                                child: column.widgetFor(
-                                  context,
-                                  sortedItems[index],
+                          Padding(
+                            padding: const EdgeInsets.only(top: 1, right: 1),
+                            child: SizedBox(
+                              height: VTable._rowHeight - 1,
+                              width: colWidths[column]! - 1,
+                              child: Tooltip(
+                                message: column.validate(item)?.message ?? '',
+                                waitDuration: const Duration(milliseconds: 350),
+                                child: Container(
+                                  alignment:
+                                      column.alignment ?? Alignment.centerLeft,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: VTable._horizPadding,
+                                    vertical: VTable._vertPadding,
+                                  ),
+                                  color:
+                                      column.validate(item)?.colorForSeverity,
+                                  child: column.widgetFor(context, item),
                                 ),
                               ),
                             ),
@@ -116,7 +129,7 @@ class _PicnicTableState<T> extends State<PicnicTable<T>> {
     );
   }
 
-  void trySort(PicnicColumn<T> column) {
+  void trySort(VTableColumn<T> column) {
     if (!column.supportsSort) {
       return;
     }
@@ -134,10 +147,10 @@ class _PicnicTableState<T> extends State<PicnicTable<T>> {
     });
   }
 
-  Map<PicnicColumn, double> _layoutColumns(BoxConstraints constraints) {
+  Map<VTableColumn, double> _layoutColumns(BoxConstraints constraints) {
     double width = constraints.maxWidth;
 
-    Map<PicnicColumn, double> widths = {};
+    Map<VTableColumn, double> widths = {};
     double minColWidth = 0;
     double totalGrow = 0;
 
@@ -183,12 +196,12 @@ class _ColumnHeader extends StatelessWidget {
     var swapSortIconSized = alignment != null && alignment!.x > 0;
 
     return SizedBox(
-      height: PicnicTable._rowHeight,
+      height: VTable._rowHeight,
       width: width,
       child: Container(
         padding: const EdgeInsets.symmetric(
-          horizontal: PicnicTable._horizPadding,
-          vertical: PicnicTable._vertPadding,
+          horizontal: VTable._horizPadding,
+          vertical: VTable._vertPadding,
         ),
         //alignment: alignment ?? Alignment.centerLeft,
         child: Row(
@@ -224,8 +237,9 @@ class _ColumnHeader extends StatelessWidget {
 typedef TransformFunction<T> = String Function(T object);
 typedef StyleFunction<T> = TextStyle? Function(T object);
 typedef CompareFunction<T> = int Function(T a, T b);
+typedef ValidationFunction<T> = ValidationResult? Function(T object);
 
-class PicnicColumn<T> {
+class VTableColumn<T> {
   final String label;
   final int width;
   final double grow;
@@ -234,9 +248,10 @@ class PicnicColumn<T> {
   final TransformFunction<T>? transformFunction;
   final StyleFunction<T>? styleFunction;
   final CompareFunction<T>? compareFunction;
+  final List<ValidationFunction<T>> validators;
   //final RenderFunction<T>? renderFunction;
 
-  PicnicColumn({
+  VTableColumn({
     required this.label,
     required this.width,
     this.alignment,
@@ -244,6 +259,7 @@ class PicnicColumn<T> {
     this.transformFunction,
     this.styleFunction,
     this.compareFunction,
+    this.validators = const [],
     //this.renderFunction,
   });
 
@@ -275,4 +291,62 @@ class PicnicColumn<T> {
   }
 
   bool get supportsSort => compareFunction != null || transformFunction != null;
+
+  ValidationResult? validate(T item) {
+    if (validators.isEmpty) {
+      return null;
+    } else if (validators.length == 1) {
+      return validators.first(item);
+    } else {
+      List<ValidationResult> results = [];
+      for (var validator in validators) {
+        ValidationResult? result = validator(item);
+        if (result != null) {
+          results.add(result);
+        }
+      }
+      return ValidationResult.combine(results);
+    }
+  }
+}
+
+enum Severity {
+  info,
+  warning,
+  error,
+}
+
+class ValidationResult {
+  final String message;
+  final Severity severity;
+
+  ValidationResult(this.message, this.severity);
+
+  Color get colorForSeverity {
+    switch (severity) {
+      case Severity.info:
+        return Colors.grey.shade300.withAlpha(127);
+      case Severity.warning:
+        return Colors.yellow.shade200.withAlpha(127);
+      case Severity.error:
+        return Colors.red.shade100.withAlpha(127);
+    }
+  }
+
+  @override
+  String toString() => '$severity $message';
+
+  static ValidationResult? combine(List<ValidationResult> results) {
+    if (results.isEmpty) {
+      return null;
+    } else if (results.length == 1) {
+      return results.first;
+    } else {
+      String message = results.map((r) => r.message).join('\n');
+      Severity severity = results
+          .map((r) => r.severity)
+          .reduce((a, b) => a.index >= b.index ? a : b);
+      return ValidationResult(message, severity);
+    }
+  }
 }

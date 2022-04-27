@@ -116,6 +116,10 @@ class PackageInfo {
   bool get isDiscontinued => options?.isDiscontinued ?? false;
   bool get isUnlisted => options?.isUnlisted ?? false;
 
+  String get encodedPubspec {
+    return jsonEncode(_pubspec);
+  }
+
   @override
   String toString() => '$name: $version';
 }
