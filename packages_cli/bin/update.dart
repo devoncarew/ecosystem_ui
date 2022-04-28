@@ -61,6 +61,9 @@ class RepositoriesCommand extends Command<int> {
   final String name = 'repositories';
 
   @override
+  List<String> get aliases => const ['repos'];
+
+  @override
   final String description =
       'Update repository information sourced from github.';
 

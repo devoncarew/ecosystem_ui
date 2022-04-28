@@ -113,7 +113,7 @@ class DataModel {
     FirebaseFirestore.instance
         .collection('log')
         .limit(200)
-        .orderBy('timestamp')
+        .orderBy('timestamp', descending: true)
         .snapshots()
         .listen((QuerySnapshot<SnapshotItems> snapshot) {
       var result = snapshot.docs.map((item) {
@@ -137,6 +137,9 @@ class PackageInfo {
   final bool discontinued;
   final bool unlisted;
   final String pubspec;
+
+  // todo: monorepo?
+  // todo: repoPath
 
   Map<String, dynamic>? _parsedPubspec;
 
@@ -166,12 +169,41 @@ class PackageInfo {
     required this.pubspec,
   });
 
+  String get sdkDep => parsedPubspec['environment']['sdk'];
+
   Map<String, dynamic> get parsedPubspec {
     if (_parsedPubspec == null) {
       yaml.YamlMap map = yaml.loadYaml(pubspec);
       _parsedPubspec = map.value.cast<String, dynamic>();
     }
     return _parsedPubspec!;
+  }
+
+  final RegExp _repoRegex =
+      RegExp(r'https:\/\/github\.com\/([\w\d\-_]+)\/([\w\d\-_\.]+)([\/\S]*)');
+
+  bool get isMonoRepo {
+    var match = _repoRegex.firstMatch(repository);
+    return match != null && match.group(3)!.isNotEmpty;
+  }
+
+  String? get repoUrl {
+    var match = _repoRegex.firstMatch(repository);
+    return match == null
+        ? null
+        : 'https://github.com/${match.group(1)}/${match.group(2)}';
+  }
+
+  String? get repoPath {
+    var match = _repoRegex.firstMatch(repository);
+    var path = match?.group(3);
+    if (path == null) {
+      return null;
+    } else if (path.startsWith('/tree/master/')) {
+      return path.substring('/tree/master/'.length);
+    } else {
+      return path;
+    }
   }
 
   static final _version100 = Version.parse('1.0.0');
@@ -251,6 +283,44 @@ class PackageInfo {
     }
 
     return null;
+  }
+
+  String debugDump() {
+    StringBuffer buffer = StringBuffer();
+
+    buffer.writeln('name: $name');
+    buffer.writeln('publisher: $publisher');
+    buffer.writeln('sdkDep: $sdkDep');
+    buffer.writeln('maintainer: $maintainer');
+    buffer.writeln('version: $version');
+    buffer.writeln('repoUrl: $repoUrl');
+    // buffer.writeln('monorepo: $isMonoRepo');
+    if (isMonoRepo) {
+      buffer.writeln('repoPath: $repoPath');
+    }
+    if (discontinued) {
+      buffer.writeln('discontinued');
+    }
+    if (unlisted) {
+      buffer.writeln('unlisted');
+    }
+
+    buffer.writeln();
+
+    var validation = validateVersion(this);
+    if (validation != null) {
+      buffer.writeln('validation issue: ${validation.message}');
+    }
+    validation = validateMaintainers(this);
+    if (validation != null) {
+      buffer.writeln('validation issue: ${validation.message}');
+    }
+    validation = validateRepositoryInfo(this);
+    if (validation != null) {
+      buffer.writeln('validation issue: ${validation.message}');
+    }
+
+    return buffer.toString().trim();
   }
 
   @override

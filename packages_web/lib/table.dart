@@ -1,5 +1,3 @@
-// ignore_for_file: avoid_print
-
 import 'package:flutter/material.dart';
 
 // todo: try adding keys
@@ -13,11 +11,13 @@ class VTable<T> extends StatefulWidget {
 
   final List<T> items;
   final List<VTableColumn<T>> columns;
+  final bool startsSorted;
   final OnTap<T>? onTap;
 
   const VTable({
     required this.items,
     required this.columns,
+    this.startsSorted = false,
     this.onTap,
     Key? key,
   }) : super(key: key);
@@ -31,6 +31,7 @@ class _VTableState<T> extends State<VTable<T>> {
   late List<T> sortedItems;
   int? sortColumnIndex;
   bool sortAscending = true;
+  final ValueNotifier<T?> selectedItem = ValueNotifier(null);
 
   @override
   void initState() {
@@ -38,7 +39,8 @@ class _VTableState<T> extends State<VTable<T>> {
 
     scrollController = ScrollController();
     sortedItems = widget.items.toList();
-    if (columns.first.supportsSort) {
+
+    if (widget.startsSorted && columns.first.supportsSort) {
       columns.first.sort(sortedItems, ascending: true);
       sortColumnIndex = 0;
     }
@@ -83,41 +85,45 @@ class _VTableState<T> extends State<VTable<T>> {
                 itemExtent: VTable._rowHeight,
                 itemBuilder: (BuildContext context, int index) {
                   T item = sortedItems[index];
-
-                  return InkWell(
-                    onTap: () {
-                      if (widget.onTap != null) {
-                        widget.onTap!(item);
-                      }
-                    },
-                    child: DecoratedBox(
-                      decoration: rowSeparator,
-                      child: Row(children: [
-                        // todo: we're running the validation twice here
-                        for (var column in columns)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 1, right: 1),
-                            child: SizedBox(
-                              height: VTable._rowHeight - 1,
-                              width: colWidths[column]! - 1,
-                              child: Tooltip(
-                                message: column.validate(item)?.message ?? '',
-                                waitDuration: const Duration(milliseconds: 350),
-                                child: Container(
-                                  alignment:
-                                      column.alignment ?? Alignment.centerLeft,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: VTable._horizPadding,
-                                    vertical: VTable._vertPadding,
+                  final selected = item == selectedItem.value;
+                  return Container(
+                    color: selected
+                        ? Theme.of(context).colorScheme.background
+                        : null,
+                    child: InkWell(
+                      onTap: () => _select(item),
+                      child: DecoratedBox(
+                        decoration: rowSeparator,
+                        child: Row(children: [
+                          for (var column in columns)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 1, right: 1),
+                              child: SizedBox(
+                                height: VTable._rowHeight - 1,
+                                width: colWidths[column]! - 1,
+                                child: Tooltip(
+                                  message: column.validate(item)?.message ?? '',
+                                  waitDuration:
+                                      const Duration(milliseconds: 350),
+                                  child: Container(
+                                    alignment: column.alignment ??
+                                        Alignment.centerLeft,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: VTable._horizPadding,
+                                      vertical: VTable._vertPadding,
+                                    ),
+                                    color: selected
+                                        ? null
+                                        : column
+                                            .validate(item)
+                                            ?.colorForSeverity,
+                                    child: column.widgetFor(context, item),
                                   ),
-                                  color:
-                                      column.validate(item)?.colorForSeverity,
-                                  child: column.widgetFor(context, item),
                                 ),
                               ),
-                            ),
-                          )
-                      ]),
+                            )
+                        ]),
+                      ),
                     ),
                   );
                 },
@@ -174,6 +180,20 @@ class _VTableState<T> extends State<VTable<T>> {
     }
 
     return widths;
+  }
+
+  void _select(T item) {
+    setState(() {
+      if (selectedItem.value != item) {
+        selectedItem.value = item;
+      } else {
+        selectedItem.value = null;
+      }
+    });
+
+    if (widget.onTap != null) {
+      widget.onTap!(item);
+    }
   }
 }
 
@@ -329,7 +349,7 @@ class ValidationResult {
       case Severity.warning:
         return Colors.yellow.shade200.withAlpha(127);
       case Severity.error:
-        return Colors.red.shade100.withAlpha(127);
+        return Colors.red.shade300.withAlpha(127);
     }
   }
 

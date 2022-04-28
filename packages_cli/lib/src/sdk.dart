@@ -91,6 +91,8 @@ class SdkDependency {
     String? externalRepo,
   }) : _externalRepo = externalRepo;
 
+  // TODO: not all these are correct; see
+  // https://github.com/dart-lang/sdk/issues/48830.
   String get repository {
     return _externalRepo != null
         ? _externalRepo!

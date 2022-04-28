@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:googleapis/firestore/v1.dart';
+
 import 'src/firestore.dart';
 import 'src/github.dart';
 import 'src/pub.dart';
@@ -34,20 +38,54 @@ class PackageManager {
     final packages = await pub.packagesForPublisher(publisher);
 
     for (var packageName in packages) {
-      // TODO: add logging
       print('  package:$packageName');
       var packageInfo = await pub.getPackageInfo(packageName);
-      await firestore.updatePackageInfo(
+      var existingInfo = await firestore.getPackageInfo(packageName);
+      var updatedInfo = await firestore.updatePackageInfo(
         packageName,
         publisher: publisher,
         packageInfo: packageInfo,
       );
+
+      if (existingInfo == null) {
+        firestore.log(
+          entity: 'package:$packageName',
+          change: 'Started tracking package',
+        );
+      } else {
+        var updatedFields = updatedInfo.fields!;
+        for (var field in existingInfo.keys) {
+          // This field is noisy.
+          if (field == 'pubspec') {
+            continue;
+          }
+
+          if (updatedFields.keys.contains(field) &&
+              !compareValues(existingInfo[field]!, updatedFields[field]!)) {
+            firestore.log(
+              entity: 'package:$packageName',
+              change: '$field changed to ${printValue(updatedFields[field]!)}',
+            );
+          }
+        }
+      }
     }
 
     await firestore.unsetPackagePublishers(
       publisher,
       currentPackages: packages,
     );
+  }
+
+  static String printValue(Value value) {
+    Object? o = value.stringValue ?? value.booleanValue ?? value;
+    return o.toString();
+  }
+
+  static bool compareValues(Value a, Value b) {
+    var aStr = jsonEncode(a.toJson());
+    var bStr = jsonEncode(b.toJson());
+    return aStr.compareTo(bStr) == 0;
   }
 
   Future updateFromSdk() async {

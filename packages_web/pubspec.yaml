@@ -7,46 +7,35 @@ environment:
   sdk: ">=2.16.0 <3.0.0"
 
 dependencies:
+  cloud_firestore: ^3.1.10
+  firebase_core: ^1.13.1
   flutter:
     sdk: flutter
-  # cupertino_icons: ^1.0.2
-  cloud_firestore: ^3.1.10
-  data_table_2: any
-  firebase_core: ^1.13.1
   provider: any
   pub_semver: any
   url_launcher: any
   yaml: any
 
 dev_dependencies:
+  flutter_lints: ^1.0.0
   flutter_test:
     sdk: flutter
-
-  flutter_lints: ^1.0.0
 
 flutter:
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
   # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
-
-  # An image asset can refer to one or more resolution-specific "variants", see
-  # https://flutter.dev/assets-and-images/#resolution-aware.
-
-  # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/assets-and-images/#from-packages
+  #   - resources/
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a
   # "family" key with the font family name, and a "fonts" key with a
   # list giving the asset and other descriptors for the font. For
   # example:
-  # fonts:
-  #   - family: Schyler
-  #     fonts:
-  #       - asset: fonts/Schyler-Regular.ttf
+  fonts:
+    - family: RobotoMono
+      fonts:
+        - asset: resources/fonts/RobotoMono-Regular.ttf
   #       - asset: fonts/Schyler-Italic.ttf
   #         style: italic
   #   - family: Trajan Pro

@@ -1,7 +1,5 @@
 // ignore_for_file: avoid_print
 
-import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart' as url;
 import 'data_model.dart';
 import 'firebase_options.dart';
 import 'table.dart';
+import 'utils.dart';
 
 // todo: flash some part of the screen when a package updates
 // todo: have a search / filter field
@@ -173,7 +172,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
             ),
             ListTile(
               leading: const Icon(Icons.table_chart),
-              title: const Text('Changelog'),
+              title: const Text('Log'),
               onTap: () {
                 Navigator.pop(context);
                 _showChangeLogDialog(dataModel);
@@ -214,7 +213,10 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                     width: 150,
                     grow: 0.1,
                     transformFunction: (item) {
-                      return item.timestamp.toDate().toIso8601String();
+                      return item.timestamp
+                          .toDate()
+                          .toIso8601String()
+                          .replaceAll('T', ' ');
                     },
                     compareFunction: (a, b) {
                       return a.timestamp.compareTo(b.timestamp);
@@ -277,13 +279,20 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
               ),
             ),
             Expanded(
+              flex: 4,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: createTable(packages),
               ),
             ),
             if (selectedPackage != null)
-              PackageDetailsWidget(package: selectedPackage!),
+              Expanded(
+                flex: 3,
+                child: PackageDetailsWidget(
+                  key: ValueKey(selectedPackage!.name),
+                  package: selectedPackage!,
+                ),
+              ),
           ],
         );
       },
@@ -308,6 +317,7 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
 
     return VTable<PackageInfo>(
       items: packages,
+      startsSorted: true,
       onTap: _onTap,
       columns: [
         VTableColumn<PackageInfo>(
@@ -414,6 +424,7 @@ class LargeDialog extends StatelessWidget {
 
       return AlertDialog(
         title: Text(title),
+        contentTextStyle: Theme.of(context).textTheme.bodyText2,
         content: SizedBox(
           width: width,
           height: height,
@@ -458,47 +469,83 @@ class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       child: Container(
-        height: 240,
         padding: const EdgeInsets.only(top: 8),
         decoration: const BoxDecoration(
           border: Border(top: BorderSide(color: Colors.grey)),
         ),
-        child: Column(
-          children: [
-            TabBar(
-              controller: tabController,
-              unselectedLabelColor: Colors.black,
-              labelColor: Colors.black,
-              tabs: [
-                Tab(text: 'package:${widget.package.name}'),
-                const Tab(text: 'Pubspec'),
-                const Tab(text: 'Commits'),
-              ],
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: tabController,
-                children: [
-                  const Text('One'),
-                  SingleChildScrollView(
-                    // todo: use a monospaced font
-                    child: Text(
-                      pubspecText,
-                      // style: const TextStyle(fontFamily: 'RobotoMono'),
-                    ),
-                  ),
-                  const Text('Three'),
-                ],
+        child: Card(
+          margin: EdgeInsets.zero,
+          child: Column(
+            children: [
+              Container(
+                color: Theme.of(context).colorScheme.secondary,
+                child: TabBar(
+                  indicatorColor: Theme.of(context).colorScheme.onSecondary,
+                  controller: tabController,
+                  tabs: const [
+                    Tab(text: 'Metadata'),
+                    Tab(text: 'Pubspec'),
+                    Tab(text: 'Commits'),
+                  ],
+                ),
               ),
-            )
-          ],
+              Expanded(
+                child: TabBarView(
+                  controller: tabController,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(widget.package.debugDump()),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: SingleChildScrollView(
+                        child: Text(
+                          pubspecText,
+                          style: const TextStyle(fontFamily: 'RobotoMono'),
+                        ),
+                      ),
+                    ),
+                    PackageCommitView(package: widget.package),
+                  ],
+                ),
+              )
+            ],
+          ),
         ),
       ),
     );
   }
 
   String get pubspecText {
-    var encoder = const JsonEncoder.withIndent('  ');
-    return encoder.convert(widget.package.parsedPubspec);
+    var printer = const YamlPrinter();
+    return printer.print(widget.package.parsedPubspec);
+  }
+}
+
+class PackageCommitView extends StatelessWidget {
+  final PackageInfo package;
+
+  const PackageCommitView({
+    required this.package,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    //  final String oid;
+    // final String message;
+    // final String user;
+    // final DateTime committedDate;
+
+    return VTable(
+      items: List.generate(100, (i) => '${i * i}'),
+      columns: [
+        VTableColumn(label: 'Commit', width: 100, grow: 0.1),
+        VTableColumn(label: 'User', width: 100, grow: 0.1),
+        VTableColumn(label: 'Message', width: 100, grow: 1),
+        VTableColumn(label: 'Date', width: 100, grow: 0.1),
+      ],
+    );
   }
 }

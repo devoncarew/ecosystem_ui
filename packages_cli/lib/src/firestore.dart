@@ -80,7 +80,18 @@ class Firestore {
     return repositories.toList()..sort();
   }
 
-  Future updatePackageInfo(
+  Future<Map<String, Value>?> getPackageInfo(String packageName) async {
+    try {
+      final packagePath = getDocumentName('packages', packageName);
+      var result = await documents.get(packagePath);
+      return result.fields;
+    } catch (e) {
+      print(e);
+      return null;
+    }
+  }
+
+  Future<Document> updatePackageInfo(
     String packageName, {
     required String publisher,
     required PackageInfo packageInfo,
@@ -116,7 +127,7 @@ class Firestore {
     );
 
     // todo: handle error conditions
-    await documents.patch(
+    return await documents.patch(
       doc,
       getDocumentName('packages', packageName),
       updateMask_fieldPaths: mask.fieldPaths,
@@ -128,6 +139,9 @@ class Firestore {
       fields: {
         'entity': valueStr(entity),
         'change': valueStr(change),
+        'timestamp': Value(
+          timestampValue: DateTime.now().toUtc().toIso8601String(),
+        ),
       },
     );
 
@@ -185,18 +199,29 @@ class Firestore {
       await updateSdkDependency(dep);
     }
 
+    // Log sdk dep additions.
+    Set<String> newDeps = Set.from(sdk.getDartPackages().map((p) => p.name))
+      ..removeAll(currentDeps);
+    for (var dep in newDeps) {
+      print('  adding $dep');
+      await log(entity: 'SDK dependency', change: 'added $dep');
+    }
+
     // Remove any repos which are no longer deps.
     Set<String> oldDeps = currentDeps.toSet()
       ..removeAll(sdk.getDartPackages().map((p) => p.name));
     for (var dep in oldDeps) {
       print('  removing $dep');
       await documents.delete(getDocumentName('sdk_deps', dep));
+      await log(entity: 'SDK dependency', change: 'removing $dep');
     }
   }
 
   Future updateMaintainers(List<PackageMaintainer> maintainers) async {
     for (var pkg in maintainers) {
       print('  $pkg');
+
+      // todo: log ownership changes
 
       final Document doc = Document(
         fields: {
