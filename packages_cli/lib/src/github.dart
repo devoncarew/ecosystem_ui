@@ -1,12 +1,19 @@
 import 'dart:io';
 
 import 'package:graphql/client.dart';
+import 'package:http/http.dart' as http;
 
 class Github {
   late final GraphQLClient _client = _initGraphQLClient();
 
+  http.Client? _httpClient;
+
   Future<QueryResult> query(QueryOptions options) {
     return _client.query(options);
+  }
+
+  void close() {
+    _httpClient?.close();
   }
 
   GraphQLClient _initGraphQLClient() {
@@ -129,12 +136,29 @@ class Github {
       return Commit.fromQuery(node);
     }).toList();
   }
+
+  /// Attempt to return the contents of the github repo file at the given url.
+  /// Returns `null` if no such file exists.
+  Future<String?> retrieveFile({
+    required String orgAndRepo,
+    required String filePath,
+  }) {
+    _httpClient ??= http.Client();
+    var url = 'https://raw.githubusercontent.com/$orgAndRepo/master/$filePath';
+    return _httpClient!.get(Uri.parse(url)).then((response) {
+      return response.statusCode == 404 ? null : response.body;
+    });
+  }
 }
 
 class RepositoryInfo {
   /// This is a combined github org and repo name - i.e., `dart-lang/sdk`.
   final String path;
   final List<Commit> commits = [];
+
+  String? dependabotConfig;
+  String? actionsConfig;
+  String? actionsFile;
 
   RepositoryInfo({required this.path});
 

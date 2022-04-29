@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'theme.dart';
+
 // todo: try adding keys
 
 typedef OnTap<T> = void Function(T object);
@@ -12,12 +14,16 @@ class VTable<T> extends StatefulWidget {
   final List<T> items;
   final List<VTableColumn<T>> columns;
   final bool startsSorted;
+  final bool supportsSelection;
+  final bool hideHeader;
   final OnTap<T>? onTap;
 
   const VTable({
     required this.items,
     required this.columns,
     this.startsSorted = false,
+    this.supportsSelection = false,
+    this.hideHeader = false,
     this.onTap,
     Key? key,
   }) : super(key: key);
@@ -62,21 +68,22 @@ class _VTableState<T> extends State<VTable<T>> {
 
         return Column(
           children: [
-            Row(
-              children: [
-                for (var column in columns)
-                  InkWell(
-                    onTap: () => trySort(column),
-                    child: _ColumnHeader(
-                      title: column.label,
-                      width: colWidths[column],
-                      alignment: column.alignment,
-                      sortAscending:
-                          column == sortColumn ? sortAscending : null,
+            if (!widget.hideHeader)
+              Row(
+                children: [
+                  for (var column in columns)
+                    InkWell(
+                      onTap: () => trySort(column),
+                      child: _ColumnHeader(
+                        title: column.label,
+                        width: colWidths[column],
+                        alignment: column.alignment,
+                        sortAscending:
+                            column == sortColumn ? sortAscending : null,
+                      ),
                     ),
-                  ),
-              ],
-            ),
+                ],
+              ),
             Expanded(
               child: ListView.builder(
                 key: ObjectKey(widget.items),
@@ -87,9 +94,7 @@ class _VTableState<T> extends State<VTable<T>> {
                   T item = sortedItems[index];
                   final selected = item == selectedItem.value;
                   return Container(
-                    color: selected
-                        ? Theme.of(context).colorScheme.background
-                        : null,
+                    color: selected ? Theme.of(context).hoverColor : null,
                     child: InkWell(
                       onTap: () => _select(item),
                       child: DecoratedBox(
@@ -103,8 +108,7 @@ class _VTableState<T> extends State<VTable<T>> {
                                 width: colWidths[column]! - 1,
                                 child: Tooltip(
                                   message: column.validate(item)?.message ?? '',
-                                  waitDuration:
-                                      const Duration(milliseconds: 350),
+                                  waitDuration: tooltipDelay,
                                   child: Container(
                                     alignment: column.alignment ??
                                         Alignment.centerLeft,
@@ -112,11 +116,8 @@ class _VTableState<T> extends State<VTable<T>> {
                                       horizontal: VTable._horizPadding,
                                       vertical: VTable._vertPadding,
                                     ),
-                                    color: selected
-                                        ? null
-                                        : column
-                                            .validate(item)
-                                            ?.colorForSeverity,
+                                    color:
+                                        column.validate(item)?.colorForSeverity,
                                     child: column.widgetFor(context, item),
                                   ),
                                 ),
@@ -183,13 +184,15 @@ class _VTableState<T> extends State<VTable<T>> {
   }
 
   void _select(T item) {
-    setState(() {
-      if (selectedItem.value != item) {
-        selectedItem.value = item;
-      } else {
-        selectedItem.value = null;
-      }
-    });
+    if (widget.supportsSelection) {
+      setState(() {
+        if (selectedItem.value != item) {
+          selectedItem.value = item;
+        } else {
+          selectedItem.value = null;
+        }
+      });
+    }
 
     if (widget.onTap != null) {
       widget.onTap!(item);
@@ -345,7 +348,7 @@ class ValidationResult {
   Color get colorForSeverity {
     switch (severity) {
       case Severity.info:
-        return Colors.grey.shade300.withAlpha(127);
+        return Colors.grey.shade500.withAlpha(127);
       case Severity.warning:
         return Colors.yellow.shade200.withAlpha(127);
       case Severity.error:

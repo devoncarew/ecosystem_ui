@@ -96,8 +96,6 @@ class Firestore {
     required String publisher,
     required PackageInfo packageInfo,
   }) async {
-    // todo: include the pubspec? as structured data? as text?
-
     var repository = packageInfo.repository;
     if (repository == null) {
       var homepage = packageInfo.homepage;
@@ -108,8 +106,6 @@ class Firestore {
       }
     }
 
-    // Make sure we don't write over fields that we're not updating here (like
-    // the 'maintainers' field).
     final Document doc = Document(
       fields: {
         'name': valueStr(packageName),
@@ -119,9 +115,13 @@ class Firestore {
         'discontinued': valueBool(packageInfo.isDiscontinued),
         'unlisted': valueBool(packageInfo.isUnlisted),
         'pubspec': valueStr(packageInfo.encodedPubspec),
+        if (packageInfo.published != null)
+          'published': Value(timestampValue: packageInfo.published),
       },
     );
 
+    // Make sure we don't write over fields that we're not updating here (like
+    // the 'maintainers' field).
     final DocumentMask mask = DocumentMask(
       fieldPaths: doc.fields!.keys.toList(),
     );
@@ -247,6 +247,12 @@ class Firestore {
       fields: {
         'org': valueStr(repo.org),
         'name': valueStr(repo.name),
+        if (repo.dependabotConfig != null)
+          'dependabotConfig': valueStr(repo.dependabotConfig!),
+        if (repo.actionsConfig != null)
+          'actionsConfig': valueStr(repo.actionsConfig!),
+        if (repo.actionsFile != null)
+          'actionsFile': valueStr(repo.actionsFile!),
       },
     );
 

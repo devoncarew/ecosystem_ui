@@ -10,7 +10,7 @@ class YamlPrinter {
   void _print(String indent, Object data, StringBuffer buffer) {
     if (data is Map) {
       for (var key in data.keys) {
-        Object value = data[key];
+        Object? value = data[key];
         if (value is Map) {
           buffer.writeln();
           buffer.writeln('$indent$key:');

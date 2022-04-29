@@ -1,3 +1,5 @@
+// ignore_for_file: unnecessary_brace_in_string_interps
+
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,6 +8,7 @@ import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 import 'package:yaml/yaml.dart' as yaml;
 import 'package:pub_semver/pub_semver.dart';
+import 'package:collection/collection.dart';
 
 import 'table.dart';
 
@@ -34,6 +37,7 @@ class DataModel {
       // todo: read google3 data
       await _initPackagesData();
       await _initChangelog();
+      await _initRepositories();
     }();
   }
 
@@ -66,6 +70,23 @@ class DataModel {
     return _publisherNotifiers.putIfAbsent(publisher, () => ValueNotifier([]));
   }
 
+  Future<List<Commit>> getCommitsFor({
+    required String org,
+    required String repo,
+    int quantity = 100,
+  }) {
+    return FirebaseFirestore.instance
+        .collection('repositories')
+        .doc('$org%2F$repo')
+        .collection('commits')
+        .orderBy('committedDate', descending: true)
+        .limit(quantity)
+        .get()
+        .then((QuerySnapshot<SnapshotItems> snapshot) {
+      return snapshot.docs.map((doc) => Commit.from(doc)).toList();
+    });
+  }
+
   final Map<String, ValueNotifier<List<PackageInfo>>> _publisherNotifiers = {};
 
   /// todo: doc
@@ -80,6 +101,28 @@ class DataModel {
         .listen((QuerySnapshot<SnapshotItems> snapshot) {
       var result = snapshot.docs.map((doc) => doc.id).toList()..sort();
       _publishers.value = result;
+    });
+  }
+
+  /// todo: doc
+  ValueListenable<List<RepositoryInfo>> get repositories => _repositories;
+  final ValueNotifier<List<RepositoryInfo>> _repositories = ValueNotifier([]);
+
+  RepositoryInfo? getRepositoryForPackage(PackageInfo package) {
+    return repositories.value.firstWhereOrNull((repo) {
+      return repo.org == package.gitOrgName && repo.name == package.gitRepoName;
+    });
+  }
+
+  Future _initRepositories() async {
+    firestore
+        .collection('repositories')
+        .snapshots()
+        .listen((QuerySnapshot<SnapshotItems> snapshot) {
+      List<RepositoryInfo> repos =
+          snapshot.docs.map((doc) => RepositoryInfo.from(doc)).toList();
+
+      _repositories.value = repos;
     });
   }
 
@@ -137,6 +180,7 @@ class PackageInfo {
   final bool discontinued;
   final bool unlisted;
   final String pubspec;
+  final Timestamp published;
 
   // todo: monorepo?
   // todo: repoPath
@@ -155,6 +199,7 @@ class PackageInfo {
       discontinued: data['discontinued'],
       unlisted: data['unlisted'],
       pubspec: data['pubspec'],
+      published: data['published'] ?? Timestamp.fromMillisecondsSinceEpoch(0),
     );
   }
 
@@ -167,9 +212,10 @@ class PackageInfo {
     required this.discontinued,
     required this.unlisted,
     required this.pubspec,
+    required this.published,
   });
 
-  String get sdkDep => parsedPubspec['environment']['sdk'];
+  String? get sdkDep => (parsedPubspec['environment'] ?? const {})['sdk'];
 
   Map<String, dynamic> get parsedPubspec {
     if (_parsedPubspec == null) {
@@ -192,6 +238,16 @@ class PackageInfo {
     return match == null
         ? null
         : 'https://github.com/${match.group(1)}/${match.group(2)}';
+  }
+
+  String? get gitOrgName {
+    var match = _repoRegex.firstMatch(repository);
+    return match?.group(1);
+  }
+
+  String? get gitRepoName {
+    var match = _repoRegex.firstMatch(repository);
+    return match?.group(2);
   }
 
   String? get repoPath {
@@ -285,6 +341,24 @@ class PackageInfo {
     return null;
   }
 
+  static int compareWithStatus(PackageInfo a, PackageInfo b) {
+    bool aDiscontinued = a.discontinued;
+    bool bDiscontinued = b.discontinued;
+
+    if (aDiscontinued == bDiscontinued) {
+      bool aUnlisted = a.unlisted;
+      bool bUnlisted = b.unlisted;
+
+      if (aUnlisted == bUnlisted) {
+        return a.name.compareTo(b.name);
+      } else {
+        return aUnlisted ? 1 : -1;
+      }
+    } else {
+      return aDiscontinued ? 1 : -1;
+    }
+  }
+
   String debugDump() {
     StringBuffer buffer = StringBuffer();
 
@@ -304,6 +378,7 @@ class PackageInfo {
     if (unlisted) {
       buffer.writeln('unlisted');
     }
+    buffer.writeln('published: ${published.toDate().toIso8601String()}');
 
     buffer.writeln();
 
@@ -355,3 +430,66 @@ const _defaultPublishers = [
   'tools.dart.dev',
   'labs.dart.dev',
 ];
+
+class Commit implements Comparable<Commit> {
+  final String oid;
+  final String message;
+  final String user;
+  final Timestamp committedDate;
+
+  Commit({
+    required this.oid,
+    required this.message,
+    required this.user,
+    required this.committedDate,
+  });
+
+  String get oidDisplay => oid.substring(0, 7);
+
+  factory Commit.from(QueryDocumentSnapshot<SnapshotItems> doc) {
+    return Commit(
+      oid: doc.get('oid'),
+      message: doc.get('message'),
+      user: doc.get('user'),
+      committedDate: doc.get('committedDate'),
+    );
+  }
+
+  @override
+  int compareTo(Commit other) {
+    return other.committedDate.compareTo(committedDate);
+  }
+}
+
+class RepositoryInfo {
+  final String org;
+  final String name;
+  final String? dependabotConfig;
+  final String? actionsConfig;
+  final String? actionsFile;
+
+  RepositoryInfo({
+    required this.org,
+    required this.name,
+    required this.dependabotConfig,
+    required this.actionsConfig,
+    required this.actionsFile,
+  });
+
+  String get repoName => '$org/$name';
+
+  factory RepositoryInfo.from(QueryDocumentSnapshot<SnapshotItems> doc) {
+    final data = doc.data();
+    return RepositoryInfo(
+      org: doc.get('org'),
+      name: doc.get('name'),
+      dependabotConfig: data.containsKey('dependabotConfig')
+          ? doc.get('dependabotConfig')
+          : null,
+      actionsConfig:
+          data.containsKey('actionsConfig') ? doc.get('actionsConfig') : null,
+      actionsFile:
+          data.containsKey('actionsFile') ? doc.get('actionsFile') : null,
+    );
+  }
+}

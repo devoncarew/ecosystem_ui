@@ -50,7 +50,7 @@ class PackageManager {
       if (existingInfo == null) {
         firestore.log(
           entity: 'package:$packageName',
-          change: 'Started tracking package',
+          change: 'added',
         );
       } else {
         var updatedFields = updatedInfo.fields!;
@@ -64,7 +64,7 @@ class PackageManager {
               !compareValues(existingInfo[field]!, updatedFields[field]!)) {
             firestore.log(
               entity: 'package:$packageName',
-              change: '$field changed to ${printValue(updatedFields[field]!)}',
+              change: '$field => ${printValue(updatedFields[field]!)}',
             );
           }
         }
@@ -200,8 +200,46 @@ class PackageManager {
         repo.addCommits(commits);
       }
 
+      // https://raw.githubusercontent.com/dart-lang/usage/master/.github/workflows/build.yaml
+
+      // Look for CI configuration.
+      String? actionsConfig;
+      String? actionsFile;
+
+      // TODO: look to reduce the number of places to look.
+      for (var filePath in [
+        '.github/workflows/dart.yaml',
+        '.github/workflows/build.yaml',
+        '.github/workflows/test.yaml',
+        '.github/workflows/test-package.yml',
+        '.github/workflows/dart.yml',
+      ]) {
+        var contents = await github.retrieveFile(
+          orgAndRepo: repo.path,
+          filePath: filePath,
+        );
+        if (contents != null) {
+          actionsConfig = contents;
+          actionsFile = filePath;
+          break;
+        }
+      }
+
+      repo.actionsConfig = actionsConfig ?? '';
+      repo.actionsFile = actionsFile ?? '';
+
+      // Look for dependabot configuration.
+      String dependabot = await github.retrieveFile(
+              orgAndRepo: repo.path, filePath: '.github/dependabot.yaml') ??
+          '';
+      repo.dependabotConfig = dependabot;
+
+      // todo: look for an analysis options file for each package
+
       await firestore.updateRepositoryInfo(repo);
     }
+
+    github.close();
   }
 
   Future close() async {
