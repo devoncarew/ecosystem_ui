@@ -99,6 +99,7 @@ class DataModel {
         .collection('publishers')
         .snapshots()
         .listen((QuerySnapshot<SnapshotItems> snapshot) {
+      _strobeBusy();
       var result = snapshot.docs.map((doc) => doc.id).toList()..sort();
       _publishers.value = result;
     });
@@ -119,6 +120,7 @@ class DataModel {
         .collection('repositories')
         .snapshots()
         .listen((QuerySnapshot<SnapshotItems> snapshot) {
+      _strobeBusy();
       List<RepositoryInfo> repos =
           snapshot.docs.map((doc) => RepositoryInfo.from(doc)).toList();
 
@@ -132,6 +134,7 @@ class DataModel {
         .orderBy('name')
         .snapshots()
         .listen((QuerySnapshot<SnapshotItems> snapshot) {
+      _strobeBusy();
       Map<String, List<PackageInfo>> packageMap = {};
 
       // todo: try doing a deep compare here
@@ -159,6 +162,7 @@ class DataModel {
         .orderBy('timestamp', descending: true)
         .snapshots()
         .listen((QuerySnapshot<SnapshotItems> snapshot) {
+      _strobeBusy();
       var result = snapshot.docs.map((item) {
         return LogItem(
           entity: item.get('entity'),
@@ -167,6 +171,24 @@ class DataModel {
         );
       }).toList();
       _changeLogItems.value = result;
+    });
+  }
+
+  ValueListenable<bool> get busy => _busy;
+  final ValueNotifier<bool> _busy = ValueNotifier(false);
+  int _busyCount = 0;
+
+  void _strobeBusy() {
+    _busyCount++;
+    if (_busyCount == 1) {
+      _busy.value = true;
+    }
+
+    Timer(const Duration(milliseconds: 3000), () {
+      _busyCount--;
+      if (_busyCount == 0) {
+        _busy.value = false;
+      }
     });
   }
 }
@@ -180,6 +202,7 @@ class PackageInfo {
   final bool discontinued;
   final bool unlisted;
   final String pubspec;
+  final String? analysisOptions;
   final Timestamp published;
 
   // todo: monorepo?
@@ -199,6 +222,8 @@ class PackageInfo {
       discontinued: data['discontinued'],
       unlisted: data['unlisted'],
       pubspec: data['pubspec'],
+      analysisOptions:
+          data.containsKey('analysisOptions') ? data['analysisOptions'] : null,
       published: data['published'] ?? Timestamp.fromMillisecondsSinceEpoch(0),
     );
   }
@@ -212,6 +237,7 @@ class PackageInfo {
     required this.discontinued,
     required this.unlisted,
     required this.pubspec,
+    required this.analysisOptions,
     required this.published,
   });
 
@@ -255,8 +281,10 @@ class PackageInfo {
     var path = match?.group(3);
     if (path == null) {
       return null;
-    } else if (path.startsWith('/tree/master/')) {
-      return path.substring('/tree/master/'.length);
+    } else if (path.startsWith('/tree/master')) {
+      return path.substring('/tree/master'.length);
+    } else if (path.startsWith('/tree/main')) {
+      return path.substring('/tree/main'.length);
     } else {
       return path;
     }

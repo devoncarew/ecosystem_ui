@@ -116,12 +116,46 @@ class PackageInfo {
   bool get isDiscontinued => options?.isDiscontinued ?? false;
   bool get isUnlisted => options?.isUnlisted ?? false;
 
+  RepoInfo? get repoInfo {
+    var url = repository ?? homepage;
+    return url == null || url.isEmpty ? null : RepoInfo(url);
+  }
+
   String get encodedPubspec {
     return jsonEncode(_pubspec);
   }
 
   @override
   String toString() => '$name: $version';
+}
+
+class RepoInfo {
+  final String repository;
+
+  static final RegExp _repoRegex =
+      RegExp(r'https:\/\/github\.com\/([\w\d\-_]+)\/([\w\d\-_\.]+)([\/\S]*)');
+
+  RepoInfo(this.repository);
+
+  String? getDirectFileUrl(String file) {
+    var match = _repoRegex.firstMatch(repository);
+    if (match == null) {
+      return null;
+    }
+
+    var org = match.group(1)!;
+    var name = match.group(2)!;
+    var path = match.group(3);
+
+    if (path == null || path.isEmpty) {
+      // TODO: This won't handle repos that use 'main' as the default branch.
+      return 'https://raw.githubusercontent.com/$org/$name/master/$file';
+    } else {
+      path = path.replaceAll('/tree/master/', 'master');
+      path = path.replaceAll('/tree/main/', 'main');
+      return 'https://raw.githubusercontent.com/$org/$name/$path/$file';
+    }
+  }
 }
 
 class PackageOptions {

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:googleapis/firestore/v1.dart';
+import 'package:http/http.dart' as http;
 
 import 'src/firestore.dart';
 import 'src/github.dart';
@@ -11,6 +12,7 @@ import 'src/sheets.dart';
 class PackageManager {
   late final Pub pub;
   late final Firestore firestore;
+  http.Client? _httpClient;
 
   PackageManager() {
     pub = Pub();
@@ -35,16 +37,34 @@ class PackageManager {
     // TODO: consider batching these write (documents.batchWrite()).
     print('updating pub.dev info for $publisher packages');
 
+    _httpClient ??= http.Client();
+
     final packages = await pub.packagesForPublisher(publisher);
 
     for (var packageName in packages) {
       print('  package:$packageName');
       var packageInfo = await pub.getPackageInfo(packageName);
       var existingInfo = await firestore.getPackageInfo(packageName);
+
+      var repoInfo = packageInfo.repoInfo;
+      var url = repoInfo?.getDirectFileUrl('analysis_options.yaml');
+
+      // Probe for an analysisOptions.yaml file; this depends on the repository
+      // field being set correctly.
+      String? analysisOptions;
+      if (repoInfo != null && url != null) {
+        // todo: we should also probe up a directory or two if in a mono-repo
+        analysisOptions =
+            await _httpClient!.get(Uri.parse(url)).then((response) {
+          return response.statusCode == 404 ? null : response.body;
+        });
+      }
+
       var updatedInfo = await firestore.updatePackageInfo(
         packageName,
         publisher: publisher,
         packageInfo: packageInfo,
+        analysisOptions: analysisOptions,
       );
 
       if (existingInfo == null) {
@@ -55,8 +75,8 @@ class PackageManager {
       } else {
         var updatedFields = updatedInfo.fields!;
         for (var field in existingInfo.keys) {
-          // This field is noisy.
-          if (field == 'pubspec') {
+          // These fields are noisy.
+          if (field == 'pubspec' || field == 'analysisOptions') {
             continue;
           }
 
@@ -78,7 +98,10 @@ class PackageManager {
   }
 
   static String printValue(Value value) {
-    Object? o = value.stringValue ?? value.booleanValue ?? value;
+    Object? o = value.stringValue ??
+        value.booleanValue ??
+        value.timestampValue ??
+        value;
     return o.toString();
   }
 
@@ -213,6 +236,7 @@ class PackageManager {
         '.github/workflows/test.yaml',
         '.github/workflows/test-package.yml',
         '.github/workflows/dart.yml',
+        '.github/workflows/ci.yml',
       ]) {
         var contents = await github.retrieveFile(
           orgAndRepo: repo.path,
@@ -245,5 +269,6 @@ class PackageManager {
   Future close() async {
     firestore.close();
     pub.close();
+    _httpClient?.close();
   }
 }

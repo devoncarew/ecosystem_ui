@@ -256,7 +256,7 @@ class _ColumnHeader extends StatelessWidget {
   }
 }
 
-//typedef RenderFunction<T> = Widget Function(BuildContext context, T object);
+typedef RenderFunction<T> = Widget Function(BuildContext context, T object);
 typedef TransformFunction<T> = String Function(T object);
 typedef StyleFunction<T> = TextStyle? Function(T object);
 typedef CompareFunction<T> = int Function(T a, T b);
@@ -272,7 +272,7 @@ class VTableColumn<T> {
   final StyleFunction<T>? styleFunction;
   final CompareFunction<T>? compareFunction;
   final List<ValidationFunction<T>> validators;
-  //final RenderFunction<T>? renderFunction;
+  final RenderFunction<T>? renderFunction;
 
   VTableColumn({
     required this.label,
@@ -283,13 +283,13 @@ class VTableColumn<T> {
     this.styleFunction,
     this.compareFunction,
     this.validators = const [],
-    //this.renderFunction,
+    this.renderFunction,
   });
 
   Widget widgetFor(BuildContext context, T item) {
-    // if (renderFunction != null) {
-    //   return renderFunction!(context, item);
-    // }
+    if (renderFunction != null) {
+      return renderFunction!(context, item);
+    }
 
     final str = transformFunction != null ? transformFunction!(item) : '$item';
     var style = styleFunction == null ? null : styleFunction!(item);

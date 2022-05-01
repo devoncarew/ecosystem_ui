@@ -19,12 +19,10 @@ import 'utils.dart';
 // todo: google3 data
 // todo: remove some state objects?
 
-// todo: don't switch the lower tabs when switching packages
-
 // todo: dial back firestore notifications? do less work when we're notified?
 // it's a bit disruptive in the UI
 
-const String addName = 'Package Dashboard';
+const String appName = 'Package Dashboard';
 
 void main() async {
   runApp(const PackagesApp());
@@ -70,7 +68,7 @@ class _PackagesAppState extends State<PackagesApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: addName,
+      title: appName,
       theme: ThemeData(primarySwatch: Colors.blue),
       home: firestore == null
           ? const LoadingScreen()
@@ -135,8 +133,25 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(addName),
+        title: const Text(appName),
         actions: [
+          ValueListenableBuilder<bool>(
+            valueListenable: dataModel.busy,
+            builder: (BuildContext context, bool busy, _) {
+              return Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: busy
+                      ? const CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        )
+                      : null,
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.bug_report),
             splashRadius: 20,
@@ -276,11 +291,22 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
                 child: createTable(packages),
               ),
             ),
+            // // TODO: Animate showing and hiding this.
+            // AnimatedContainer(
+            //   duration: const Duration(milliseconds: 200),
+            //   height: selectedPackage != null ? 300 : 0,
+            //   child: selectedPackage != null
+            //       ? ClipRect(
+            //           child: PackageDetailsWidget(
+            //             package: selectedPackage!,
+            //           ),
+            //         )
+            //       : const SizedBox(),
+            // ),
             if (selectedPackage != null)
               Expanded(
                 flex: 3,
                 child: PackageDetailsWidget(
-                  // key: ValueKey(selectedPackage!.name),
                   package: selectedPackage!,
                 ),
               ),
@@ -304,12 +330,11 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
     const discontinuedStyle = TextStyle(color: Colors.grey);
     const unlistedStyle = TextStyle(fontStyle: FontStyle.italic);
 
-    fn(PackageInfo package) {
-      return package.discontinued
-          ? discontinuedStyle
-          : package.unlisted
-              ? unlistedStyle
-              : null;
+    TextStyle? fn(PackageInfo package) {
+      if (package.discontinued) {
+        return discontinuedStyle;
+      }
+      return package.unlisted ? unlistedStyle : null;
     }
 
     return VTable<PackageInfo>(
@@ -371,11 +396,60 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
           grow: 0.2,
           transformFunction: (package) => package.repository,
           styleFunction: fn,
+          renderFunction: (BuildContext context, PackageInfo package) {
+            if (package.repository.isEmpty) {
+              return const SizedBox();
+            } else {
+              return Hyperlink(
+                url: package.repository,
+                style: fn(package),
+              );
+            }
+          },
           validators: [
             PackageInfo.validateRepositoryInfo,
           ],
         ),
       ],
+    );
+  }
+}
+
+class Hyperlink extends StatefulWidget {
+  final String url;
+  final TextStyle? style;
+
+  const Hyperlink({
+    required this.url,
+    this.style,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  State<Hyperlink> createState() => _HyperlinkState();
+}
+
+class _HyperlinkState extends State<Hyperlink> {
+  bool hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    const underline = TextStyle(decoration: TextDecoration.underline);
+
+    return MouseRegion(
+      onEnter: (event) {
+        setState(() => hovered = true);
+      },
+      onExit: (event) {
+        setState(() => hovered = false);
+      },
+      child: GestureDetector(
+        onTap: () => url.launchUrl(Uri.parse(widget.url)),
+        child: Text(
+          widget.url,
+          style: hovered ? underline.merge(widget.style) : widget.style,
+        ),
+      ),
     );
   }
 }
@@ -387,7 +461,7 @@ class LoadingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(addName),
+        title: const Text(appName),
       ),
       body: const Center(
         child: CircularProgressIndicator(),
@@ -519,9 +593,11 @@ class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
                       ),
                     ),
                     // Analysis options
-                    const Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Center(child: Text('todo:')),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: AnalysisOptionsInfo(
+                        package: widget.package,
+                      ),
                     ),
                     // GitHub Actions
                     Padding(
@@ -588,6 +664,59 @@ class PackageMetaInfo extends StatelessWidget {
   }
 }
 
+class AnalysisOptionsInfo extends StatelessWidget {
+  final PackageInfo package;
+
+  const AnalysisOptionsInfo({
+    required this.package,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    if (package.analysisOptions == null || package.analysisOptions!.isEmpty) {
+      return Stack(
+        children: const [
+          OverlayButtons(
+            infoText: 'analysis_options.yaml',
+            children: [],
+          ),
+          Center(
+            child: Text('Analysis options file not found.'),
+          ),
+        ],
+      );
+    } else {
+      return Stack(
+        fit: StackFit.passthrough,
+        children: [
+          SingleChildScrollView(
+            child: Text(
+              package.analysisOptions!,
+              style: const TextStyle(fontFamily: 'RobotoMono'),
+            ),
+          ),
+          OverlayButtons(
+            infoText: 'analysis_options.yaml',
+            children: [
+              IconButton(
+                splashRadius: 20,
+                onPressed: () {
+                  url.launchUrl(
+                    Uri.parse(
+                        '${package.repository}/blob/master/analysis_options.yaml'),
+                  );
+                },
+                icon: const Icon(Icons.launch),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+  }
+}
+
 class GitHubActionsInfo extends StatelessWidget {
   final RepositoryInfo? repo;
 
@@ -624,7 +753,7 @@ class GitHubActionsInfo extends StatelessWidget {
                 onPressed: () {
                   url.launchUrl(
                     Uri.parse(
-                      'https://github.com/${r.repoName}/tree/master/${r.actionsFile}',
+                      'https://github.com/${r.repoName}/blob/master/${r.actionsFile}',
                     ),
                   );
                 },
@@ -715,7 +844,7 @@ class DependabotConfigInfo extends StatelessWidget {
                 onPressed: () {
                   url.launchUrl(
                     Uri.parse(
-                      'https://github.com/${r.repoName}/tree/master/.github/dependabot.yaml',
+                      'https://github.com/${r.repoName}/blob/master/.github/dependabot.yaml',
                     ),
                   );
                 },

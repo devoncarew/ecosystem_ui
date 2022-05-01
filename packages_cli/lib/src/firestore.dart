@@ -95,6 +95,7 @@ class Firestore {
     String packageName, {
     required String publisher,
     required PackageInfo packageInfo,
+    String? analysisOptions,
   }) async {
     var repository = packageInfo.repository;
     if (repository == null) {
@@ -115,6 +116,8 @@ class Firestore {
         'discontinued': valueBool(packageInfo.isDiscontinued),
         'unlisted': valueBool(packageInfo.isUnlisted),
         'pubspec': valueStr(packageInfo.encodedPubspec),
+        if (analysisOptions != null)
+          'analysisOptions': valueStr(analysisOptions),
         if (packageInfo.published != null)
           'published': Value(timestampValue: packageInfo.published),
       },
