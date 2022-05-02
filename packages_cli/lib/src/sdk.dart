@@ -49,55 +49,60 @@ class Sdk {
   Sdk._(this._packages, this._repoHash, this._externalRepos);
 
   List<SdkDependency> getDartPackages() {
-    return _packages
-        .map((String name) {
-          String? hash = _repoHash[name];
-          String repoTag = '/$name.';
-          String? externalRepo = _externalRepos.cast<String?>().firstWhere(
-              (repo) => repo!.contains(repoTag),
-              orElse: () => null);
+    // See https://github.com/dart-lang/sdk/issues/48830 for some of the
+    // hard-coded repo mappings here.
+    const specialCases = {
+      'charcode': 'https://github.com/lrhn/charcode',
+      'platform': 'https://github.com/google/platform.dart',
+      'process': 'https://github.com/google/process.dart',
+      'protobuf': 'https://github.com/google/protobuf.dart',
+    };
 
-          if (externalRepo != null && externalRepo.endsWith('.git')) {
-            print('  normalizing $externalRepo');
-            externalRepo =
-                externalRepo.substring(0, externalRepo.length - '.git'.length);
-            print('    ==> $externalRepo');
-          }
+    List<SdkDependency> deps = [];
 
-          if (hash == null) {
-            print('No hash found for package:$name');
-            return null;
-          } else {
-            return SdkDependency(
-              name: name,
-              commit: hash,
-              externalRepo: externalRepo,
-            );
-          }
-        })
-        .whereType<SdkDependency>()
-        .toList();
+    for (String name in _packages) {
+      // Default to a dart-lang github url.
+      String repo = 'https://github.com/dart-lang/$name';
+
+      // Check for special case repos - ones which had been in dart-lang/ when
+      // their mirrors were set up, but have since moved to other github orgs.
+      if (specialCases.containsKey(name)) {
+        repo = specialCases[name]!;
+      }
+
+      // Check for explicit external dependency urls in the DEPS file.
+      String? externalRepo = _externalRepos
+          .cast<String?>()
+          .firstWhere((repo) => repo!.contains('/$name'), orElse: () => null);
+      if (externalRepo != null) {
+        if (externalRepo.endsWith('.git')) {
+          externalRepo =
+              externalRepo.substring(0, externalRepo.length - '.git'.length);
+        }
+        repo = 'https://$externalRepo';
+      }
+
+      deps.add(SdkDependency(
+        name: name,
+        commit: _repoHash[name],
+        repository: repo,
+      ));
+    }
+
+    return deps;
   }
 }
 
 class SdkDependency {
   final String name;
-  final String commit;
-  final String? _externalRepo;
+  final String? commit;
+  final String repository;
 
   SdkDependency({
     required this.name,
     required this.commit,
-    String? externalRepo,
-  }) : _externalRepo = externalRepo;
-
-  // TODO: not all these are correct; see
-  // https://github.com/dart-lang/sdk/issues/48830.
-  String get repository {
-    return _externalRepo != null
-        ? _externalRepo!
-        : 'github.com/dart-lang/$name';
-  }
+    required this.repository,
+  });
 
   @override
   String toString() => '$name, 0x$commit, $repository';

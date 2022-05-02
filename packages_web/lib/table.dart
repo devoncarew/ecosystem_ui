@@ -345,10 +345,21 @@ class ValidationResult {
 
   ValidationResult(this.message, this.severity);
 
+  IconData get icon {
+    switch (severity) {
+      case Severity.info:
+        return Icons.info;
+      case Severity.warning:
+        return Icons.warning;
+      case Severity.error:
+        return Icons.error_rounded;
+    }
+  }
+
   Color get colorForSeverity {
     switch (severity) {
       case Severity.info:
-        return Colors.grey.shade500.withAlpha(127);
+        return Colors.grey.shade400.withAlpha(127);
       case Severity.warning:
         return Colors.yellow.shade200.withAlpha(127);
       case Severity.error:

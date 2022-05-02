@@ -5,6 +5,7 @@ import 'package:packages_cli/src/sdk.dart';
 
 import 'github.dart';
 import 'sheets.dart';
+import 'utils.dart';
 
 class Firestore {
   final Config config = Config();
@@ -85,7 +86,26 @@ class Firestore {
       final packagePath = getDocumentName('packages', packageName);
       var result = await documents.get(packagePath);
       return result.fields;
+    } on DetailedApiRequestError catch (e) {
+      if (e.status == 404) {
+        // Ignore these - we know some documents won't yet exist.
+        return null;
+      }
+      print(e);
+      return null;
     } catch (e) {
+      print(e);
+      return null;
+    }
+  }
+
+  Future<Map<String, Value>?> getRepositoryInfo(String repoName) async {
+    try {
+      final packagePath = getDocumentName('sdk_deps', repoName);
+      var result = await documents.get(packagePath);
+      return result.fields;
+    } catch (e) {
+      // todo: ignore these - we know some documents won't yet exist
       print(e);
       return null;
     }
@@ -197,7 +217,6 @@ class Firestore {
 
     // Update commit info
     for (var dep in sdk.getDartPackages()) {
-      // TODO: add logging
       print('  ${dep.repository}');
       await updateSdkDependency(dep);
     }
@@ -304,16 +323,34 @@ class Firestore {
   }
 
   Future updateSdkDependency(SdkDependency dependency) async {
+    var existingInfo = await getRepositoryInfo(dependency.name);
+
     final Document doc = Document(
       fields: {
         'name': valueStr(dependency.name),
-        'commit': valueStr(dependency.commit),
+        'commit': valueStr(dependency.commit ?? ''),
         'repository': valueStr(dependency.repository),
       },
     );
 
     // todo: handle error conditions
-    await documents.patch(doc, getDocumentName('sdk_deps', dependency.name));
+    var updatedInfo = await documents.patch(
+      doc,
+      getDocumentName('sdk_deps', dependency.name),
+    );
+
+    if (existingInfo != null) {
+      var updatedFields = updatedInfo.fields!;
+      for (var field in existingInfo.keys) {
+        if (updatedFields.keys.contains(field) &&
+            !compareValues(existingInfo[field]!, updatedFields[field]!)) {
+          log(
+            entity: 'SDK dep: ${dependency.name}',
+            change: '$field => ${printValue(updatedFields[field]!)}',
+          );
+        }
+      }
+    }
   }
 }
 

@@ -1,6 +1,3 @@
-import 'dart:convert';
-
-import 'package:googleapis/firestore/v1.dart';
 import 'package:http/http.dart' as http;
 
 import 'src/firestore.dart';
@@ -8,6 +5,7 @@ import 'src/github.dart';
 import 'src/pub.dart';
 import 'src/sdk.dart';
 import 'src/sheets.dart';
+import 'src/utils.dart';
 
 class PackageManager {
   late final Pub pub;
@@ -70,7 +68,7 @@ class PackageManager {
       if (existingInfo == null) {
         firestore.log(
           entity: 'package:$packageName',
-          change: 'added',
+          change: 'added (publisher $publisher)',
         );
       } else {
         var updatedFields = updatedInfo.fields!;
@@ -95,20 +93,6 @@ class PackageManager {
       publisher,
       currentPackages: packages,
     );
-  }
-
-  static String printValue(Value value) {
-    Object? o = value.stringValue ??
-        value.booleanValue ??
-        value.timestampValue ??
-        value;
-    return o.toString();
-  }
-
-  static bool compareValues(Value a, Value b) {
-    var aStr = jsonEncode(a.toJson());
-    var bStr = jsonEncode(b.toJson());
-    return aStr.compareTo(bStr) == 0;
   }
 
   Future updateFromSdk() async {

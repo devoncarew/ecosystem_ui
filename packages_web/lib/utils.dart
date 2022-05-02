@@ -38,3 +38,26 @@ class YamlPrinter {
     }
   }
 }
+
+String relativeDateDays(DateTime date) {
+  final now = DateTime.now().toUtc();
+  final dateText = '${date.year}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
+
+  // today
+  var today = DateTime(now.year, now.month, now.day);
+  if (today.compareTo(now) > 0) {
+    return 'today ($dateText)';
+  }
+
+  // yesterday
+  var yesterday = DateTime(now.year, now.month, now.day - 1);
+  if (yesterday.compareTo(now) > 0) {
+    return 'yesterday ($dateText)';
+  }
+
+  // n days ago
+  int days = now.difference(date).inDays;
+  return '$days days ago ($dateText)';
+}

@@ -100,8 +100,17 @@ class DataModel {
         .snapshots()
         .listen((QuerySnapshot<SnapshotItems> snapshot) {
       _strobeBusy();
-      var result = snapshot.docs.map((doc) => doc.id).toList()..sort();
-      _publishers.value = result;
+      var publishers = snapshot.docs.map((doc) => doc.id).toList()..sort();
+
+      for (var pub in _defaultPublisherSortOrder.reversed) {
+        if (publishers.contains(pub)) {
+          publishers.remove(pub);
+          publishers.insert(0, pub);
+        }
+      }
+
+      // todo: sort order
+      _publishers.value = publishers;
     });
   }
 
@@ -426,6 +435,14 @@ class PackageInfo {
     return buffer.toString().trim();
   }
 
+  List<ValidationResult> validatePackage() {
+    return [
+      validateVersion(this),
+      validateMaintainers(this),
+      validateRepositoryInfo(this),
+    ].whereType<ValidationResult>().toList();
+  }
+
   @override
   bool operator ==(other) {
     return other is PackageInfo && other.name == name;
@@ -457,6 +474,15 @@ const _defaultPublishers = [
   'dart.dev',
   'tools.dart.dev',
   'labs.dart.dev',
+];
+
+// If these publishers are in the set we want to display, show them in this
+// order (roughly, the SLO order).
+const _defaultPublisherSortOrder = [
+  'dart.dev',
+  'flutter.dev',
+  'tools.dart.dev',
+  'google.dev',
 ];
 
 class Commit implements Comparable<Commit> {
@@ -495,6 +521,7 @@ class RepositoryInfo {
   final String? dependabotConfig;
   final String? actionsConfig;
   final String? actionsFile;
+  final Timestamp? lastCommitTimestamp;
 
   RepositoryInfo({
     required this.org,
@@ -502,6 +529,7 @@ class RepositoryInfo {
     required this.dependabotConfig,
     required this.actionsConfig,
     required this.actionsFile,
+    required this.lastCommitTimestamp,
   });
 
   String get repoName => '$org/$name';
@@ -518,6 +546,9 @@ class RepositoryInfo {
           data.containsKey('actionsConfig') ? doc.get('actionsConfig') : null,
       actionsFile:
           data.containsKey('actionsFile') ? doc.get('actionsFile') : null,
+      lastCommitTimestamp: data.containsKey('lastCommitTimestamp')
+          ? doc.get('lastCommitTimestamp')
+          : null,
     );
   }
 }

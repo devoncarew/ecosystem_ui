@@ -11,13 +11,19 @@ import 'package:url_launcher/url_launcher.dart' as url;
 import 'data_model.dart';
 import 'firebase_options.dart';
 import 'table.dart';
-import 'theme.dart';
 import 'utils.dart';
 
 // todo: flash some part of the screen when a package updates
 // todo: have a search / filter field
 // todo: google3 data
-// todo: remove some state objects?
+// todo: show days since last publish in the table?
+//       days since the first commit after the last publish?
+
+// todo: we should be tracking amount of unpublished work, and latency of
+//       unpublished work
+
+// todo: identify packages we're using (dep'ing into the sdk, using as a dep of
+//       a core package) which does not have a verified publisher
 
 // todo: dial back firestore notifications? do less work when we're notified?
 // it's a bit disruptive in the UI
@@ -167,6 +173,8 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
           unselectedLabelColor: Colors.white,
           labelColor: Colors.amber,
           tabs: [
+            // todo: the package counts are not updating when the # of packages
+            // in a publisher changes
             for (var publisher in widget.publishers)
               Tab(
                 text: '$publisher ('
@@ -539,6 +547,8 @@ class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
     final RepositoryInfo? repo =
         dataModel.getRepositoryForPackage(widget.package);
 
+    // todo: use a Divider widget
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       child: Container(
@@ -555,17 +565,10 @@ class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
                 child: TabBar(
                   indicatorColor: Theme.of(context).colorScheme.onSecondary,
                   controller: tabController,
-                  // Metadata, Pubspec, Analysis options, Commits
-                  // todo: add CI info
-                  // todo: add dependabot info
+                  // Metadata, Pubspec, Analysis options, Dependabot, Commits
                   tabs: [
                     Tab(text: 'package:${widget.package.name}'),
-                    const Tooltip(
-                      waitDuration: tooltipDelay,
-                      message:
-                          'Generated from pub.dev information at last publish',
-                      child: Tab(text: 'Pubspec'),
-                    ),
+                    const Tab(text: 'Pubspec'),
                     const Tab(text: 'Analysis options'),
                     const Tab(text: 'GitHub Actions'),
                     const Tab(text: 'Dependabot'),
@@ -580,24 +583,18 @@ class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
                     // Metadata
                     Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: PackageMetaInfo(package: widget.package),
+                      child:
+                          PackageMetaInfo(package: widget.package, repo: repo),
                     ),
                     // Pubspec
                     Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: SingleChildScrollView(
-                        child: Text(
-                          pubspecText,
-                          style: const TextStyle(fontFamily: 'RobotoMono'),
-                        ),
-                      ),
+                      child: PubspecInfoWidget(package: widget.package),
                     ),
                     // Analysis options
                     Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: AnalysisOptionsInfo(
-                        package: widget.package,
-                      ),
+                      child: AnalysisOptionsInfo(package: widget.package),
                     ),
                     // GitHub Actions
                     Padding(
@@ -623,44 +620,187 @@ class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
       ),
     );
   }
-
-  String get pubspecText {
-    var printer = const YamlPrinter();
-    return printer.print(widget.package.parsedPubspec);
-  }
 }
 
-class PackageMetaInfo extends StatelessWidget {
+class PubspecInfoWidget extends StatelessWidget {
   final PackageInfo package;
 
-  const PackageMetaInfo({
+  const PubspecInfoWidget({
     required this.package,
     Key? key,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Stack(children: [
-      OverlayButtons(
-        children: [
-          IconButton(
-            splashRadius: 20,
-            onPressed: package.repoUrl == null
-                ? null
-                : () => url.launchUrl(Uri.parse('${package.repoUrl}/issues')),
-            icon: const Icon(Icons.bug_report),
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        const OverlayButtons(
+          infoText: 'Information from last publish',
+          children: [],
+        ),
+        SingleChildScrollView(
+          child: Text(
+            _pubspecText,
+            style: const TextStyle(fontFamily: 'RobotoMono'),
           ),
-          IconButton(
-            splashRadius: 20,
-            onPressed: package.repository.isEmpty
-                ? null
-                : () => url.launchUrl(Uri.parse(package.repository)),
-            icon: const Icon(Icons.launch),
+        ),
+      ],
+    );
+  }
+
+  String get _pubspecText {
+    var printer = const YamlPrinter();
+    return printer.print(package.parsedPubspec);
+  }
+}
+
+class PackageMetaInfo extends StatelessWidget {
+  final PackageInfo package;
+  final RepositoryInfo? repo;
+
+  const PackageMetaInfo({
+    required this.package,
+    required this.repo,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'package:${package.name}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(_packageDescription),
+              const Divider(),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        _details('Maintainer', package.maintainer),
+                        const SizedBox(height: 8),
+                        _details('Publisher', package.publisher),
+                        const SizedBox(height: 8),
+                        _details('SDK constraint', _sdkConstraintDisplay),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        _details('Version', package.version.toString()),
+                        const SizedBox(height: 8),
+                        _details(
+                          'Last commit',
+                          repo == null || repo!.lastCommitTimestamp == null
+                              ? ''
+                              : relativeDateDays(
+                                  repo!.lastCommitTimestamp!.toDate()),
+                        ),
+                        const SizedBox(height: 8),
+                        _details(
+                          'Last published',
+                          relativeDateDays(package.published.toDate()),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Expanded(child: SizedBox()),
+                ],
+              ),
+              const Divider(),
+              ...package.validatePackage().map((validation) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        validation.icon,
+                        size: 20,
+                        color: validation.colorForSeverity.withAlpha(255),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(validation.message),
+                    ],
+                  ),
+                );
+              }),
+            ],
           ),
-        ],
-      ),
-      Text(package.debugDump()),
-    ]);
+        ),
+        OverlayButtons(
+          children: [
+            IconButton(
+              splashRadius: 20,
+              onPressed: () {
+                print('pressed');
+                url.launchUrl(
+                    Uri.parse('https://pub.dev/packages/${package.name}'));
+              },
+              // todo: use the dart icon
+              icon: const Icon(Icons.date_range),
+              tooltip: 'pub.dev',
+            ),
+            IconButton(
+              splashRadius: 20,
+              onPressed: package.repoUrl == null
+                  ? null
+                  : () => url.launchUrl(Uri.parse('${package.repoUrl}/issues')),
+              icon: const Icon(Icons.bug_report),
+              tooltip: 'Package issues',
+            ),
+            IconButton(
+              splashRadius: 20,
+              onPressed: package.repository.isEmpty
+                  ? null
+                  : () => url.launchUrl(Uri.parse(package.repository)),
+              icon: const Icon(Icons.launch),
+              tooltip: 'Package repo',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _details(String title, String value) {
+    return Row(
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 100),
+          child: Text(
+            '$title: ',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+        SelectableText(value),
+      ],
+    );
+  }
+
+  String get _packageDescription {
+    return package.parsedPubspec['description'] ?? '';
+  }
+
+  String get _sdkConstraintDisplay {
+    final dep = package.sdkDep;
+    if (dep == null) {
+      return '';
+    }
+    return dep.contains(' ') ? "'$dep'" : dep;
   }
 }
 
