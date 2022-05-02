@@ -1,9 +1,9 @@
 import 'package:googleapis/firestore/v1.dart';
 import 'package:googleapis_auth/auth_io.dart';
-import 'package:packages_cli/src/pub.dart';
-import 'package:packages_cli/src/sdk.dart';
 
 import 'github.dart';
+import 'pub.dart';
+import 'sdk.dart';
 import 'sheets.dart';
 import 'utils.dart';
 

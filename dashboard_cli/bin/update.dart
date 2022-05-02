@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:packages_cli/package_manager.dart';
+import 'package:dashboard_cli/package_manager.dart';
 import 'package:args/command_runner.dart';
 
 // todo: support sdk
