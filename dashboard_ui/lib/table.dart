@@ -345,6 +345,9 @@ class ValidationResult {
 
   ValidationResult(this.message, this.severity);
 
+  factory ValidationResult.error(String message) =>
+      ValidationResult(message, Severity.error);
+
   IconData get icon {
     switch (severity) {
       case Severity.info:

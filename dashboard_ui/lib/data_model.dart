@@ -32,12 +32,11 @@ class DataModel {
     // Start the process of loading other data, but don't delay startup (don't
     // wait on the results).
     () async {
-      // todo: read sdk data
-      // todo: read repository data
       // todo: read google3 data
       await _initPackagesData();
       await _initChangelog();
       await _initRepositories();
+      await _initSdkDeps();
     }();
   }
 
@@ -114,6 +113,27 @@ class DataModel {
     });
   }
 
+  ValueListenable<List<SdkDep>> get sdkDependencies => _sdkDependencies;
+  final ValueNotifier<List<SdkDep>> _sdkDependencies = ValueNotifier([]);
+
+  Future _initSdkDeps() async {
+    FirebaseFirestore.instance
+        .collection('sdk_deps')
+        //.orderBy('timestamp', descending: true)
+        .snapshots()
+        .listen((QuerySnapshot<SnapshotItems> snapshot) {
+      _strobeBusy();
+      var result = snapshot.docs.map((item) {
+        return SdkDep(
+          name: item.get('name'),
+          commit: item.get('commit'),
+          repository: item.get('repository'),
+        );
+      }).toList();
+      _sdkDependencies.value = result;
+    });
+  }
+
   /// todo: doc
   ValueListenable<List<RepositoryInfo>> get repositories => _repositories;
   final ValueNotifier<List<RepositoryInfo>> _repositories = ValueNotifier([]);
@@ -122,6 +142,13 @@ class DataModel {
     return repositories.value.firstWhereOrNull((repo) {
       return repo.org == package.gitOrgName && repo.name == package.gitRepoName;
     });
+  }
+
+  List<PackageInfo> getAllPackagesForRepo(String repoUrl) {
+    return _publisherNotifiers.values
+        .expand((element) => element.value)
+        .where((p) => p.repoUrl == repoUrl)
+        .toList();
   }
 
   Future _initRepositories() async {
@@ -207,12 +234,13 @@ class PackageInfo {
   final String publisher;
   final String maintainer;
   final String repository;
+  final String? issueTracker;
   final Version version;
   final bool discontinued;
   final bool unlisted;
   final String pubspec;
   final String? analysisOptions;
-  final Timestamp published;
+  final Timestamp publishedDate;
 
   // todo: monorepo?
   // todo: repoPath
@@ -227,13 +255,16 @@ class PackageInfo {
       publisher: data['publisher'],
       maintainer: maintainer,
       repository: data['repository'],
+      issueTracker:
+          data.containsKey('issueTracker') ? data['issueTracker'] : null,
       version: Version.parse(data['version']),
       discontinued: data['discontinued'],
       unlisted: data['unlisted'],
       pubspec: data['pubspec'],
       analysisOptions:
           data.containsKey('analysisOptions') ? data['analysisOptions'] : null,
-      published: data['published'] ?? Timestamp.fromMillisecondsSinceEpoch(0),
+      publishedDate:
+          data['publishedDate'] ?? Timestamp.fromMillisecondsSinceEpoch(0),
     );
   }
 
@@ -242,12 +273,13 @@ class PackageInfo {
     required this.publisher,
     required this.maintainer,
     required this.repository,
+    required this.issueTracker,
     required this.version,
     required this.discontinued,
     required this.unlisted,
     required this.pubspec,
     required this.analysisOptions,
-    required this.published,
+    required this.publishedDate,
   });
 
   String? get sdkDep => (parsedPubspec['environment'] ?? const {})['sdk'];
@@ -415,7 +447,7 @@ class PackageInfo {
     if (unlisted) {
       buffer.writeln('unlisted');
     }
-    buffer.writeln('published: ${published.toDate().toIso8601String()}');
+    buffer.writeln('published: ${publishedDate.toDate().toIso8601String()}');
 
     buffer.writeln();
 
@@ -551,4 +583,19 @@ class RepositoryInfo {
           : null,
     );
   }
+}
+
+class SdkDep {
+  final String name;
+  final String commit;
+  final String repository;
+
+  SdkDep({
+    required this.name,
+    required this.commit,
+    required this.repository,
+  });
+
+  @override
+  String toString() => '$repository $commit';
 }

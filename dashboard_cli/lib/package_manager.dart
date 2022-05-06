@@ -21,7 +21,55 @@ class PackageManager {
     await firestore.setup();
   }
 
-  Future updateFromPub() async {
+  Future updateHealthStats() async {
+    // sdk stats
+    DateTime timestampUtc = DateTime.now().toUtc();
+    print('updating sdk stats...');
+    final sdkDeps = await firestore.getSdkDependencies();
+    await firestore.logStat(
+      category: 'sdk',
+      stat: 'depsCount',
+      value: sdkDeps.length,
+      timestampUtc: timestampUtc,
+    );
+
+    // publisher stats
+    print('updating package stats...');
+    timestampUtc = DateTime.now().toUtc();
+    final publishers = await firestore.queryPublishers();
+
+    // todo: get all package info?
+
+    for (var publisher in publishers) {
+      print('  $publisher');
+
+      // todo: query firestore here...
+      final packages = await pub.packagesForPublisher(
+        publisher,
+        includeHidden: false,
+      );
+
+      // number of packages
+      await firestore.logStat(
+        category: 'publisher.packageCount',
+        stat: publisher,
+        value: packages.length,
+        timestampUtc: timestampUtc,
+      );
+
+      // // unowned packages
+      // await firestore.logStat(
+      //   category: 'publisher.unownedCount',
+      //   stat: publisher,
+      //   value: packages.where((p) => p.owner.isEmpty).length,
+      //   timestampUtc: timestampUtc,
+      // );
+    }
+
+    // todo: publish latency stats
+  }
+
+  Future updateAllPublisherPackages() async {
     final publishers = await firestore.queryPublishers();
     print('publishers info from firebase:');
     print('  $publishers');

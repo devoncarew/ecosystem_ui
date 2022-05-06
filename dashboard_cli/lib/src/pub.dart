@@ -14,9 +14,13 @@ class Pub {
     );
   }
 
-  Future<List<String>> packagesForPublisher(String publisherName) async {
+  Future<List<String>> packagesForPublisher(
+    String publisherName, {
+    bool includeHidden = true,
+  }) async {
+    var showHidden = includeHidden ? '+show:hidden' : '';
     List<String> result =
-        await _packagesForSearch('publisher:$publisherName+show:hidden')
+        await _packagesForSearch('publisher:$publisherName$showHidden')
             .toList();
     result.sort();
     return result;
@@ -108,6 +112,7 @@ class PackageInfo {
   String get version => _latest['version'];
   String? get repository => _pubspec['repository'];
   String? get homepage => _pubspec['homepage'];
+  String? get issueTracker => _pubspec['issue_tracker'];
   String? get published => _latest['published'];
 
   late final Map<String, dynamic> _latest = json['latest'];

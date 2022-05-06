@@ -23,6 +23,8 @@ class Github {
           'environment variable.';
     }
 
+    // print("env['GITHUB_TOKEN']=$token");
+
     final auth = AuthLink(getToken: () async => 'Bearer $token');
     return GraphQLClient(
       cache: GraphQLCache(),
@@ -78,6 +80,8 @@ class Github {
     required String afterTimestamp,
   }) async {
     final DateTime afterTime = DateTime.parse(afterTimestamp);
+
+    // https://docs.github.com/en/graphql/reference/objects#commit
 
     // history parameter:
     // path: String

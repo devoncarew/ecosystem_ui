@@ -1,3 +1,5 @@
+import 'dart:io' as io;
+
 import 'package:googleapis/firestore/v1.dart';
 import 'package:googleapis_auth/auth_io.dart';
 
@@ -18,6 +20,10 @@ class Firestore {
   Future setup() async {
     // Set the GOOGLE_APPLICATION_CREDENTIALS env var to the path containing the
     // cloud console service account key.
+
+    print("env['GOOGLE_APPLICATION_CREDENTIALS']="
+        "${io.Platform.environment['GOOGLE_APPLICATION_CREDENTIALS']}");
+
     _client = await clientViaApplicationDefaultCredentials(
       scopes: [FirestoreApi.datastoreScope],
     );
@@ -133,13 +139,14 @@ class Firestore {
         'publisher': valueStr(publisher),
         'version': valueStr(packageInfo.version),
         'repository': valueStr(repository ?? ''),
+        'issueTracker': valueStr(packageInfo.issueTracker ?? ''),
         'discontinued': valueBool(packageInfo.isDiscontinued),
         'unlisted': valueBool(packageInfo.isUnlisted),
         'pubspec': valueStr(packageInfo.encodedPubspec),
         if (analysisOptions != null)
           'analysisOptions': valueStr(analysisOptions),
         if (packageInfo.published != null)
-          'published': Value(timestampValue: packageInfo.published),
+          'publishedDate': Value(timestampValue: packageInfo.published),
       },
     );
 
@@ -170,6 +177,27 @@ class Firestore {
 
     // todo: handle error conditions
     await documents.createDocument(doc, documentsPath, 'log');
+  }
+
+  Future logStat({
+    required String category,
+    required String stat,
+    required int value,
+    DateTime? timestampUtc,
+  }) async {
+    timestampUtc ??= DateTime.now().toUtc();
+
+    final Document doc = Document(
+      fields: {
+        'category': valueStr(category),
+        'stat': valueStr(stat),
+        'value': valueInt(value),
+        'timestamp': Value(timestampValue: timestampUtc.toIso8601String()),
+      },
+    );
+
+    // todo: handle error conditions
+    await documents.createDocument(doc, documentsPath, 'stats');
   }
 
   Future<Map<String, Value>?> getRepoInfo(String repoPath) async {
@@ -226,7 +254,7 @@ class Firestore {
       ..removeAll(currentDeps);
     for (var dep in newDeps) {
       print('  adding $dep');
-      await log(entity: 'SDK dependency', change: 'added $dep');
+      await log(entity: 'sdk_dep', change: 'added $dep');
     }
 
     // Remove any repos which are no longer deps.
@@ -235,7 +263,7 @@ class Firestore {
     for (var dep in oldDeps) {
       print('  removing $dep');
       await documents.delete(getDocumentName('sdk_deps', dep));
-      await log(entity: 'SDK dependency', change: 'removing $dep');
+      await log(entity: 'sdk_dep', change: 'removing $dep');
     }
   }
 
@@ -345,7 +373,7 @@ class Firestore {
         if (updatedFields.keys.contains(field) &&
             !compareValues(existingInfo[field]!, updatedFields[field]!)) {
           log(
-            entity: 'SDK dep: ${dependency.name}',
+            entity: 'sdk_dep package:${dependency.name}',
             change: '$field => ${printValue(updatedFields[field]!)}',
           );
         }
@@ -360,3 +388,4 @@ class Config {
 
 Value valueStr(String value) => Value(stringValue: value);
 Value valueBool(bool value) => Value(booleanValue: value);
+Value valueInt(int value) => Value(integerValue: value.toString());

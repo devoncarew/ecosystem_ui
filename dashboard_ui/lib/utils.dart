@@ -39,25 +39,29 @@ class YamlPrinter {
   }
 }
 
-String relativeDateDays(DateTime date) {
+String relativeDateInDays({
+  required DateTime dateUtc,
+  bool short = false,
+}) {
   final now = DateTime.now().toUtc();
-  final dateText = '${date.year}-'
-      '${date.month.toString().padLeft(2, '0')}-'
-      '${date.day.toString().padLeft(2, '0')}';
+  final hourToday = DateTime.now().hour;
+  final dateText = '${dateUtc.year}-'
+      '${dateUtc.month.toString().padLeft(2, '0')}-'
+      '${dateUtc.day.toString().padLeft(2, '0')}';
+
+  var hoursDiff = now.difference(dateUtc).inHours;
 
   // today
-  var today = DateTime(now.year, now.month, now.day);
-  if (today.compareTo(now) > 0) {
-    return 'today ($dateText)';
+  if (hoursDiff <= hourToday) {
+    return short ? 'today' : 'today ($dateText)';
   }
 
   // yesterday
-  var yesterday = DateTime(now.year, now.month, now.day - 1);
-  if (yesterday.compareTo(now) > 0) {
-    return 'yesterday ($dateText)';
+  if (hoursDiff <= (hourToday + 24)) {
+    return short ? 'yesterday' : 'yesterday ($dateText)';
   }
 
   // n days ago
-  int days = now.difference(date).inDays;
-  return '$days days ago ($dateText)';
+  var days = (hoursDiff / 24.0).round();
+  return short ? '$days days' : '$days days ago ($dateText)';
 }

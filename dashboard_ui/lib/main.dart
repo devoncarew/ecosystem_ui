@@ -13,20 +13,19 @@ import 'firebase_options.dart';
 import 'table.dart';
 import 'utils.dart';
 
-// todo: flash some part of the screen when a package updates
+// todo: make sure the UI is updating when we get new package info
 // todo: have a search / filter field
 // todo: google3 data
 // todo: show days since last publish in the table?
-//       days since the first commit after the last publish?
+//       days of unpublished work?
 
 // todo: we should be tracking amount of unpublished work, and latency of
 //       unpublished work
 
 // todo: identify packages we're using (dep'ing into the sdk, using as a dep of
-//       a core package) which does not have a verified publisher
+//       a core package) which are not from a verified publisher
 
-// todo: dial back firestore notifications? do less work when we're notified?
-// it's a bit disruptive in the UI
+// todo: have a toggle to hide discontinued
 
 const String appName = 'Package Dashboard';
 
@@ -76,6 +75,7 @@ class _PackagesAppState extends State<PackagesApp> {
     return MaterialApp(
       title: appName,
       theme: ThemeData(primarySwatch: Colors.blue),
+      debugShowCheckedModeBanner: false,
       home: firestore == null
           ? const LoadingScreen()
           : MultiProvider(
@@ -141,32 +141,31 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       appBar: AppBar(
         title: const Text(appName),
         actions: [
-          ValueListenableBuilder<bool>(
-            valueListenable: dataModel.busy,
-            builder: (BuildContext context, bool busy, _) {
-              return Center(
-                child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: busy
-                      ? const CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        )
-                      : null,
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.bug_report),
-            splashRadius: 20,
-            tooltip: 'Send feedback',
-            onPressed: () {
-              url.launchUrl(
-                Uri.parse('https://github.com/dart-lang/repo_manager/issues'),
-              );
-            },
+          Row(
+            children: [
+              const SizedBox(width: 16),
+              // todo:
+              // const SearchField(),
+              const SizedBox(width: 16),
+              ValueListenableBuilder<bool>(
+                valueListenable: dataModel.busy,
+                builder: (BuildContext context, bool busy, _) {
+                  return Center(
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: busy
+                          ? const CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            )
+                          : null,
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 16),
+            ],
           ),
         ],
         bottom: TabBar(
@@ -206,7 +205,19 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.table_chart),
+              leading: Image.asset(
+                'resources/images/dart_logo_128.png',
+                width: 20,
+              ),
+              title: const Text('SDK Dependencies'),
+              onTap: () {
+                Navigator.pop(context);
+                _showSDKDepsDialog(dataModel);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.dashboard),
               title: const Text('Recent changes'),
               onTap: () {
                 Navigator.pop(context);
@@ -216,6 +227,105 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
           ],
         ),
       ),
+    );
+  }
+
+  void _showSDKDepsDialog(DataModel dataModel) {
+    const gitDeps = {
+      'https://github.com/dart-lang/http_io',
+      'https://github.com/dart-lang/pub',
+      'https://github.com/dart-lang/web_components',
+    };
+
+    // get sdk deps
+    List<SdkDep> sdkDeps = dataModel.sdkDependencies.value;
+
+    // find all the implied packages
+    List<PackageRepoDep> deps = [];
+
+    for (var sdkDep in sdkDeps) {
+      final repository = sdkDep.repository;
+      final packages = dataModel.getAllPackagesForRepo(repository);
+
+      if (packages.isEmpty) {
+        if (!gitDeps.contains(repository)) {
+          // Assume the package name is the last part of the repo url.
+          deps.add(PackageRepoDep(
+            packageName: repository.substring(repository.lastIndexOf('/') + 1),
+            commit: sdkDep.commit,
+            repoUrl: repository,
+          ));
+        }
+      } else {
+        for (var package in packages) {
+          deps.add(PackageRepoDep(
+            packageName: package.name,
+            packagePublisher: package.publisher,
+            commit: sdkDep.commit,
+            repoUrl: repository,
+          ));
+        }
+      }
+    }
+
+    // show the table
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return LargeDialog(
+          title: 'SDK Dependencies',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '${sdkDeps.length} repos, ${deps.length} packages',
+                textAlign: TextAlign.end,
+              ),
+              Expanded(
+                child: VTable<PackageRepoDep>(
+                  items: deps,
+                  columns: [
+                    VTableColumn(
+                      label: 'Package',
+                      width: 125,
+                      grow: 0.2,
+                      transformFunction: (dep) => dep.packageName ?? '',
+                    ),
+                    VTableColumn(
+                      label: 'Publisher',
+                      width: 125,
+                      grow: 0.2,
+                      transformFunction: (dep) => dep.packagePublisher ?? '',
+                      validators: [
+                        (dep) {
+                          return dep.packagePublisher == null
+                              ? ValidationResult.error('unverified publisher')
+                              : null;
+                        },
+                      ],
+                    ),
+                    VTableColumn(
+                      label: 'Commit',
+                      width: 75,
+                      grow: 0.2,
+                      transformFunction: (dep) => dep.commit.substring(1, 10),
+                    ),
+                    VTableColumn(
+                      label: 'Repo',
+                      width: 275,
+                      grow: 0.2,
+                      transformFunction: (dep) => dep.repoUrl,
+                      renderFunction: (BuildContext context, dep) {
+                        return Hyperlink(url: dep.repoUrl);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -263,6 +373,32 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
           ),
         );
       },
+    );
+  }
+}
+
+class SearchField extends StatelessWidget {
+  const SearchField({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 125,
+      height: 36,
+      child: TextField(
+        cursorColor: Colors.grey,
+        decoration: InputDecoration(
+          fillColor: Colors.white,
+          filled: true,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide.none,
+          ),
+          hintText: 'Search',
+          hintStyle: const TextStyle(color: Colors.grey, fontSize: 18),
+          prefixIcon: const Icon(Icons.search),
+        ),
+      ),
     );
   }
 }
@@ -398,6 +534,18 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
             PackageInfo.validateMaintainers,
           ],
         ),
+        // TODO: this should show the time since the first commit after the
+        // last publish happened.
+        VTableColumn<PackageInfo>(
+          label: 'Pub δ',
+          width: 80,
+          alignment: Alignment.centerRight,
+          transformFunction: (package) => relativeDateInDays(
+            dateUtc: package.publishedDate.toDate(),
+            short: true,
+          ),
+          compareFunction: (a, b) => a.publishedDate.compareTo(b.publishedDate),
+        ),
         VTableColumn<PackageInfo>(
           label: 'Repository',
           width: 250,
@@ -418,6 +566,15 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
             PackageInfo.validateRepositoryInfo,
           ],
         ),
+        // todo: show the # of unpublished commits?
+        // VTableColumn<PackageInfo>(
+        //   label: 'Git #',
+        //   width: 50,
+        //   alignment: Alignment.centerRight,
+        //   transformFunction: (package) => '50', // todo:
+        //   // todo:
+        //   compareFunction: (a, b) => a.published.compareTo(b.published),
+        // ),
       ],
     );
   }
@@ -707,13 +864,16 @@ class PackageMetaInfo extends StatelessWidget {
                           'Last commit',
                           repo == null || repo!.lastCommitTimestamp == null
                               ? ''
-                              : relativeDateDays(
-                                  repo!.lastCommitTimestamp!.toDate()),
+                              : relativeDateInDays(
+                                  dateUtc: repo!.lastCommitTimestamp!.toDate(),
+                                ),
                         ),
                         const SizedBox(height: 8),
                         _details(
                           'Last published',
-                          relativeDateDays(package.published.toDate()),
+                          relativeDateInDays(
+                            dateUtc: package.publishedDate.toDate(),
+                          ),
                         ),
                       ],
                     ),
@@ -746,12 +906,10 @@ class PackageMetaInfo extends StatelessWidget {
             IconButton(
               splashRadius: 20,
               onPressed: () {
-                print('pressed');
                 url.launchUrl(
                     Uri.parse('https://pub.dev/packages/${package.name}'));
               },
-              // todo: use the dart icon
-              icon: const Icon(Icons.date_range),
+              icon: Image.asset('resources/images/dart_logo_128.png'),
               tooltip: 'pub.dev',
             ),
             IconButton(
@@ -1118,4 +1276,18 @@ class _PackageCommitViewState extends State<PackageCommitView> {
       },
     );
   }
+}
+
+class PackageRepoDep {
+  final String? packageName;
+  final String? packagePublisher;
+  final String commit;
+  final String repoUrl;
+
+  PackageRepoDep({
+    this.packageName,
+    this.packagePublisher,
+    required this.commit,
+    required this.repoUrl,
+  });
 }

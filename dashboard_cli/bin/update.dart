@@ -30,6 +30,7 @@ class UpdateRunner extends CommandRunner<int> {
     addCommand(SdkCommand());
     addCommand(RepositoriesCommand());
     addCommand(SheetsCommand());
+    addCommand(StatsCommand());
   }
 }
 
@@ -38,18 +39,53 @@ class PackagesCommand extends Command<int> {
   final String name = 'packages';
 
   @override
+  List<String> get aliases => const ['pub'];
+
+  @override
   final String description = 'Update information sourced from pub.dev.';
 
   PackagesCommand() {
     // todo: argsparser - allow for just updating specific publishers, packages,
     // ...
+    argParser.addMultiOption(
+      'publisher',
+      valueHelp: 'publisher',
+      help: 'Just update the info for the given publisher(s).',
+    );
   }
+
+  @override
+  Future<int> run() async {
+    List<String> specificPublishers = argResults!['publisher'];
+
+    PackageManager packageManager = PackageManager();
+    await packageManager.setup();
+    if (specificPublishers.isEmpty) {
+      await packageManager.updateAllPublisherPackages();
+    } else {
+      for (var publisher in specificPublishers) {
+        await packageManager.updatePublisherPackages(publisher);
+      }
+    }
+    await packageManager.close();
+    return 0;
+  }
+}
+
+class StatsCommand extends Command<int> {
+  @override
+  final String name = 'stats';
+
+  @override
+  final String description = 'Calculate and update daily package stats.';
+
+  StatsCommand();
 
   @override
   Future<int> run() async {
     PackageManager packageManager = PackageManager();
     await packageManager.setup();
-    await packageManager.updateFromPub();
+    await packageManager.updateHealthStats();
     await packageManager.close();
     return 0;
   }
@@ -61,7 +97,7 @@ class RepositoriesCommand extends Command<int> {
   final String name = 'repositories';
 
   @override
-  List<String> get aliases => const ['repos'];
+  List<String> get aliases => const ['repo', 'repos'];
 
   @override
   final String description =
