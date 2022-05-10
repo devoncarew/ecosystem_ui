@@ -4,13 +4,13 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:yaml/yaml.dart' as yaml;
 import 'package:pub_semver/pub_semver.dart';
 import 'package:collection/collection.dart';
 
-import 'table.dart';
+import '../ui/table.dart';
 
 typedef SnapshotItems = Map<String, dynamic>;
 
@@ -88,6 +88,9 @@ class DataModel {
 
   final Map<String, ValueNotifier<List<PackageInfo>>> _publisherNotifiers = {};
 
+  ValueListenable<List<PackageInfo>> get packages => _packages;
+  final ValueNotifier<List<PackageInfo>> _packages = ValueNotifier([]);
+
   /// todo: doc
   ValueListenable<List<LogItem>> get changeLogItems => _changeLogItems;
   final ValueNotifier<List<LogItem>> _changeLogItems = ValueNotifier([]);
@@ -144,13 +147,6 @@ class DataModel {
     });
   }
 
-  List<PackageInfo> getAllPackagesForRepo(String repoUrl) {
-    return _publisherNotifiers.values
-        .expand((element) => element.value)
-        .where((p) => p.repoUrl == repoUrl)
-        .toList();
-  }
-
   Future _initRepositories() async {
     firestore
         .collection('repositories')
@@ -174,17 +170,21 @@ class DataModel {
       Map<String, List<PackageInfo>> packageMap = {};
 
       // todo: try doing a deep compare here
+      List<PackageInfo> allPackages = [];
 
       for (var data in snapshot.docs) {
         var package = PackageInfo.from(data);
         packageMap.putIfAbsent(package.publisher, () => []);
         packageMap[package.publisher]!.add(package);
+        allPackages.add(package);
       }
 
       for (var publisher in packageMap.keys) {
         _publisherNotifiers.putIfAbsent(publisher, () => ValueNotifier([]));
         _publisherNotifiers[publisher]!.value = packageMap[publisher]!;
       }
+
+      _packages.value = allPackages;
 
       _loading.value = false;
     });
@@ -329,6 +329,27 @@ class PackageInfo {
     } else {
       return path;
     }
+  }
+
+  static TextStyle? getDisplayStyle(PackageInfo package) {
+    const discontinuedStyle = TextStyle(color: Colors.grey);
+    const unlistedStyle = TextStyle(fontStyle: FontStyle.italic);
+
+    if (package.discontinued) {
+      return discontinuedStyle;
+    }
+    return package.unlisted ? unlistedStyle : null;
+  }
+
+  static String getPublisherDisplayName(PackageInfo package) {
+    String publisher = package.publisher;
+    if (package.discontinued) {
+      publisher += ' (discontinued)';
+    }
+    if (package.unlisted) {
+      publisher += ' (unlisted)';
+    }
+    return publisher;
   }
 
   static final _version100 = Version.parse('1.0.0');

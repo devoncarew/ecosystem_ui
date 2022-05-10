@@ -4,6 +4,12 @@ import 'theme.dart';
 
 // todo: try adding keys
 
+// todo: support overview text (on the top left)
+
+// todo: support additional actions (at the top right)
+
+// todo: support copy csv to the clipboard
+
 typedef OnTap<T> = void Function(T object);
 
 class VTable<T> extends StatefulWidget {
@@ -347,6 +353,9 @@ class ValidationResult {
 
   factory ValidationResult.error(String message) =>
       ValidationResult(message, Severity.error);
+
+  factory ValidationResult.warning(String message) =>
+      ValidationResult(message, Severity.warning);
 
   IconData get icon {
     switch (severity) {
