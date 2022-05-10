@@ -1,12 +1,24 @@
+import 'package:dashboard_ui/ui/widgets.dart';
 import 'package:flutter/material.dart';
 
 import '../model/data_model.dart';
 import '../ui/table.dart';
 
-class ChangelogPage extends StatelessWidget {
+class ChangelogPage extends NavPage {
   final DataModel dataModel;
 
-  const ChangelogPage({
+  ChangelogPage(this.dataModel) : super('Changes');
+
+  @override
+  Widget createChild(BuildContext context, {Key? key}) {
+    return _ChangelogPage(dataModel: dataModel, key: key);
+  }
+}
+
+class _ChangelogPage extends StatelessWidget {
+  final DataModel dataModel;
+
+  const _ChangelogPage({
     required this.dataModel,
     Key? key,
   }) : super(key: key);

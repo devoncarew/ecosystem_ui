@@ -107,6 +107,10 @@ class LoadingScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text(appName),
+        bottom: const PreferredSize(
+          preferredSize: Size(46, 46),
+          child: SizedBox(),
+        ),
       ),
       body: const Center(
         child: CircularProgressIndicator(),
@@ -152,5 +156,29 @@ class LargeDialog extends StatelessWidget {
         ],
       );
     });
+  }
+}
+
+abstract class NavPage {
+  final String title;
+
+  NavPage(this.title);
+
+  int? get tabPages => null;
+
+  PreferredSizeWidget? createBottomBar(BuildContext context) => null;
+
+  Widget createChild(BuildContext context, {Key? key});
+}
+
+class TempPage extends NavPage {
+  TempPage(String name) : super('Temp page $name');
+
+  @override
+  Widget createChild(BuildContext context, {Key? key}) {
+    return Center(
+      child: Text(title),
+      key: key,
+    );
   }
 }

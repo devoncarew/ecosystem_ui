@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'model/data_model.dart';
 import 'pages/changelog_page.dart';
+import 'pages/pub_page.dart';
 import 'pages/sdk_page.dart';
 import 'ui/widgets.dart';
 import 'utils/constants.dart';
@@ -70,69 +71,80 @@ class _PackagesAppState extends State<PackagesApp> {
 
   @override
   Widget build(BuildContext context) {
+    final child = firestore == null
+        ? const LoadingScreen()
+        : MultiProvider(
+            providers: [
+              Provider<FirebaseFirestore>(create: (_) => firestore!),
+              Provider<DataModel>(create: (_) => dataModel!)
+            ],
+            child: ScaffoldContainer(dataModel: dataModel!),
+          );
+
     return MaterialApp(
       title: appName,
       theme: ThemeData(primarySwatch: Colors.blue),
       debugShowCheckedModeBanner: false,
-      home: firestore == null
-          ? const LoadingScreen()
-          : MultiProvider(
-              providers: [
-                Provider<FirebaseFirestore>(create: (_) => firestore!),
-                Provider<DataModel>(create: (_) => dataModel!)
-              ],
-              child: ValueListenableBuilder<List<String>>(
-                valueListenable: dataModel!.publishers,
-                builder: (context, List<String> publishers, _) {
-                  return NavigationRailContainer(dataModel: dataModel!);
-                },
-              ),
-            ),
+      home: child,
     );
   }
 }
 
-class NavigationRailContainer extends StatefulWidget {
+class ScaffoldContainer extends StatefulWidget {
   final DataModel dataModel;
 
-  const NavigationRailContainer({
+  const ScaffoldContainer({
     required this.dataModel,
     Key? key,
   }) : super(key: key);
 
   @override
-  State<NavigationRailContainer> createState() =>
-      _NavigationRailContainerState();
+  State<ScaffoldContainer> createState() => _ScaffoldContainerState();
 }
 
-class _NavigationRailContainerState extends State<NavigationRailContainer> {
-  int _selectedIndex = 0;
+enum PageTypes {
+  packages,
+  sdk,
+  google3,
+  changes,
+}
+
+class _ScaffoldContainerState extends State<ScaffoldContainer> {
+  PageTypes selectedPageType = PageTypes.packages;
 
   @override
   Widget build(BuildContext context) {
-    late Widget page;
+    return ValueListenableBuilder<List<String>>(
+      valueListenable: widget.dataModel.publishers,
+      builder: (context, publishers, _) {
+        return _build(context, publishers);
+      },
+    );
+  }
 
-    switch (_selectedIndex) {
-      case 0:
-        page = const Text('todo: pub');
+  Widget _build(BuildContext context, List<String> publishers) {
+    late NavPage page;
+
+    switch (selectedPageType) {
+      case PageTypes.packages:
+        page = PackagesPage(publishers: publishers);
         break;
-      case 1:
-        page = const Text('todo: repos');
+      case PageTypes.sdk:
+        page = SDKPage(widget.dataModel);
         break;
-      case 2:
-        page = SDKPage(dataModel: widget.dataModel);
+      case PageTypes.google3:
+        page = TempPage('google3');
         break;
-      case 3:
-        page = const Text('todo: google3');
-        break;
-      case 4:
-        page = ChangelogPage(dataModel: widget.dataModel);
+      case PageTypes.changes:
+        page = ChangelogPage(widget.dataModel);
         break;
     }
 
-    return Scaffold(
+    final theme = Theme.of(context);
+
+    final scaffold = Scaffold(
       appBar: AppBar(
-        title: const Text(appName),
+        title: Text('$appName - ${page.title}'),
         actions: [
           Row(
             children: [
@@ -159,55 +171,75 @@ class _NavigationRailContainerState extends State<NavigationRailContainer> {
             ],
           ),
         ],
+        bottom: page.createBottomBar(context) ??
+            const PreferredSize(
+              preferredSize: Size(46, 46),
+              child: SizedBox(),
+            ),
       ),
-      body: Row(children: [
-        NavigationRail(
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: (int index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-          },
-          labelType: NavigationRailLabelType.all,
-          destinations: const <NavigationRailDestination>[
-            NavigationRailDestination(
-              icon: Icon(Icons.newspaper),
-              label: Text('Pub'),
+      body: AnimatedSwitcher(
+        duration: kThemeAnimationDuration,
+        child: page.createChild(context, key: ValueKey(selectedPageType)),
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(color: theme.colorScheme.secondary),
+              child: Text(
+                'Drawer Header',
+                style: theme.textTheme.titleLarge!.copyWith(
+                  color: theme.colorScheme.onSecondary,
+                ),
+              ),
             ),
-            NavigationRailDestination(
-              icon: Icon(Icons.filter_hdr),
-              label: Text('Repositories'),
+            ListTile(
+              leading: const Icon(Icons.home),
+              title: const Text('Packages'),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => selectedPageType = PageTypes.packages);
+              },
             ),
-            NavigationRailDestination(
-              icon: Icon(Icons.list_alt),
-              label: Text('SDK'),
+            ListTile(
+              leading: const Icon(Icons.train),
+              title: const Text('SDK'),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => selectedPageType = PageTypes.sdk);
+              },
             ),
-            NavigationRailDestination(
-              icon: Icon(Icons.dashboard),
-              label: Text('Google3'),
+            ListTile(
+              leading: const Icon(Icons.train),
+              title: const Text('Google3'),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => selectedPageType = PageTypes.google3);
+              },
             ),
-            // todo: separator
-            NavigationRailDestination(
-              icon: Icon(Icons.insert_chart_outlined_outlined),
-              label: Text('Changelog'),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.train),
+              title: const Text('Changes'),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => selectedPageType = PageTypes.changes);
+              },
             ),
           ],
         ),
-        const VerticalDivider(thickness: 1, width: 1),
-        Expanded(
-          child: AnimatedSwitcher(
-            // todo: use a transitionBuilder
-            // transitionBuilder: slideTransitionBuilder,
-            duration: kThemeAnimationDuration,
-            child: page,
-          ),
-        )
-      ]),
+      ),
     );
-  }
 
-  // static Widget slideTransitionBuilder(
-  //     Widget child, Animation<double> animation) {
-  //   return SlideTransition(position: null,);
-  // }
+    int? tabPages = page.tabPages;
+    if (tabPages == null) {
+      return scaffold;
+    } else {
+      return DefaultTabController(
+        length: tabPages,
+        child: scaffold,
+      );
+    }
+  }
 }

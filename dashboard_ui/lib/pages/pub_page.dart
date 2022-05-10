@@ -3,107 +3,76 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart' as url;
 
-import '../utils/constants.dart';
 import '../model/data_model.dart';
 import '../ui/table.dart';
-import '../utils/utils.dart';
 import '../ui/widgets.dart';
+import '../utils/utils.dart';
 
-class PubPage extends StatefulWidget {
+class PackagesPage extends NavPage {
   final List<String> publishers;
 
-  const PubPage({
+  PackagesPage({
+    required this.publishers,
+  }) : super('Packages');
+
+  @override
+  int? get tabPages => publishers.length;
+
+  @override
+  PreferredSizeWidget? createBottomBar(BuildContext context) {
+    return TabBar(
+      // unselectedLabelColor: Colors.white,
+      // labelColor: Colors.amber,
+      tabs: [
+        for (var publisher in publishers) Tab(text: publisher),
+      ],
+    );
+  }
+
+  @override
+  Widget createChild(BuildContext context, {Key? key}) {
+    return _PubPage(
+      publishers: publishers,
+      key: key,
+    );
+  }
+}
+
+class _PubPage extends StatefulWidget {
+  final List<String> publishers;
+
+  const _PubPage({
     required this.publishers,
     Key? key,
   }) : super(key: key);
 
   @override
-  State<PubPage> createState() => _PubPageState();
+  State<_PubPage> createState() => _PubPageState();
 }
 
-class _PubPageState extends State<PubPage> with TickerProviderStateMixin {
-  late TabController tabController;
+class _PubPageState extends State<_PubPage> {
+  // @override
+  // void didUpdateWidget(covariant PubPage oldWidget) {
+  //   super.didUpdateWidget(oldWidget);
 
-  @override
-  void initState() {
-    super.initState();
-
-    tabController = TabController(
-      length: widget.publishers.length,
-      vsync: this,
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant PubPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    tabController.dispose();
-    tabController = TabController(
-      length: widget.publishers.length,
-      initialIndex: tabController.index,
-      vsync: this,
-    );
-  }
+  //   tabController.dispose();
+  //   tabController = TabController(
+  //     length: widget.publishers.length,
+  //     initialIndex: tabController.index,
+  //     vsync: this,
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {
-    final dataModel = DataModel.of(context);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(appName),
-        actions: [
-          Row(
-            children: [
-              const SizedBox(width: 16),
-              const SizedBox(width: 16),
-              ValueListenableBuilder<bool>(
-                valueListenable: dataModel.busy,
-                builder: (BuildContext context, bool busy, _) {
-                  return Center(
-                    child: SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: busy
-                          ? const CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            )
-                          : null,
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 16),
-            ],
+    return TabBarView(
+      children: [
+        for (var publisher in widget.publishers)
+          PublisherPackagesWidget(
+            publisher: publisher,
+            key: ValueKey(publisher),
           ),
-        ],
-        bottom: TabBar(
-          unselectedLabelColor: Colors.white,
-          labelColor: Colors.amber,
-          tabs: [
-            // todo: the package counts are not updating when the # of packages
-            // in a publisher changes
-            for (var publisher in widget.publishers)
-              Tab(
-                text: '$publisher ('
-                    '${dataModel.getPackagesForPublisher(publisher).value.length})',
-              ),
-          ],
-          controller: tabController,
-        ),
-      ),
-      body: TabBarView(
-        children: [
-          for (var publisher in widget.publishers)
-            PublisherPackagesWidget(
-              publisher: publisher,
-              key: ValueKey(publisher),
-            ),
-        ],
-        controller: tabController,
-      ),
+      ],
     );
   }
 }

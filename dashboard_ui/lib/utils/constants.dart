@@ -1,1 +1,1 @@
-const String appName = 'Package Dashboard';
+const String appName = 'Ecosystem Dashboard';

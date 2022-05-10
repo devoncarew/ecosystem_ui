@@ -254,7 +254,7 @@ class Firestore {
       ..removeAll(currentDeps);
     for (var dep in newDeps) {
       print('  adding $dep');
-      await log(entity: 'sdk_dep', change: 'added $dep');
+      await log(entity: 'SDK dep', change: 'added $dep');
     }
 
     // Remove any repos which are no longer deps.
@@ -263,7 +263,7 @@ class Firestore {
     for (var dep in oldDeps) {
       print('  removing $dep');
       await documents.delete(getDocumentName('sdk_deps', dep));
-      await log(entity: 'sdk_dep', change: 'removing $dep');
+      await log(entity: 'SDK dep', change: 'removing $dep');
     }
   }
 
@@ -373,7 +373,7 @@ class Firestore {
         if (updatedFields.keys.contains(field) &&
             !compareValues(existingInfo[field]!, updatedFields[field]!)) {
           log(
-            entity: 'sdk_dep package:${dependency.name}',
+            entity: 'SDK dep package:${dependency.name}',
             change: '$field => ${printValue(updatedFields[field]!)}',
           );
         }
