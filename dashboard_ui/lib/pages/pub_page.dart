@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dashboard_ui/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart' as url;
 
@@ -21,8 +22,6 @@ class PackagesPage extends NavPage {
   @override
   PreferredSizeWidget? createBottomBar(BuildContext context) {
     return TabBar(
-      // unselectedLabelColor: Colors.white,
-      // labelColor: Colors.amber,
       tabs: [
         for (var publisher in publishers) Tab(text: publisher),
       ],
@@ -93,10 +92,27 @@ class PublisherPackagesWidget extends StatefulWidget {
 class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
   PackageInfo? selectedPackage;
 
+// ValueListenableBuilder<bool>(
+//                         valueListenable: widget.dataModel.showDiscontinued,
+//                         builder: (context, value, _) {
+
   @override
   Widget build(BuildContext context) {
     var dataModel = DataModel.of(context);
 
+    return ValueListenableBuilder<bool>(
+      valueListenable: dataModel.showDiscontinued,
+      builder: (context, showDiscontinued, _) {
+        return _build(context, dataModel, showDiscontinued);
+      },
+    );
+  }
+
+  Widget _build(
+    BuildContext context,
+    DataModel dataModel,
+    bool showDiscontinued,
+  ) {
     return ValueListenableBuilder<List<PackageInfo>>(
       valueListenable: dataModel.getPackagesForPublisher(widget.publisher),
       builder: (context, packages, _) {
@@ -104,9 +120,9 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
           children: [
             Expanded(
               flex: 4,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: createTable(packages),
+              child: createTable(
+                _filterPackages(packages, showDiscontinued),
+                allPackages: packages,
               ),
             ),
             // // TODO: Animate showing and hiding this.
@@ -144,12 +160,22 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
     });
   }
 
-  VTable createTable(List<PackageInfo> packages) {
+  VTable createTable(
+    List<PackageInfo> packages, {
+    required List<PackageInfo> allPackages,
+  }) {
+    var description = '${packages.length} packages';
+    if (allPackages.length > packages.length) {
+      description = '$description ('
+          '${allPackages.length - packages.length} not shown)';
+    }
+
     return VTable<PackageInfo>(
       items: packages,
       startsSorted: true,
       supportsSelection: true,
       onTap: _onTap,
+      tableDescription: description,
       columns: [
         VTableColumn<PackageInfo>(
           label: 'Name',
@@ -189,21 +215,9 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
             PackageInfo.validateMaintainers,
           ],
         ),
-        // TODO: this should show the time since the first commit after the
-        // last publish happened.
-        VTableColumn<PackageInfo>(
-          label: 'Pub δ',
-          width: 80,
-          alignment: Alignment.centerRight,
-          transformFunction: (package) => relativeDateInDays(
-            dateUtc: package.publishedDate.toDate(),
-            short: true,
-          ),
-          compareFunction: (a, b) => a.publishedDate.compareTo(b.publishedDate),
-        ),
         VTableColumn<PackageInfo>(
           label: 'Repository',
-          width: 250,
+          width: 200,
           grow: 0.2,
           transformFunction: (package) => package.repository,
           styleFunction: PackageInfo.getDisplayStyle,
@@ -221,17 +235,27 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
             PackageInfo.validateRepositoryInfo,
           ],
         ),
-        // todo: show the # of unpublished commits?
-        // VTableColumn<PackageInfo>(
-        //   label: 'Git #',
-        //   width: 50,
-        //   alignment: Alignment.centerRight,
-        //   transformFunction: (package) => '50', // todo:
-        //   // todo:
-        //   compareFunction: (a, b) => a.published.compareTo(b.published),
-        // ),
+        VTableColumn<PackageInfo>(
+          label: 'Publish Latency',
+          width: 120,
+          alignment: Alignment.centerRight,
+          transformFunction: (package) => relativeDateInDays(
+            dateUtc: package.publishedDate.toDate(),
+            short: true,
+          ),
+          compareFunction: (a, b) => a.publishedDate.compareTo(b.publishedDate),
+        ),
       ],
     );
+  }
+
+  List<PackageInfo> _filterPackages(
+      List<PackageInfo> packages, bool showDiscontinued) {
+    if (showDiscontinued) {
+      return packages;
+    } else {
+      return packages.where((p) => !p.discontinued).toList();
+    }
   }
 }
 
@@ -464,29 +488,35 @@ class PackageMetaInfo extends StatelessWidget {
         OverlayButtons(
           children: [
             IconButton(
-              splashRadius: 20,
+              icon: Image.asset(
+                'resources/images/dart_logo_128.png',
+                width: defaultIconSize,
+              ),
+              tooltip: 'pub.dev',
+              iconSize: defaultIconSize,
+              splashRadius: defaultSplashRadius,
               onPressed: () {
                 url.launchUrl(
                     Uri.parse('https://pub.dev/packages/${package.name}'));
               },
-              icon: Image.asset('resources/images/dart_logo_128.png'),
-              tooltip: 'pub.dev',
             ),
             IconButton(
-              splashRadius: 20,
+              icon: const Icon(Icons.bug_report),
+              tooltip: 'Package issues',
+              iconSize: defaultIconSize,
+              splashRadius: defaultSplashRadius,
               onPressed: package.repoUrl == null
                   ? null
                   : () => url.launchUrl(Uri.parse('${package.repoUrl}/issues')),
-              icon: const Icon(Icons.bug_report),
-              tooltip: 'Package issues',
             ),
             IconButton(
-              splashRadius: 20,
+              icon: const Icon(Icons.launch),
+              tooltip: 'Package repo',
+              iconSize: defaultIconSize,
+              splashRadius: defaultSplashRadius,
               onPressed: package.repository.isEmpty
                   ? null
                   : () => url.launchUrl(Uri.parse(package.repository)),
-              icon: const Icon(Icons.launch),
-              tooltip: 'Package repo',
             ),
           ],
         ),
@@ -558,14 +588,15 @@ class AnalysisOptionsInfo extends StatelessWidget {
             infoText: 'analysis_options.yaml',
             children: [
               IconButton(
-                splashRadius: 20,
+                icon: const Icon(Icons.launch),
+                iconSize: defaultIconSize,
+                splashRadius: defaultSplashRadius,
                 onPressed: () {
                   url.launchUrl(
                     Uri.parse(
                         '${package.repository}/blob/master/analysis_options.yaml'),
                   );
                 },
-                icon: const Icon(Icons.launch),
               ),
             ],
           ),
@@ -607,7 +638,9 @@ class GitHubActionsInfo extends StatelessWidget {
             infoText: r.actionsFile,
             children: [
               IconButton(
-                splashRadius: 20,
+                icon: const Icon(Icons.launch),
+                iconSize: defaultIconSize,
+                splashRadius: defaultSplashRadius,
                 onPressed: () {
                   url.launchUrl(
                     Uri.parse(
@@ -615,7 +648,6 @@ class GitHubActionsInfo extends StatelessWidget {
                     ),
                   );
                 },
-                icon: const Icon(Icons.launch),
               ),
             ],
           ),
@@ -646,9 +678,10 @@ class DependabotConfigInfo extends StatelessWidget {
             infoText: '.github/dependabot.yaml',
             children: [
               IconButton(
-                splashRadius: 20,
-                onPressed: _createDependabotIssue,
                 icon: const Icon(Icons.add_circle_rounded),
+                iconSize: defaultIconSize,
+                splashRadius: defaultSplashRadius,
+                onPressed: _createDependabotIssue,
               ),
             ],
           ),
@@ -667,7 +700,9 @@ class DependabotConfigInfo extends StatelessWidget {
             infoText: '.github/dependabot.yaml',
             children: [
               IconButton(
-                splashRadius: 20,
+                icon: const Icon(Icons.launch),
+                iconSize: defaultIconSize,
+                splashRadius: defaultSplashRadius,
                 onPressed: () {
                   url.launchUrl(
                     Uri.parse(
@@ -675,7 +710,6 @@ class DependabotConfigInfo extends StatelessWidget {
                     ),
                   );
                 },
-                icon: const Icon(Icons.launch),
               ),
             ],
           ),
@@ -805,18 +839,4 @@ class _PackageCommitViewState extends State<PackageCommitView> {
       },
     );
   }
-}
-
-class PackageRepoDep {
-  final String? packageName;
-  final String? packagePublisher;
-  final String commit;
-  final String repoUrl;
-
-  PackageRepoDep({
-    this.packageName,
-    this.packagePublisher,
-    required this.commit,
-    required this.repoUrl,
-  });
 }

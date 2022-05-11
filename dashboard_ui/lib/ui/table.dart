@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'theme.dart';
 
@@ -23,6 +24,8 @@ class VTable<T> extends StatefulWidget {
   final bool supportsSelection;
   final bool hideHeader;
   final OnTap<T>? onTap;
+  final String? tableDescription;
+  final List<Widget> actions;
 
   const VTable({
     required this.items,
@@ -31,6 +34,8 @@ class VTable<T> extends StatefulWidget {
     this.supportsSelection = false,
     this.hideHeader = false,
     this.onTap,
+    this.tableDescription,
+    this.actions = const [],
     Key? key,
   }) : super(key: key);
 
@@ -66,6 +71,8 @@ class _VTableState<T> extends State<VTable<T>> {
       border: Border(top: BorderSide(color: Colors.grey.shade300)),
     );
 
+    // todo: use restorationId?
+
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         Map<VTableColumn, double> colWidths = _layoutColumns(constraints);
@@ -74,6 +81,32 @@ class _VTableState<T> extends State<VTable<T>> {
 
         return Column(
           children: [
+            if (!widget.hideHeader)
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: 8,
+                  top: 16,
+                  // right: 8,
+                  // bottom: 8,
+                ),
+                child: Row(
+                  children: [
+                    Text(widget.tableDescription ?? ''),
+                    const Expanded(child: SizedBox(width: 16)),
+                    ...widget.actions.expand((widget) => [
+                          widget,
+                          const SizedBox(width: 8),
+                        ]),
+                    IconButton(
+                      icon: const Icon(Icons.copy),
+                      iconSize: defaultIconSize,
+                      splashRadius: defaultSplashRadius,
+                      onPressed: () => _copyTableToClipboard(context),
+                    ),
+                  ],
+                ),
+              ),
+            if (!widget.hideHeader) const Divider(),
             if (!widget.hideHeader)
               Row(
                 children: [
@@ -92,7 +125,8 @@ class _VTableState<T> extends State<VTable<T>> {
               ),
             Expanded(
               child: ListView.builder(
-                key: ObjectKey(widget.items),
+                // key: ObjectKey(widget.items), // todo: think about this
+                // key: ValueKey(widget.items.length),
                 controller: scrollController,
                 itemCount: sortedItems.length,
                 itemExtent: VTable._rowHeight,
@@ -100,6 +134,7 @@ class _VTableState<T> extends State<VTable<T>> {
                   T item = sortedItems[index];
                   final selected = item == selectedItem.value;
                   return Container(
+                    key: ValueKey(item),
                     color: selected ? Theme.of(context).hoverColor : null,
                     child: InkWell(
                       onTap: () => _select(item),
@@ -139,6 +174,29 @@ class _VTableState<T> extends State<VTable<T>> {
           ],
         );
       },
+    );
+  }
+
+  void _copyTableToClipboard(BuildContext context) {
+    final buf = StringBuffer();
+
+    // write out the column titles
+    buf.writeln(widget.columns.map((c) => c.label).join(','));
+
+    // write out each row
+    for (final item in sortedItems) {
+      buf.writeln(widget.columns.map((column) {
+        String val = column.transformFunction != null
+            ? column.transformFunction!(item)
+            : '$item';
+        return val.contains(',') ? '"$val"' : val;
+      }).join(','));
+    }
+
+    Clipboard.setData(ClipboardData(text: buf.toString()));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Copied as CSV to clipboard.')),
     );
   }
 

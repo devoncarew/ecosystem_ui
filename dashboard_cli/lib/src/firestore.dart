@@ -110,8 +110,14 @@ class Firestore {
       final packagePath = getDocumentName('sdk_deps', repoName);
       var result = await documents.get(packagePath);
       return result.fields;
+    } on DetailedApiRequestError catch (e) {
+      if (e.status == 404) {
+        // Ignore these - we know some documents won't yet exist.
+        return null;
+      }
+      print(e);
+      return null;
     } catch (e) {
-      // todo: ignore these - we know some documents won't yet exist
       print(e);
       return null;
     }
@@ -239,18 +245,18 @@ class Firestore {
     }).toList();
   }
 
-  Future updateSdkDependencies(Sdk sdk) async {
+  Future updateSdkDependencies(List<SdkDependency> sdkDependencies) async {
     // Read current deps
     final List<String> currentDeps = await getSdkDependencies();
 
     // Update commit info
-    for (var dep in sdk.getDartPackages()) {
-      print('  ${dep.repository}');
+    for (var dep in sdkDependencies) {
+      print('updating ${dep.repository}...');
       await updateSdkDependency(dep);
     }
 
     // Log sdk dep additions.
-    Set<String> newDeps = Set.from(sdk.getDartPackages().map((p) => p.name))
+    Set<String> newDeps = Set.from(sdkDependencies.map((p) => p.name))
       ..removeAll(currentDeps);
     for (var dep in newDeps) {
       print('  adding $dep');
@@ -259,7 +265,7 @@ class Firestore {
 
     // Remove any repos which are no longer deps.
     Set<String> oldDeps = currentDeps.toSet()
-      ..removeAll(sdk.getDartPackages().map((p) => p.name));
+      ..removeAll(sdkDependencies.map((p) => p.name));
     for (var dep in oldDeps) {
       print('  removing $dep');
       await documents.delete(getDocumentName('sdk_deps', dep));
@@ -352,12 +358,29 @@ class Firestore {
 
   Future updateSdkDependency(SdkDependency dependency) async {
     var existingInfo = await getRepositoryInfo(dependency.name);
+    var commit = dependency.commitInfo!;
+
+    String? unsyncedTimestamp;
+    if (dependency.unsyncedCommits.isNotEmpty) {
+      dependency.unsyncedCommits.sort();
+      var oldest = dependency.unsyncedCommits.last;
+      unsyncedTimestamp = oldest.committedDate.toIso8601String();
+    }
+
+    // print('  unsynced=$unsyncedTimestamp');
 
     final Document doc = Document(
       fields: {
         'name': valueStr(dependency.name),
         'commit': valueStr(dependency.commit ?? ''),
         'repository': valueStr(dependency.repository),
+        'syncedCommitDate': Value(
+          timestampValue: commit.committedDate.toIso8601String(),
+        ),
+        'unsyncedCommits': valueInt(dependency.unsyncedCommits.length),
+        'unsyncedCommitDate': unsyncedTimestamp == null
+            ? valueNull()
+            : Value(timestampValue: unsyncedTimestamp),
       },
     );
 
@@ -389,3 +412,4 @@ class Config {
 Value valueStr(String value) => Value(stringValue: value);
 Value valueBool(bool value) => Value(booleanValue: value);
 Value valueInt(int value) => Value(integerValue: value.toString());
+Value valueNull() => Value(nullValue: 'NULL_VALUE');

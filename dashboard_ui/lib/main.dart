@@ -10,22 +10,24 @@ import 'model/data_model.dart';
 import 'pages/changelog_page.dart';
 import 'pages/pub_page.dart';
 import 'pages/sdk_page.dart';
+import 'ui/theme.dart';
 import 'ui/widgets.dart';
 import 'utils/constants.dart';
 
-// todo: make sure the UI is updating when we get new package info
 // todo: have a search / filter field
+
 // todo: google3 data
-// todo: show days since last publish in the table?
-//       days of unpublished work?
 
-// todo: we should be tracking amount of unpublished work, and latency of
-//       unpublished work
+// todo: fix the issue where tables don't update when the lists change
 
-// todo: identify packages we're using (dep'ing into the sdk, using as a dep of
-//       a core package) which are not from a verified publisher
+// todo: sdk
+//   - days since last sync?
+//   - # unsynced commits?
+//   - latency of unsynced commits?
 
-// todo: have a toggle to hide discontinued
+// todo: packages
+//   - # unpublished commits
+//   - latency of unpublished commits?
 
 void main() async {
   runApp(const PackagesApp());
@@ -122,6 +124,10 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
     );
   }
 
+  void _toggleDiscontinued() {
+    widget.dataModel.toggleDiscontinued();
+  }
+
   Widget _build(BuildContext context, List<String> publishers) {
     late NavPage page;
 
@@ -168,18 +174,42 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
                 },
               ),
               const SizedBox(width: 16),
+              PopupMenuButton(
+                icon: const Icon(Icons.more_vert),
+                splashRadius: defaultSplashRadius,
+                itemBuilder: (BuildContext context) {
+                  return [
+                    PopupMenuItem<bool>(
+                      value: true,
+                      onTap: _toggleDiscontinued,
+                      child: ValueListenableBuilder<bool>(
+                        valueListenable: widget.dataModel.showDiscontinued,
+                        builder: (context, value, _) {
+                          return Text(value
+                              ? 'Hide discontinued'
+                              : 'Show discontinued');
+                        },
+                      ),
+                    ),
+                  ];
+                },
+              ),
+              const SizedBox(width: 16),
             ],
           ),
         ],
-        bottom: page.createBottomBar(context) ??
-            const PreferredSize(
-              preferredSize: Size(46, 46),
-              child: SizedBox(),
-            ),
+        bottom: page.createBottomBar(context),
+        // ?? const PreferredSize(
+        //   preferredSize: Size(46, 46),
+        //   child: SizedBox(),
+        // ),
       ),
       body: AnimatedSwitcher(
         duration: kThemeAnimationDuration,
-        child: page.createChild(context, key: ValueKey(selectedPageType)),
+        child: Padding(
+          padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+          child: page.createChild(context, key: ValueKey(selectedPageType)),
+        ),
       ),
       drawer: Drawer(
         child: ListView(
@@ -188,7 +218,7 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
             DrawerHeader(
               decoration: BoxDecoration(color: theme.colorScheme.secondary),
               child: Text(
-                'Drawer Header',
+                'Switch View',
                 style: theme.textTheme.titleLarge!.copyWith(
                   color: theme.colorScheme.onSecondary,
                 ),

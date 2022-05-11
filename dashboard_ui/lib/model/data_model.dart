@@ -55,6 +55,13 @@ class DataModel {
     }
   }
 
+  ValueListenable<bool> get showDiscontinued => _showDiscontinued;
+  final ValueNotifier<bool> _showDiscontinued = ValueNotifier(false);
+
+  void toggleDiscontinued() {
+    _showDiscontinued.value = !_showDiscontinued.value;
+  }
+
   ValueListenable<bool> get loading => _loading;
   final ValueNotifier<bool> _loading = ValueNotifier(true);
 
@@ -131,6 +138,9 @@ class DataModel {
           name: item.get('name'),
           commit: item.get('commit'),
           repository: item.get('repository'),
+          syncedCommitDate: item.get('syncedCommitDate'),
+          unsyncedCommits: item.get('unsyncedCommits'),
+          unsyncedCommitDate: item.get('unsyncedCommitDate'),
         );
       }).toList();
       _sdkDependencies.value = result;
@@ -610,11 +620,17 @@ class SdkDep {
   final String name;
   final String commit;
   final String repository;
+  final Timestamp syncedCommitDate;
+  final int unsyncedCommits;
+  final Timestamp? unsyncedCommitDate;
 
   SdkDep({
     required this.name,
     required this.commit,
     required this.repository,
+    required this.syncedCommitDate,
+    required this.unsyncedCommits,
+    required this.unsyncedCommitDate,
   });
 
   @override

@@ -1,3 +1,4 @@
+import 'github.dart';
 import 'utils.dart';
 
 final RegExp _packageNames = RegExp(r'"\/third_party\/pkg(_tested)?\/(\w+)"');
@@ -56,6 +57,7 @@ class Sdk {
       'platform': 'https://github.com/google/platform.dart',
       'process': 'https://github.com/google/process.dart',
       'protobuf': 'https://github.com/google/protobuf.dart',
+      'web_components': 'https://github.com/dart-archive/web-components',
     };
 
     List<SdkDependency> deps = [];
@@ -97,6 +99,9 @@ class SdkDependency {
   final String name;
   final String? commit;
   final String repository;
+
+  Commit? commitInfo;
+  List<Commit> unsyncedCommits = [];
 
   SdkDependency({
     required this.name,

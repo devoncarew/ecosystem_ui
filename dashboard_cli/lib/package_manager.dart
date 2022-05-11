@@ -147,7 +147,43 @@ class PackageManager {
 
   Future updateFromSdk() async {
     final sdk = await Sdk.fromHttpGet();
-    await firestore.updateSdkDependencies(sdk);
+
+    List<SdkDependency> sdkDependencies = sdk.getDartPackages();
+
+    final Github github = Github();
+
+    for (var dep in sdkDependencies) {
+      print(dep.repository);
+
+      // Get the info about the given sha.
+      RepositoryInfo repo = RepositoryInfo(
+        path: dep.repository.substring('https://github.com/'.length),
+      );
+      var commit = await github.getCommitInfoForSha(
+        repo: repo,
+        sha: dep.commit!,
+      );
+      dep.commitInfo = commit;
+
+      print('  synced to: $commit');
+
+      // Find how many newer, unsynced commits there are.
+      var unsynced = await github.queryCommitsAfter(
+        repo: repo,
+        afterTimestamp: commit.committedDate.toIso8601String(),
+      );
+      unsynced.sort();
+      dep.unsyncedCommits = unsynced;
+
+      print('  unsynced commits: ${unsynced.length}');
+      // for (var c in unsynced) {
+      //   print('    unsynced: $c');
+      // }
+    }
+
+    await firestore.updateSdkDependencies(sdkDependencies);
+
+    github.close();
   }
 
   Future updateMaintainersFromSheets() async {

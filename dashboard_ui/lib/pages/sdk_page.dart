@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../model/data_model.dart';
 import '../ui/table.dart';
 import '../ui/widgets.dart';
-import 'pub_page.dart';
 
 class SDKPage extends NavPage {
   final DataModel dataModel;
@@ -30,11 +29,6 @@ class _SDKPage extends StatelessWidget {
   }
 }
 
-//             Text(
-//               '${sdkDeps.length} repos, ${deps.length} packages',
-//               textAlign: TextAlign.end,
-//             ),
-
 class SDKDependenciesWidget extends StatelessWidget {
   final DataModel dataModel;
 
@@ -55,30 +49,49 @@ class SDKDependenciesWidget extends StatelessWidget {
 
             return VTable<PackageRepoDep>(
               items: deps,
+              tableDescription: '${sdkDeps.length} repos',
+              actions: const [
+                Hyperlink(
+                  displayText: 'DEPS',
+                  url: 'https://github.com/dart-lang/sdk/blob/main/DEPS',
+                ),
+              ],
               columns: [
                 VTableColumn(
-                  label: 'Package',
+                  label: 'Repo',
+                  width: 275,
+                  grow: 0.2,
+                  transformFunction: (dep) => dep.sdkDep.repository,
+                  renderFunction: (BuildContext context, dep) {
+                    return Hyperlink(url: dep.sdkDep.repository);
+                  },
+                ),
+                VTableColumn(
+                  label: 'Packages',
                   width: 125,
                   grow: 0.2,
-                  transformFunction: (dep) => dep.packageName ?? '',
+                  transformFunction: (dep) =>
+                      dep.packages.map((p) => p.name).join(', '),
                 ),
                 VTableColumn(
                   label: 'Publisher',
-                  width: 125,
+                  width: 100,
                   grow: 0.2,
-                  transformFunction: (dep) => dep.packagePublisher ?? '',
+                  transformFunction: (dep) => dep.publisher,
                   validators: [
                     (dep) {
-                      if (dep.packagePublisher == null) {
+                      if (dep.publisher.isEmpty) {
                         return ValidationResult.error('unverified publisher');
                       }
 
                       const stdPublishers = {
                         'dart.dev',
                         'google.dev',
+                        'N/A',
                         'tools.dart.dev',
                       };
-                      if (!stdPublishers.contains(dep.packagePublisher)) {
+
+                      if (!stdPublishers.contains(dep.publisher)) {
                         return ValidationResult.warning('Atypical publisher');
                       }
 
@@ -87,20 +100,50 @@ class SDKDependenciesWidget extends StatelessWidget {
                   ],
                 ),
                 VTableColumn(
-                  label: 'Commit',
-                  width: 75,
-                  grow: 0.2,
-                  transformFunction: (dep) => dep.commit.substring(1, 10),
-                ),
+                    label: 'Synced to Commit',
+                    width: 75,
+                    grow: 0.2,
+                    alignment: Alignment.centerRight,
+                    transformFunction: (dep) =>
+                        dep.sdkDep.commit.substring(0, 7),
+                    renderFunction: (BuildContext context, dep) {
+                      return Hyperlink(
+                        url:
+                            '${dep.sdkDep.repository}/commit/${dep.sdkDep.commit}',
+                        displayText: dep.sdkDep.commit.substring(0, 7),
+                      );
+                    }),
                 VTableColumn(
-                  label: 'Repo',
-                  width: 275,
-                  grow: 0.2,
-                  transformFunction: (dep) => dep.repoUrl,
-                  renderFunction: (BuildContext context, dep) {
-                    return Hyperlink(url: dep.repoUrl);
-                  },
-                ),
+                    label: 'Sync Latency',
+                    width: 100,
+                    grow: 0.2,
+                    alignment: Alignment.centerRight,
+                    transformFunction: (dep) {
+                      var latencyDays = dep.unsyncedDays;
+                      if (latencyDays == null) {
+                        return '';
+                      }
+                      return '${dep.unsyncedCommits} commits, '
+                          '${dep.unsyncedDays} days';
+                    },
+                    compareFunction: (a, b) {
+                      return (a.unsyncedDays ?? 0) - (b.unsyncedDays ?? 0);
+                    },
+                    validators: [
+                      (dep) {
+                        if ((dep.unsyncedDays ?? 0) > 365) {
+                          return ValidationResult.error(
+                            'Greater than 365 days of latency',
+                          );
+                        }
+                        if ((dep.unsyncedDays ?? 0) > 30) {
+                          return ValidationResult.warning(
+                            'Greater than 30 days of latency',
+                          );
+                        }
+                        return null;
+                      }
+                    ]),
               ],
             );
           },
@@ -124,41 +167,48 @@ class SDKDependenciesWidget extends StatelessWidget {
     List<SdkDep> sdkDeps,
     List<PackageInfo> allPackages,
   ) {
-    const gitDeps = {
-      'https://github.com/dart-lang/http_io',
-      'https://github.com/dart-lang/pub',
-      'https://github.com/dart-lang/web_components',
-    };
+    return sdkDeps.map((dep) {
+      final packages = _filterPackages(allPackages, dep.repository);
+      return PackageRepoDep(
+        packages: packages,
+        sdkDep: dep,
+      );
+    }).toList();
+  }
+}
 
-    // find all the implied packages
-    List<PackageRepoDep> deps = [];
+class PackageRepoDep {
+  final List<PackageInfo> packages;
+  final SdkDep sdkDep;
 
-    for (var sdkDep in sdkDeps) {
-      final repository = sdkDep.repository;
-      final packages = _filterPackages(allPackages, repository);
+  PackageRepoDep({
+    required this.packages,
+    required this.sdkDep,
+  });
 
-      if (packages.isEmpty) {
-        if (!gitDeps.contains(repository)) {
-          // Assume the package name is the last part of the repo url.
-          deps.add(PackageRepoDep(
-            packageName: repository.substring(repository.lastIndexOf('/') + 1),
-            commit: sdkDep.commit,
-            repoUrl: repository,
-          ));
-        }
-      } else {
-        for (var package in packages) {
-          deps.add(PackageRepoDep(
-            packageName: package.name,
-            packagePublisher: package.publisher,
-            commit: sdkDep.commit,
-            repoUrl: repository,
-          ));
-        }
-      }
+  int get unsyncedCommits => sdkDep.unsyncedCommits;
+
+  int? get unsyncedDays {
+    var date = sdkDep.unsyncedCommitDate;
+    if (date == null) {
+      return null;
     }
 
-    return deps;
+    return DateTime.now().toUtc().difference(date.toDate()).inDays;
+  }
+
+  static const gitDeps = {
+    'https://github.com/dart-lang/http_io',
+    'https://github.com/dart-lang/pub',
+    'https://github.com/dart-archive/web-components',
+  };
+
+  String get publisher {
+    if (gitDeps.contains(sdkDep.repository)) {
+      return 'N/A';
+    } else {
+      return packages.isEmpty ? '' : packages.first.publisher;
+    }
   }
 }
 

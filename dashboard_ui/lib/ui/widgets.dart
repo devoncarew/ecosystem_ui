@@ -36,10 +36,12 @@ class OverlayButtons extends StatelessWidget {
 
 class Hyperlink extends StatefulWidget {
   final String url;
+  final String? displayText;
   final TextStyle? style;
 
   const Hyperlink({
     required this.url,
+    this.displayText,
     this.style,
     Key? key,
   }) : super(key: key);
@@ -65,7 +67,7 @@ class _HyperlinkState extends State<Hyperlink> {
       child: GestureDetector(
         onTap: () => url.launchUrl(Uri.parse(widget.url)),
         child: Text(
-          widget.url,
+          widget.displayText ?? widget.url,
           style: hovered ? underline.merge(widget.style) : widget.style,
         ),
       ),

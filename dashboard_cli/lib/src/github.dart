@@ -32,6 +32,38 @@ class Github {
     );
   }
 
+  Future<Commit> getCommitInfoForSha({
+    required RepositoryInfo repo,
+    required String sha,
+  }) async {
+    final queryString = '''{
+  repository(owner: "${repo.org}", name: "${repo.name}") {
+    object(oid: "$sha") {
+      ... on Commit {
+        oid
+        messageHeadline
+        committedDate
+        author {
+          user {
+            login
+          }
+        }
+        committer {
+          user {
+            login
+          }
+        }
+      }
+    }
+  }
+}''';
+    final result = await query(QueryOptions(document: gql(queryString)));
+    if (result.hasException) {
+      throw result.exception!;
+    }
+    return _getCommitFromResult(result);
+  }
+
   Future<List<Commit>> queryRecentCommits({
     required RepositoryInfo repo,
     required int count,
@@ -87,6 +119,7 @@ class Github {
     // path: String
     //   If non-null, filters history to only show commits touching files under
     //    this path.
+
     final queryString = '''{
       repository(owner: "${repo.org}", name: "${repo.name}") {
         defaultBranchRef {
@@ -128,6 +161,30 @@ class Github {
     return _getCommitsFromResult(result)
         .where((commit) => commit.committedDate != afterTime)
         .toList();
+  }
+
+  Commit _getCommitFromResult(QueryResult result) {
+// {
+//   "data": {
+//     "repository": {
+//       "object": {
+//         "oid": "7479783f0493f6717e1d7ae31cb37d39a91026b2",
+//         "messageHeadline": "Update Common Mark tests to v0.30.2 (#383)",
+//         "committedDate": "2021-11-16T17:40:43Z",
+//         "author": {
+//           "user": {
+//             "login": "kevmoo"
+//           }
+//         },
+//         "committer": {
+//           "user": null
+//         }
+//       }
+//     }
+//   }
+// }
+
+    return Commit.fromQuery(result.data!['repository']['object']);
   }
 
   List<Commit> _getCommitsFromResult(QueryResult result) {
