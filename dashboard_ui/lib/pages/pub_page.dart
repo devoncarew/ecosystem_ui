@@ -120,6 +120,7 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
               flex: 4,
               child: createTable(
                 _filterPackages(packages, showDiscontinued),
+                dataModel: dataModel,
                 allPackages: packages,
               ),
             ),
@@ -160,6 +161,7 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
 
   VTable createTable(
     List<PackageInfo> packages, {
+    required DataModel dataModel,
     required List<PackageInfo> allPackages,
   }) {
     var description = '${packages.length} packages';
@@ -177,23 +179,23 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
       columns: [
         VTableColumn<PackageInfo>(
           label: 'Name',
-          width: 140,
-          grow: 0.1,
+          width: 110,
+          grow: 0.2,
           transformFunction: (package) => package.name,
           styleFunction: PackageInfo.getDisplayStyle,
           compareFunction: PackageInfo.compareWithStatus,
         ),
         VTableColumn<PackageInfo>(
           label: 'Publisher',
-          width: 100,
-          grow: 0.1,
+          width: 110,
+          grow: 0.2,
           transformFunction: PackageInfo.getPublisherDisplayName,
           styleFunction: PackageInfo.getDisplayStyle,
         ),
         VTableColumn<PackageInfo>(
           label: 'Maintainer',
-          width: 110,
-          grow: 0.1,
+          width: 120,
+          grow: 0.2,
           transformFunction: (package) => package.maintainer,
           styleFunction: PackageInfo.getDisplayStyle,
           validators: [
@@ -220,22 +222,38 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
             PackageInfo.validateRepositoryInfo,
           ],
         ),
-        VTableColumn<PackageInfo>(
-          label: 'Version',
+        VTableColumn(
+          label: 'SDK Sync Latency',
           width: 100,
+          grow: 0.2,
           alignment: Alignment.centerRight,
-          transformFunction: (package) => package.version.toString(),
-          styleFunction: PackageInfo.getDisplayStyle,
+          transformFunction: (package) {
+            var dep = dataModel.getSdkDepForPackage(package);
+            return dep == null ? 'n/a' : dep.syncLatencyDescription;
+          },
           compareFunction: (a, b) {
-            return a.version.compareTo(b.version);
+            var aDep = dataModel.getSdkDepForPackage(a);
+            var bDep = dataModel.getSdkDepForPackage(b);
+            if (aDep == null && bDep == null) {
+              return 0;
+            } else if (aDep != null && bDep == null) {
+              return 1;
+            } else if (aDep == null && bDep != null) {
+              return -1;
+            } else {
+              return SdkDep.compareUnsyncedDays(aDep!, bDep!);
+            }
           },
           validators: [
-            PackageInfo.validateVersion,
+            (package) {
+              var dep = dataModel.getSdkDepForPackage(package);
+              return dep == null ? null : SdkDep.validateSyncLatency(dep);
+            },
           ],
         ),
         VTableColumn(
           label: 'Publish Latency',
-          width: 120,
+          width: 100,
           grow: 0.2,
           alignment: Alignment.centerRight,
           transformFunction: (package) {
@@ -249,27 +267,18 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
           compareFunction: (a, b) {
             return (a.unpublishedDays ?? -1) - (b.unpublishedDays ?? -1);
           },
-          validators: [
-            (package) {
-              if (package.unpublishedCommits == null) {
-                return ValidationResult.info('Publish info not available');
-              }
-
-              if ((package.unpublishedDays ?? 0) > 180) {
-                return ValidationResult.error(
-                  'Greater than 180 days of latency',
-                );
-              }
-
-              if ((package.unpublishedDays ?? 0) > 60) {
-                return ValidationResult.warning(
-                  'Greater than 60 days of latency',
-                );
-              }
-
-              return null;
-            }
-          ],
+          validators: [PackageInfo.validatePublishLatency],
+        ),
+        VTableColumn<PackageInfo>(
+          label: 'Version',
+          width: 100,
+          alignment: Alignment.centerRight,
+          transformFunction: (package) => package.version.toString(),
+          styleFunction: PackageInfo.getDisplayStyle,
+          compareFunction: (a, b) {
+            return a.version.compareTo(b.version);
+          },
+          validators: [PackageInfo.validateVersion],
         ),
       ],
     );
