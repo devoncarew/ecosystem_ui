@@ -158,6 +158,12 @@ class DataModel {
     });
   }
 
+  SdkDep? getSdkDepForPackage(PackageInfo package) {
+    return sdkDependencies.value.firstWhereOrNull((dep) {
+      return dep.repository == package.repoUrl;
+    });
+  }
+
   Future _initRepositories() async {
     firestore
         .collection('repositories')
@@ -397,6 +403,30 @@ class PackageInfo {
         );
       }
     }
+    return null;
+  }
+
+  static ValidationResult? validatePublishLatency(PackageInfo package) {
+    if (package.discontinued) {
+      return null;
+    }
+
+    if (package.unpublishedCommits == null) {
+      return ValidationResult.info('Publish info not available');
+    }
+
+    if ((package.unpublishedDays ?? 0) > 180) {
+      return ValidationResult.error(
+        'Greater than 180 days of latency',
+      );
+    }
+
+    if ((package.unpublishedDays ?? 0) > 60) {
+      return ValidationResult.warning(
+        'Greater than 60 days of latency',
+      );
+    }
+
     return null;
   }
 
@@ -647,6 +677,43 @@ class SdkDep {
     required this.unsyncedCommits,
     required this.unsyncedCommitDate,
   });
+
+  int? get unsyncedDays {
+    var date = unsyncedCommitDate;
+    if (date == null) {
+      return null;
+    }
+
+    return DateTime.now().toUtc().difference(date.toDate()).inDays;
+  }
+
+  String get syncLatencyDescription {
+    var latencyDays = unsyncedDays;
+    if (latencyDays == null) {
+      return '';
+    }
+    return '$unsyncedCommits commits, $unsyncedDays days';
+  }
+
+  static int compareUnsyncedDays(SdkDep a, SdkDep b) {
+    return (a.unsyncedDays ?? 0) - (b.unsyncedDays ?? 0);
+  }
+
+  static ValidationResult? validateSyncLatency(SdkDep dep) {
+    if ((dep.unsyncedDays ?? 0) > 365) {
+      return ValidationResult.error(
+        'Greater than 365 days of latency',
+      );
+    }
+
+    if ((dep.unsyncedDays ?? 0) > 30) {
+      return ValidationResult.warning(
+        'Greater than 30 days of latency',
+      );
+    }
+
+    return null;
+  }
 
   @override
   String toString() => '$repository $commit';

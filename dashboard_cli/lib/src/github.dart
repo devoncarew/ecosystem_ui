@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:graphql/client.dart';
 import 'package:http/http.dart' as http;
 
+const String userLoginDependabot = 'dependabot[bot]';
+
 class Github {
   late final GraphQLClient _client = _initGraphQLClient();
 
@@ -64,67 +66,63 @@ class Github {
     return _getCommitFromResult(result);
   }
 
-  Future<List<Commit>> queryRecentCommits({
-    required RepositoryInfo repo,
-    required int count,
-  }) async {
-    final queryString = '''{
-      repository(owner: "${repo.org}", name: "${repo.name}") {
-        defaultBranchRef {
-          target {
-            ... on Commit {
-              history(first: $count) {
-                edges {
-                  node {
-                    oid
-                    messageHeadline
-                    committedDate
-                    author {
-                      user {
-                        login
-                      }
-                    }
-                    committer {
-                      user {
-                        login
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-''';
-    // todo: use a parser function (options.parserFn)?
-    final result = await query(QueryOptions(document: gql(queryString)));
-    if (result.hasException) {
-      throw result.exception!;
-    }
-    return _getCommitsFromResult(result);
-  }
+//   Future<List<Commit>> queryRecentCommits({
+//     required RepositoryInfo repo,
+//     required int count,
+//   }) async {
+//     final queryString = '''{
+//       repository(owner: "${repo.org}", name: "${repo.name}") {
+//         defaultBranchRef {
+//           target {
+//             ... on Commit {
+//               history(first: $count) {
+//                 edges {
+//                   node {
+//                     oid
+//                     messageHeadline
+//                     committedDate
+//                     author {
+//                       user {
+//                         login
+//                       }
+//                     }
+//                     committer {
+//                       user {
+//                         login
+//                       }
+//                     }
+//                   }
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       }
+//     }
+// ''';
+//     // todo: use a parser function (options.parserFn)?
+//     final result = await query(QueryOptions(document: gql(queryString)));
+//     if (result.hasException) {
+//       throw result.exception!;
+//     }
+//     return _getCommitsFromResult(result);
+//   }
 
   // todo: support paging?
   Future<List<Commit>> queryCommitsAfter({
     required RepositoryInfo repo,
     required String afterTimestamp,
+    bool filterNonContentCommits = true,
     String? pathInRepo,
   }) async {
     final DateTime afterTime = DateTime.parse(afterTimestamp);
-
-    // https://docs.github.com/en/graphql/reference/objects#commit
 
     String pathParam = '';
     if (pathInRepo != null) {
       pathParam = 'path: "$pathInRepo"';
     }
 
-    // history parameter:
-    // path: String; if non-null, filters history to only show commits touching
-    //       files under this path.
-
+    // https://docs.github.com/en/graphql/reference/objects#commit
     final queryString = '''{
       repository(owner: "${repo.org}", name: "${repo.name}") {
         defaultBranchRef {
@@ -162,11 +160,19 @@ class Github {
       throw result.exception!;
     }
 
+    var commits = _getCommitsFromResult(result);
+
     // Filter any commits not newer than 'afterTime' (i.e., where the commit ==
     // afterTime).
-    return _getCommitsFromResult(result)
-        .where((commit) => commit.committedDate != afterTime)
-        .toList();
+    commits = commits.where((commit) => commit.committedDate != afterTime);
+
+    // Remove commits to directories like '.github' (which shouldn't affect
+    // things like latency stats).
+    if (filterNonContentCommits) {
+      commits = commits.where((commit) => commit.user != userLoginDependabot);
+    }
+
+    return commits.toList();
   }
 
   Commit _getCommitFromResult(QueryResult result) {
@@ -193,7 +199,7 @@ class Github {
     return Commit.fromQuery(result.data!['repository']['object']);
   }
 
-  List<Commit> _getCommitsFromResult(QueryResult result) {
+  Iterable<Commit> _getCommitsFromResult(QueryResult result) {
     Map history =
         result.data!['repository']['defaultBranchRef']['target']['history'];
     var edges = (history['edges'] as List).cast<Map>();
@@ -201,7 +207,7 @@ class Github {
     return edges.map<Commit>((Map edge) {
       Map<String, dynamic> node = edge['node'];
       return Commit.fromQuery(node);
-    }).toList();
+    });
   }
 
   /// Attempt to return the contents of the github repo file at the given url.

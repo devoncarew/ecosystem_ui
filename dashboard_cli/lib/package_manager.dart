@@ -21,11 +21,11 @@ class PackageManager {
     await firestore.setup();
   }
 
-  Future updateHealthStats() async {
+  Future updateStats() async {
     // sdk stats
     DateTime timestampUtc = DateTime.now().toUtc();
     print('updating sdk stats...');
-    final sdkDeps = await firestore.getSdkDependencies();
+    final sdkDeps = await firestore.getSdkDeps();
     await firestore.logStat(
       category: 'sdk',
       stat: 'depsCount',
@@ -33,21 +33,38 @@ class PackageManager {
       timestampUtc: timestampUtc,
     );
 
+    // sdk sync latency
+    List<int> latencyDays = sdkDeps.map((dep) => dep.syncLatencyDays).toList();
+
+    int p50 = calulatePercentile(latencyDays, 0.5).round();
+    print('  p50 sync latency: $p50');
+    await firestore.logStat(
+      category: 'sdk',
+      stat: 'syncLatency.p50',
+      value: p50,
+      timestampUtc: timestampUtc,
+    );
+
+    int p90 = calulatePercentile(latencyDays, 0.9).round();
+    print('  p90 sync latency: $p90');
+    await firestore.logStat(
+      category: 'sdk',
+      stat: 'syncLatency.p90',
+      value: p90,
+      timestampUtc: timestampUtc,
+    );
+
     // publisher stats
     print('updating package stats...');
     timestampUtc = DateTime.now().toUtc();
     final publishers = await firestore.queryPublishers();
-
-    // todo: get all package info?
+    final allPackages = await firestore.queryPackagesForPublishers(publishers);
 
     for (var publisher in publishers) {
       print('  $publisher');
 
-      // todo: query firestore here...
-      final packages = await pub.packagesForPublisher(
-        publisher,
-        includeHidden: false,
-      );
+      final packages =
+          allPackages.where((p) => p.publisher == publisher).toList();
 
       // number of packages
       await firestore.logStat(
@@ -57,16 +74,36 @@ class PackageManager {
         timestampUtc: timestampUtc,
       );
 
-      // // unowned packages
-      // await firestore.logStat(
-      //   category: 'publisher.unownedCount',
-      //   stat: publisher,
-      //   value: packages.where((p) => p.owner.isEmpty).length,
-      //   timestampUtc: timestampUtc,
-      // );
-    }
+      // unowned packages
+      await firestore.logStat(
+        category: 'publisher.unownedCount',
+        stat: publisher,
+        value: packages.where((p) => p.maintainer?.isEmpty ?? true).length,
+        timestampUtc: timestampUtc,
+      );
 
-    // todo: publish latency stats
+      // Publish latency stats - p50, p90.
+      List<int> latencyDays =
+          packages.map((p) => p.publishLatencyDays).whereType<int>().toList();
+
+      int p50 = calulatePercentile(latencyDays, 0.5).round();
+      print('    p50 publish latency: $p50');
+      await firestore.logStat(
+        category: 'publisher.publishLatency.p50',
+        stat: publisher,
+        value: p50,
+        timestampUtc: timestampUtc,
+      );
+
+      int p90 = calulatePercentile(latencyDays, 0.9).round();
+      print('    p90 publish latency: $p90');
+      await firestore.logStat(
+        category: 'publisher.publishLatency.p90',
+        stat: publisher,
+        value: p90,
+        timestampUtc: timestampUtc,
+      );
+    }
   }
 
   Future updateAllPublisherPackages() async {
@@ -126,6 +163,7 @@ class PackageManager {
         } else {
           packageInfo.unpublishedCommits = commits.length;
 
+          // TODO: filter dependabot commits? commits into .github?
           commits.sort();
           var oldest = commits.last;
           packageInfo.unpublishedCommitDate = oldest.committedDate;
@@ -148,9 +186,11 @@ class PackageManager {
         var updatedFields = updatedInfo.fields!;
         for (var field in existingInfo.keys) {
           // These fields are noisy.
-          if (field == 'pubspec' ||
-              field == 'analysisOptions' ||
-              field == 'publishedDate') {
+          if (field == 'analysisOptions' ||
+              field == 'publishedDate' ||
+              field == 'pubspec' ||
+              field == 'unpublishedCommitDate' ||
+              field == 'unpublishedCommits') {
             continue;
           }
 
@@ -200,6 +240,7 @@ class PackageManager {
         repo: repo,
         afterTimestamp: commit.committedDate.toIso8601String(),
       );
+      // TODO: filter dependabot commits? commits into .github?
       unsynced.sort();
       dep.unsyncedCommits = unsynced;
 

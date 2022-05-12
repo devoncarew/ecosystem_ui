@@ -85,7 +85,7 @@ class StatsCommand extends Command<int> {
   Future<int> run() async {
     PackageManager packageManager = PackageManager();
     await packageManager.setup();
-    await packageManager.updateHealthStats();
+    await packageManager.updateStats();
     await packageManager.close();
     return 0;
   }

@@ -22,7 +22,29 @@ bool compareValues(Value a, Value b) {
 }
 
 String printValue(Value value) {
-  Object? o =
-      value.stringValue ?? value.booleanValue ?? value.timestampValue ?? value;
+  Object? o = value.stringValue ??
+      value.booleanValue ??
+      value.integerValue ??
+      value.timestampValue ??
+      value;
   return o.toString();
+}
+
+double calulatePercentile(List<int> values, double percent) {
+  if (values.isEmpty) return 0;
+  if (values.length == 1) return values.first.toDouble();
+
+  values.sort();
+
+  double index = (values.length - 1) * percent;
+  if (index == index.round()) {
+    return values[index.round()].toDouble();
+  }
+
+  int floorIndex = index.floor();
+
+  double lowerAdjusted = values[floorIndex] * (floorIndex + 1 - index);
+  double upperAdjusted = values[floorIndex + 1] * (index - floorIndex);
+
+  return lowerAdjusted + upperAdjusted;
 }

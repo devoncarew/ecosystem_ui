@@ -87,6 +87,34 @@ class Firestore {
     return repositories.toList()..sort();
   }
 
+  Future<List<FirestorePackageInfo>> queryPackagesForPublishers(
+    List<String> publishers, {
+    bool excludeDiscontinued = true,
+  }) async {
+    final List<FirestorePackageInfo> packages = [];
+    ListDocumentsResponse? response;
+    do {
+      response = await documents.list(
+        documentsPath,
+        'packages',
+        pageToken: response?.nextPageToken,
+      );
+
+      for (var doc in response.documents!) {
+        var package = FirestorePackageInfo.from(doc);
+
+        if (excludeDiscontinued && package.discontinued) {
+          continue;
+        }
+        if (publishers.contains(package.publisher)) {
+          packages.add(package);
+        }
+      }
+    } while (response.nextPageToken != null);
+
+    return packages;
+  }
+
   Future<Map<String, Value>?> getPackageInfo(String packageName) async {
     try {
       final packagePath = getDocumentName('packages', packageName);
@@ -252,6 +280,17 @@ class Firestore {
     }).toList();
   }
 
+  Future<List<FirestoreSdkDep>> getSdkDeps() async {
+    ListDocumentsResponse response = await documents.list(
+      documentsPath,
+      'sdk_deps',
+      pageSize: 100,
+    );
+    return response.documents!.map((Document doc) {
+      return FirestoreSdkDep.from(doc);
+    }).toList();
+  }
+
   Future updateSdkDependencies(List<SdkDependency> sdkDependencies) async {
     // Read current deps
     final List<String> currentDeps = await getSdkDependencies();
@@ -368,11 +407,21 @@ class Firestore {
       getDocumentName('sdk_deps', dependency.name),
     );
 
+    const ignoreKeys = {
+      'syncedCommitDate',
+      'unsyncedCommits',
+      'unsyncedCommitDate',
+    };
+
     if (existingInfo != null) {
       var updatedFields = updatedInfo.fields!;
       for (var field in existingInfo.keys) {
         if (updatedFields.keys.contains(field) &&
             !compareValues(existingInfo[field]!, updatedFields[field]!)) {
+          if (ignoreKeys.contains(field)) {
+            continue;
+          }
+
           log(
             entity: 'SDK dep package:${dependency.name}',
             change: '$field => ${printValue(updatedFields[field]!)}',
@@ -391,3 +440,130 @@ Value valueStr(String value) => Value(stringValue: value);
 Value valueBool(bool value) => Value(booleanValue: value);
 Value valueInt(int value) => Value(integerValue: value.toString());
 Value valueNull() => Value(nullValue: 'NULL_VALUE');
+
+class FirestorePackageInfo {
+  final String name;
+  final String? publisher;
+  final String? maintainer;
+  final bool discontinued;
+  final bool unlisted;
+  final int? unpublishedCommits;
+  final DateTime? unpublishedCommitDate;
+
+  FirestorePackageInfo({
+    required this.name,
+    required this.publisher,
+    required this.maintainer,
+    required this.discontinued,
+    required this.unlisted,
+    required this.unpublishedCommits,
+    required this.unpublishedCommitDate,
+  });
+
+  factory FirestorePackageInfo.from(Document doc) {
+    final fields = doc.fields!;
+
+    String? nullableField(String name) {
+      if (!fields.containsKey(name)) {
+        return null;
+      }
+      return fields[name]!.stringValue;
+    }
+
+    int? parseInt(String? val) {
+      return val == null ? null : int.parse(val);
+    }
+
+    DateTime? parseTimestamp(String? val) {
+      return val == null ? null : DateTime.parse(val);
+    }
+
+    return FirestorePackageInfo(
+      name: nullableField('name')!,
+      publisher: nullableField('publisher'),
+      maintainer: nullableField('maintainer'),
+      discontinued: fields['discontinued']!.booleanValue!,
+      unlisted: fields['unlisted']!.booleanValue!,
+      unpublishedCommits: parseInt(fields['unpublishedCommits']?.integerValue),
+      unpublishedCommitDate:
+          parseTimestamp(fields['unpublishedCommitDate']?.timestampValue),
+    );
+  }
+
+  int? get publishLatencyDays {
+    // No info.
+    if (unpublishedCommits == null) {
+      return null;
+    }
+
+    // Up to date.
+    var date = unpublishedCommitDate;
+    if (date == null) {
+      return 0;
+    }
+
+    return DateTime.now().toUtc().difference(date).inDays;
+  }
+}
+
+class FirestoreSdkDep {
+  final String name;
+  final String repository;
+  final String commit;
+  final DateTime syncedCommitDate;
+  final DateTime? unsyncedCommitDate;
+  final int? unsyncedCommits;
+
+  FirestoreSdkDep({
+    required this.name,
+    required this.repository,
+    required this.commit,
+    required this.syncedCommitDate,
+    required this.unsyncedCommitDate,
+    required this.unsyncedCommits,
+  });
+
+  factory FirestoreSdkDep.from(Document doc) {
+    final fields = doc.fields!;
+
+    String? nullableField(String name) {
+      if (!fields.containsKey(name)) {
+        return null;
+      }
+      return fields[name]!.stringValue;
+    }
+
+    int? parseInt(String? val) {
+      return val == null ? null : int.parse(val);
+    }
+
+    DateTime? parseTimestamp(String? val) {
+      return val == null ? null : DateTime.parse(val);
+    }
+
+    return FirestoreSdkDep(
+      name: nullableField('name')!,
+      repository: nullableField('repository')!,
+      commit: nullableField('commit')!,
+      syncedCommitDate:
+          parseTimestamp(fields['syncedCommitDate']?.timestampValue)!,
+      unsyncedCommitDate:
+          parseTimestamp(fields['unsyncedCommitDate']?.timestampValue),
+      unsyncedCommits: parseInt(fields['unsyncedCommits']?.integerValue),
+    );
+  }
+
+  int get syncLatencyDays {
+    // Up to date.
+    if (unsyncedCommits == 0) {
+      return 0;
+    }
+
+    var date = unsyncedCommitDate;
+    if (date == null) {
+      return 0;
+    } else {
+      return DateTime.now().toUtc().difference(date).inDays;
+    }
+  }
+}

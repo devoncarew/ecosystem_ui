@@ -118,35 +118,15 @@ class SDKDependenciesWidget extends StatelessWidget {
                       );
                     }),
                 VTableColumn(
-                  label: 'Sync Latency',
+                  label: 'SDK Sync Latency',
                   width: 100,
                   grow: 0.2,
                   alignment: Alignment.centerRight,
-                  transformFunction: (dep) {
-                    var latencyDays = dep.unsyncedDays;
-                    if (latencyDays == null) {
-                      return '';
-                    }
-                    return '${dep.unsyncedCommits} commits, '
-                        '${dep.unsyncedDays} days';
-                  },
-                  compareFunction: (a, b) {
-                    return (a.unsyncedDays ?? 0) - (b.unsyncedDays ?? 0);
-                  },
+                  transformFunction: (dep) => dep.sdkDep.syncLatencyDescription,
+                  compareFunction: (a, b) =>
+                      SdkDep.compareUnsyncedDays(a.sdkDep, b.sdkDep),
                   validators: [
-                    (dep) {
-                      if ((dep.unsyncedDays ?? 0) > 365) {
-                        return ValidationResult.error(
-                          'Greater than 365 days of latency',
-                        );
-                      }
-                      if ((dep.unsyncedDays ?? 0) > 30) {
-                        return ValidationResult.warning(
-                          'Greater than 30 days of latency',
-                        );
-                      }
-                      return null;
-                    }
+                    (dep) => SdkDep.validateSyncLatency(dep.sdkDep),
                   ],
                 ),
               ],
@@ -193,14 +173,7 @@ class PackageRepoDep {
 
   int get unsyncedCommits => sdkDep.unsyncedCommits;
 
-  int? get unsyncedDays {
-    var date = sdkDep.unsyncedCommitDate;
-    if (date == null) {
-      return null;
-    }
-
-    return DateTime.now().toUtc().difference(date.toDate()).inDays;
-  }
+  int? get unsyncedDays => sdkDep.unsyncedDays;
 
   static const gitDeps = {
     'https://github.com/dart-lang/http_io',
