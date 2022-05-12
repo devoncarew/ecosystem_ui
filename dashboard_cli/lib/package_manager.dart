@@ -87,6 +87,8 @@ class PackageManager {
 
     final packages = await pub.packagesForPublisher(publisher);
 
+    final github = Github();
+
     for (var packageName in packages) {
       print('  package:$packageName');
       var packageInfo = await pub.getPackageInfo(packageName);
@@ -104,6 +106,30 @@ class PackageManager {
             await _httpClient!.get(Uri.parse(url)).then((response) {
           return response.statusCode == 404 ? null : response.body;
         });
+      }
+
+      // These queries depend on the repository information being correct.
+      if (!packageInfo.isDiscontinued &&
+          packageInfo.repository != null &&
+          !packageInfo.repository!.endsWith('.git')) {
+        var repoInfo = packageInfo.repoInfo!;
+
+        var commits = await github.queryCommitsAfter(
+          repo: RepositoryInfo(path: repoInfo.repoOrgAndName!),
+          afterTimestamp: packageInfo.published,
+          pathInRepo: repoInfo.monoRepoPath,
+        );
+
+        if (commits.isEmpty) {
+          packageInfo.unpublishedCommits = 0;
+          packageInfo.unpublishedCommitDate = null;
+        } else {
+          packageInfo.unpublishedCommits = commits.length;
+
+          commits.sort();
+          var oldest = commits.last;
+          packageInfo.unpublishedCommitDate = oldest.committedDate;
+        }
       }
 
       var updatedInfo = await firestore.updatePackageInfo(
@@ -143,6 +169,8 @@ class PackageManager {
       publisher,
       currentPackages: packages,
     );
+
+    github.close();
   }
 
   Future updateFromSdk() async {
@@ -258,40 +286,11 @@ class PackageManager {
       return RepositoryInfo(path: name);
     }).toList();
 
-    // // TODO: for a monorepo, we'll need to do some work to identity whether a
-    // // commit involves specific packages
-    // RepositoryInfo r = repositories[1];
-
-    // var commits = await github.queryRecentCommits(repo: r, count: 20);
-    // // for (var commit in commits) {
-    // //   print(commit);
-    // // }
-    // r.addCommits(commits);
-    // r = repositories.firstWhere((r) => r.name == 'sdk');
-
-    // commits = await github.queryRecentCommits(repo: r, count: 10);
-    // r.addCommits(commits);
-
     final Github github = Github();
 
     // TODO: use package:pool for some of our operations
     for (var repo in repositories) {
       print('updating $repo');
-      var firestoreRepoInfo = await firestore.getRepoInfo(repo.path);
-      var lastCommitTimestamp = firestoreRepoInfo?['lastCommitTimestamp'];
-
-      if (firestoreRepoInfo != null && lastCommitTimestamp != null) {
-        // Look for new commits.
-        var commits = await github.queryCommitsAfter(
-          repo: repo,
-          afterTimestamp: lastCommitTimestamp.timestampValue!,
-        );
-        repo.addCommits(commits);
-      } else {
-        // Prime the info with the last n recent commits.
-        var commits = await github.queryRecentCommits(repo: repo, count: 20);
-        repo.addCommits(commits);
-      }
 
       // https://raw.githubusercontent.com/dart-lang/usage/master/.github/workflows/build.yaml
 

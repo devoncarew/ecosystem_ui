@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../model/data_model.dart';
 import '../ui/table.dart';
 import '../ui/widgets.dart';
+import '../utils/constants.dart';
 
 class SDKPage extends NavPage {
   final DataModel dataModel;
@@ -74,13 +75,13 @@ class SDKDependenciesWidget extends StatelessWidget {
                       dep.packages.map((p) => p.name).join(', '),
                 ),
                 VTableColumn(
-                  label: 'Publisher',
+                  label: 'Publishers',
                   width: 100,
                   grow: 0.2,
-                  transformFunction: (dep) => dep.publisher,
+                  transformFunction: (dep) => dep.publishers.join(', '),
                   validators: [
                     (dep) {
-                      if (dep.publisher.isEmpty) {
+                      if (dep.publishers.isEmpty) {
                         return ValidationResult.error('unverified publisher');
                       }
 
@@ -91,8 +92,10 @@ class SDKDependenciesWidget extends StatelessWidget {
                         'tools.dart.dev',
                       };
 
-                      if (!stdPublishers.contains(dep.publisher)) {
-                        return ValidationResult.warning('Atypical publisher');
+                      for (var publisher in dep.publishers) {
+                        if (!stdPublishers.contains(publisher)) {
+                          return ValidationResult.warning('Atypical publisher');
+                        }
                       }
 
                       return null;
@@ -105,45 +108,47 @@ class SDKDependenciesWidget extends StatelessWidget {
                     grow: 0.2,
                     alignment: Alignment.centerRight,
                     transformFunction: (dep) =>
-                        dep.sdkDep.commit.substring(0, 7),
+                        dep.sdkDep.commit.substring(0, commitLength),
                     renderFunction: (BuildContext context, dep) {
                       return Hyperlink(
                         url:
                             '${dep.sdkDep.repository}/commit/${dep.sdkDep.commit}',
-                        displayText: dep.sdkDep.commit.substring(0, 7),
+                        displayText:
+                            dep.sdkDep.commit.substring(0, commitLength),
                       );
                     }),
                 VTableColumn(
-                    label: 'Sync Latency',
-                    width: 100,
-                    grow: 0.2,
-                    alignment: Alignment.centerRight,
-                    transformFunction: (dep) {
-                      var latencyDays = dep.unsyncedDays;
-                      if (latencyDays == null) {
-                        return '';
+                  label: 'Sync Latency',
+                  width: 100,
+                  grow: 0.2,
+                  alignment: Alignment.centerRight,
+                  transformFunction: (dep) {
+                    var latencyDays = dep.unsyncedDays;
+                    if (latencyDays == null) {
+                      return '';
+                    }
+                    return '${dep.unsyncedCommits} commits, '
+                        '${dep.unsyncedDays} days';
+                  },
+                  compareFunction: (a, b) {
+                    return (a.unsyncedDays ?? 0) - (b.unsyncedDays ?? 0);
+                  },
+                  validators: [
+                    (dep) {
+                      if ((dep.unsyncedDays ?? 0) > 365) {
+                        return ValidationResult.error(
+                          'Greater than 365 days of latency',
+                        );
                       }
-                      return '${dep.unsyncedCommits} commits, '
-                          '${dep.unsyncedDays} days';
-                    },
-                    compareFunction: (a, b) {
-                      return (a.unsyncedDays ?? 0) - (b.unsyncedDays ?? 0);
-                    },
-                    validators: [
-                      (dep) {
-                        if ((dep.unsyncedDays ?? 0) > 365) {
-                          return ValidationResult.error(
-                            'Greater than 365 days of latency',
-                          );
-                        }
-                        if ((dep.unsyncedDays ?? 0) > 30) {
-                          return ValidationResult.warning(
-                            'Greater than 30 days of latency',
-                          );
-                        }
-                        return null;
+                      if ((dep.unsyncedDays ?? 0) > 30) {
+                        return ValidationResult.warning(
+                          'Greater than 30 days of latency',
+                        );
                       }
-                    ]),
+                      return null;
+                    }
+                  ],
+                ),
               ],
             );
           },
@@ -203,11 +208,11 @@ class PackageRepoDep {
     'https://github.com/dart-archive/web-components',
   };
 
-  String get publisher {
+  List<String> get publishers {
     if (gitDeps.contains(sdkDep.repository)) {
-      return 'N/A';
+      return ['N/A'];
     } else {
-      return packages.isEmpty ? '' : packages.first.publisher;
+      return packages.map((p) => p.publisher).toSet().toList();
     }
   }
 }

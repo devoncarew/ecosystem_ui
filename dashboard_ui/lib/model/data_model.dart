@@ -11,6 +11,7 @@ import 'package:pub_semver/pub_semver.dart';
 import 'package:collection/collection.dart';
 
 import '../ui/table.dart';
+import '../utils/constants.dart';
 
 typedef SnapshotItems = Map<String, dynamic>;
 
@@ -76,22 +77,22 @@ class DataModel {
     return _publisherNotifiers.putIfAbsent(publisher, () => ValueNotifier([]));
   }
 
-  Future<List<Commit>> getCommitsFor({
-    required String org,
-    required String repo,
-    int quantity = 100,
-  }) {
-    return FirebaseFirestore.instance
-        .collection('repositories')
-        .doc('$org%2F$repo')
-        .collection('commits')
-        .orderBy('committedDate', descending: true)
-        .limit(quantity)
-        .get()
-        .then((QuerySnapshot<SnapshotItems> snapshot) {
-      return snapshot.docs.map((doc) => Commit.from(doc)).toList();
-    });
-  }
+  // Future<List<Commit>> getCommitsFor({
+  //   required String org,
+  //   required String repo,
+  //   int quantity = 100,
+  // }) {
+  //   return FirebaseFirestore.instance
+  //       .collection('repositories')
+  //       .doc('$org%2F$repo')
+  //       .collection('commits')
+  //       .orderBy('committedDate', descending: true)
+  //       .limit(quantity)
+  //       .get()
+  //       .then((QuerySnapshot<SnapshotItems> snapshot) {
+  //     return snapshot.docs.map((doc) => Commit.from(doc)).toList();
+  //   });
+  // }
 
   final Map<String, ValueNotifier<List<PackageInfo>>> _publisherNotifiers = {};
 
@@ -251,6 +252,8 @@ class PackageInfo {
   final String pubspec;
   final String? analysisOptions;
   final Timestamp publishedDate;
+  final int? unpublishedCommits;
+  final Timestamp? unpublishedCommitDate;
 
   // todo: monorepo?
   // todo: repoPath
@@ -275,6 +278,8 @@ class PackageInfo {
           data.containsKey('analysisOptions') ? data['analysisOptions'] : null,
       publishedDate:
           data['publishedDate'] ?? Timestamp.fromMillisecondsSinceEpoch(0),
+      unpublishedCommits: data['unpublishedCommits'],
+      unpublishedCommitDate: data['unpublishedCommitDate'],
     );
   }
 
@@ -290,6 +295,8 @@ class PackageInfo {
     required this.pubspec,
     required this.analysisOptions,
     required this.publishedDate,
+    required this.unpublishedCommits,
+    required this.unpublishedCommitDate,
   });
 
   String? get sdkDep => (parsedPubspec['environment'] ?? const {})['sdk'];
@@ -339,6 +346,19 @@ class PackageInfo {
     } else {
       return path;
     }
+  }
+
+  int? get unpublishedDays {
+    if (unpublishedCommits == null) {
+      return null;
+    }
+
+    var date = unpublishedCommitDate;
+    if (date == null) {
+      return 0;
+    }
+
+    return DateTime.now().toUtc().difference(date.toDate()).inDays;
   }
 
   static TextStyle? getDisplayStyle(PackageInfo package) {
@@ -561,7 +581,7 @@ class Commit implements Comparable<Commit> {
     required this.committedDate,
   });
 
-  String get oidDisplay => oid.substring(0, 7);
+  String get oidDisplay => oid.substring(0, commitLength);
 
   factory Commit.from(QueryDocumentSnapshot<SnapshotItems> doc) {
     return Commit(
@@ -584,7 +604,6 @@ class RepositoryInfo {
   final String? dependabotConfig;
   final String? actionsConfig;
   final String? actionsFile;
-  final Timestamp? lastCommitTimestamp;
 
   RepositoryInfo({
     required this.org,
@@ -592,7 +611,6 @@ class RepositoryInfo {
     required this.dependabotConfig,
     required this.actionsConfig,
     required this.actionsFile,
-    required this.lastCommitTimestamp,
   });
 
   String get repoName => '$org/$name';
@@ -609,9 +627,6 @@ class RepositoryInfo {
           data.containsKey('actionsConfig') ? doc.get('actionsConfig') : null,
       actionsFile:
           data.containsKey('actionsFile') ? doc.get('actionsFile') : null,
-      lastCommitTimestamp: data.containsKey('lastCommitTimestamp')
-          ? doc.get('lastCommitTimestamp')
-          : null,
     );
   }
 }

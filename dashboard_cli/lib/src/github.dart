@@ -106,26 +106,31 @@ class Github {
     return _getCommitsFromResult(result);
   }
 
-  // todo: support paging
+  // todo: support paging?
   Future<List<Commit>> queryCommitsAfter({
     required RepositoryInfo repo,
     required String afterTimestamp,
+    String? pathInRepo,
   }) async {
     final DateTime afterTime = DateTime.parse(afterTimestamp);
 
     // https://docs.github.com/en/graphql/reference/objects#commit
 
+    String pathParam = '';
+    if (pathInRepo != null) {
+      pathParam = 'path: "$pathInRepo"';
+    }
+
     // history parameter:
-    // path: String
-    //   If non-null, filters history to only show commits touching files under
-    //    this path.
+    // path: String; if non-null, filters history to only show commits touching
+    //       files under this path.
 
     final queryString = '''{
       repository(owner: "${repo.org}", name: "${repo.name}") {
         defaultBranchRef {
           target {
             ... on Commit {
-              history(since: "$afterTimestamp") {
+              history(since: "$afterTimestamp" $pathParam) {
                 edges {
                   node {
                     oid
@@ -153,6 +158,7 @@ class Github {
     // todo: use a parser function (options.parserFn)?
     final result = await query(QueryOptions(document: gql(queryString)));
     if (result.hasException) {
+      // print(queryString);
       throw result.exception!;
     }
 
@@ -215,7 +221,6 @@ class Github {
 class RepositoryInfo {
   /// This is a combined github org and repo name - i.e., `dart-lang/sdk`.
   final String path;
-  final List<Commit> commits = [];
 
   String? dependabotConfig;
   String? actionsConfig;
@@ -228,10 +233,6 @@ class RepositoryInfo {
   String get name => path.substring(path.indexOf('/') + 1);
 
   String get firestoreEntityId => path.replaceAll('/', '%2F');
-
-  void addCommits(List<Commit> commits) {
-    this.commits.addAll(commits);
-  }
 
   @override
   String toString() => path;

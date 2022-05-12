@@ -415,6 +415,9 @@ class ValidationResult {
   factory ValidationResult.warning(String message) =>
       ValidationResult(message, Severity.warning);
 
+  factory ValidationResult.info(String message) =>
+      ValidationResult(message, Severity.info);
+
   IconData get icon {
     switch (severity) {
       case Severity.info:

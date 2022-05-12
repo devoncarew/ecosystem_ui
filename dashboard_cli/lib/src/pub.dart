@@ -110,10 +110,13 @@ class PackageInfo {
 
   String get name => json['name'];
   String get version => _latest['version'];
+  String get published => _latest['published'];
   String? get repository => _pubspec['repository'];
   String? get homepage => _pubspec['homepage'];
   String? get issueTracker => _pubspec['issue_tracker'];
-  String? get published => _latest['published'];
+
+  int? unpublishedCommits;
+  DateTime? unpublishedCommitDate;
 
   late final Map<String, dynamic> _latest = json['latest'];
   late final Map<String, dynamic> _pubspec = _latest['pubspec'];
@@ -141,6 +144,37 @@ class RepoInfo {
       RegExp(r'https:\/\/github\.com\/([\w\d\-_]+)\/([\w\d\-_\.]+)([\/\S]*)');
 
   RepoInfo(this.repository);
+
+  String? get repoOrgAndName {
+    var match = _repoRegex.firstMatch(repository);
+    if (match == null) {
+      return null;
+    }
+
+    var org = match.group(1)!;
+    var name = match.group(2)!;
+    return '$org/$name';
+  }
+
+  String? get monoRepoPath {
+    var match = _repoRegex.firstMatch(repository);
+    if (match == null) {
+      return null;
+    }
+
+    var path = match.group(3)!;
+    if (path.isEmpty) {
+      return null;
+    }
+
+    // /tree/main/packages/camera/camera
+    // /tree/master/pkgs/test
+    if (path.startsWith('/')) {
+      path = path.substring(1);
+    }
+
+    return path.split('/').skip(2).join('/');
+  }
 
   String? getDirectFileUrl(String file) {
     var match = _repoRegex.firstMatch(repository);

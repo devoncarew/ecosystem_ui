@@ -20,14 +20,9 @@ import 'utils/constants.dart';
 
 // todo: fix the issue where tables don't update when the lists change
 
-// todo: sdk
-//   - days since last sync?
-//   - # unsynced commits?
-//   - latency of unsynced commits?
+// todo: remove the commit info from the repositories data
 
-// todo: packages
-//   - # unpublished commits
-//   - latency of unpublished commits?
+// todo: refactor packages UI to include sdk latency
 
 void main() async {
   runApp(const PackagesApp());

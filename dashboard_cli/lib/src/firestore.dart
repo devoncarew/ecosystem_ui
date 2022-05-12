@@ -149,10 +149,17 @@ class Firestore {
         'discontinued': valueBool(packageInfo.isDiscontinued),
         'unlisted': valueBool(packageInfo.isUnlisted),
         'pubspec': valueStr(packageInfo.encodedPubspec),
+        'publishedDate': Value(timestampValue: packageInfo.published),
+        'unpublishedCommits': packageInfo.unpublishedCommits == null
+            ? valueNull()
+            : valueInt(packageInfo.unpublishedCommits!),
+        'unpublishedCommitDate': packageInfo.unpublishedCommitDate == null
+            ? valueNull()
+            : Value(
+                timestampValue:
+                    packageInfo.unpublishedCommitDate!.toIso8601String()),
         if (analysisOptions != null)
           'analysisOptions': valueStr(analysisOptions),
-        if (packageInfo.published != null)
-          'publishedDate': Value(timestampValue: packageInfo.published),
       },
     );
 
@@ -312,14 +319,6 @@ class Firestore {
       },
     );
 
-    // lastCommitTimestamp
-    List<Commit> commits = repo.commits.toList()..sort();
-    if (commits.isNotEmpty) {
-      doc.fields!['lastCommitTimestamp'] = Value(
-        timestampValue: commits.first.committedDate.toIso8601String(),
-      );
-    }
-
     final repositoryPath =
         getDocumentName('repositories', repo.firestoreEntityId);
 
@@ -333,27 +332,6 @@ class Firestore {
       repositoryPath,
       updateMask_fieldPaths: mask.fieldPaths,
     );
-
-    // Handle commit information.
-    for (var commit in commits) {
-      final Document doc = Document(
-        fields: {
-          'oid': valueStr(commit.oid),
-          'user': valueStr(commit.user),
-          'message': valueStr(commit.message),
-          'committedDate': Value(
-            timestampValue: commit.committedDate.toIso8601String(),
-          ),
-        },
-      );
-
-      print('  $commit');
-      // todo: handle error conditions
-      await documents.patch(
-        doc,
-        '$repositoryPath/commits/${commit.oid}',
-      );
-    }
   }
 
   Future updateSdkDependency(SdkDependency dependency) async {

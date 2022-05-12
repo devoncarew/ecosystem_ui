@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:dashboard_ui/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart' as url;
@@ -193,19 +191,6 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
           styleFunction: PackageInfo.getDisplayStyle,
         ),
         VTableColumn<PackageInfo>(
-          label: 'Version',
-          width: 100,
-          alignment: Alignment.centerRight,
-          transformFunction: (package) => package.version.toString(),
-          styleFunction: PackageInfo.getDisplayStyle,
-          compareFunction: (a, b) {
-            return a.version.compareTo(b.version);
-          },
-          validators: [
-            PackageInfo.validateVersion,
-          ],
-        ),
-        VTableColumn<PackageInfo>(
           label: 'Maintainer',
           width: 110,
           grow: 0.1,
@@ -236,14 +221,55 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
           ],
         ),
         VTableColumn<PackageInfo>(
+          label: 'Version',
+          width: 100,
+          alignment: Alignment.centerRight,
+          transformFunction: (package) => package.version.toString(),
+          styleFunction: PackageInfo.getDisplayStyle,
+          compareFunction: (a, b) {
+            return a.version.compareTo(b.version);
+          },
+          validators: [
+            PackageInfo.validateVersion,
+          ],
+        ),
+        VTableColumn(
           label: 'Publish Latency',
           width: 120,
+          grow: 0.2,
           alignment: Alignment.centerRight,
-          transformFunction: (package) => relativeDateInDays(
-            dateUtc: package.publishedDate.toDate(),
-            short: true,
-          ),
-          compareFunction: (a, b) => a.publishedDate.compareTo(b.publishedDate),
+          transformFunction: (package) {
+            var latencyDays = package.unpublishedDays;
+            if (latencyDays == null || package.unpublishedCommits == 0) {
+              return '';
+            }
+            return '${package.unpublishedCommits} commits, '
+                '${package.unpublishedDays} days';
+          },
+          compareFunction: (a, b) {
+            return (a.unpublishedDays ?? -1) - (b.unpublishedDays ?? -1);
+          },
+          validators: [
+            (package) {
+              if (package.unpublishedCommits == null) {
+                return ValidationResult.info('Publish info not available');
+              }
+
+              if ((package.unpublishedDays ?? 0) > 180) {
+                return ValidationResult.error(
+                  'Greater than 180 days of latency',
+                );
+              }
+
+              if ((package.unpublishedDays ?? 0) > 60) {
+                return ValidationResult.warning(
+                  'Greater than 60 days of latency',
+                );
+              }
+
+              return null;
+            }
+          ],
         ),
       ],
     );
@@ -279,7 +305,7 @@ class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
   void initState() {
     super.initState();
 
-    tabController = TabController(length: 6, vsync: this);
+    tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -306,14 +332,13 @@ class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
                 child: TabBar(
                   indicatorColor: Theme.of(context).colorScheme.onSecondary,
                   controller: tabController,
-                  // Metadata, Pubspec, Analysis options, Dependabot, Commits
+                  // Metadata, Pubspec, Analysis options, Dependabot
                   tabs: [
                     Tab(text: 'package:${widget.package.name}'),
                     const Tab(text: 'Pubspec'),
                     const Tab(text: 'Analysis options'),
                     const Tab(text: 'GitHub Actions'),
                     const Tab(text: 'Dependabot'),
-                    const Tab(text: 'Commits'),
                   ],
                 ),
               ),
@@ -346,11 +371,6 @@ class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
                     Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: DependabotConfigInfo(repo: repo),
-                    ),
-                    // Commits
-                    PackageCommitView(
-                      dataModel: dataModel,
-                      package: widget.package,
                     ),
                   ],
                 ),
@@ -443,15 +463,6 @@ class PackageMetaInfo extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.start,
                       children: [
                         _details('Version', package.version.toString()),
-                        const SizedBox(height: 8),
-                        _details(
-                          'Last commit',
-                          repo == null || repo!.lastCommitTimestamp == null
-                              ? ''
-                              : relativeDateInDays(
-                                  dateUtc: repo!.lastCommitTimestamp!.toDate(),
-                                ),
-                        ),
                         const SizedBox(height: 8),
                         _details(
                           'Last published',
@@ -739,104 +750,5 @@ class DependabotConfigInfo extends StatelessWidget {
       },
     );
     url.launchUrl(uri);
-  }
-}
-
-class PackageCommitView extends StatefulWidget {
-  final DataModel dataModel;
-  final PackageInfo package;
-
-  const PackageCommitView({
-    required this.dataModel,
-    required this.package,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  State<PackageCommitView> createState() => _PackageCommitViewState();
-}
-
-class _PackageCommitViewState extends State<PackageCommitView> {
-  final Completer<List<Commit>> completer = Completer();
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Validate that this has a github repo.
-    if (widget.package.gitOrgName == null ||
-        widget.package.gitRepoName == null) {
-      if (widget.package.repoUrl == null) {
-        completer.completeError('No listed repository');
-      } else {
-        completer.completeError('Unable to parse repository url');
-      }
-    } else {
-      widget.dataModel
-          .getCommitsFor(
-        org: widget.package.gitOrgName!,
-        repo: widget.package.gitRepoName!,
-      )
-          .then((results) {
-        completer.complete(results);
-      }).catchError((error) {
-        completer.completeError(error);
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<Commit>>(
-      future: completer.future,
-      builder: (BuildContext context, AsyncSnapshot<List<Commit>> snapshot) {
-        if (snapshot.hasError) {
-          return Text('${snapshot.error}');
-        } else if (!snapshot.hasData) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        } else {
-          return VTable<Commit>(
-            items: snapshot.data!,
-            hideHeader: true,
-            columns: [
-              VTableColumn(
-                label: 'Commit',
-                width: 60,
-                grow: 0.1,
-                transformFunction: (commit) => commit.oidDisplay,
-              ),
-              VTableColumn(
-                label: 'User',
-                width: 100,
-                grow: 0.1,
-                transformFunction: (commit) => commit.user,
-              ),
-              VTableColumn(
-                label: 'Message',
-                width: 100,
-                grow: 1,
-                transformFunction: (commit) => commit.message,
-              ),
-              VTableColumn(
-                label: 'Date',
-                width: 140,
-                grow: 0.1,
-                transformFunction: (commit) {
-                  return commit.committedDate
-                      .toDate()
-                      .toIso8601String()
-                      .replaceAll('T', ' ');
-                },
-                compareFunction: (a, b) {
-                  return a.committedDate.compareTo(b.committedDate);
-                },
-              ),
-            ],
-          );
-        }
-      },
-    );
   }
 }
