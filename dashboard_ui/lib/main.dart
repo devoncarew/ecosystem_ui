@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'model/data_model.dart';
 import 'pages/changelog_page.dart';
+import 'pages/charts.dart';
 import 'pages/pub_page.dart';
 import 'pages/sdk_page.dart';
 import 'ui/theme.dart';
@@ -103,6 +104,7 @@ enum PageTypes {
   packages,
   sdk,
   google3,
+  charts,
   changes,
 }
 
@@ -134,7 +136,11 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
         page = SDKPage(widget.dataModel);
         break;
       case PageTypes.google3:
+        // todo:
         page = TempPage('google3');
+        break;
+      case PageTypes.charts:
+        page = ChartsPage(widget.dataModel);
         break;
       case PageTypes.changes:
         page = ChangelogPage(widget.dataModel);
@@ -228,7 +234,7 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.train),
+              leading: const Icon(Icons.table_chart),
               title: const Text('SDK'),
               onTap: () {
                 Navigator.pop(context);
@@ -236,7 +242,7 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.train),
+              leading: const Icon(Icons.business),
               title: const Text('Google3'),
               onTap: () {
                 Navigator.pop(context);
@@ -245,11 +251,19 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
             ),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.train),
+              leading: const Icon(Icons.change_history),
               title: const Text('Changes'),
               onTap: () {
                 Navigator.pop(context);
                 setState(() => selectedPageType = PageTypes.changes);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.area_chart_sharp),
+              title: const Text('Charts'),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => selectedPageType = PageTypes.charts);
               },
             ),
           ],

@@ -61,11 +61,11 @@ class PackagesCommand extends Command<int> {
     PackageManager packageManager = PackageManager();
     await packageManager.setup();
     if (specificPublishers.isEmpty) {
-      await packageManager.updateAllPublisherPackages();
+      await packageManager.updatePublisherPackages();
     } else {
-      for (var publisher in specificPublishers) {
-        await packageManager.updatePublisherPackages(publisher);
-      }
+      await packageManager.updatePublisherPackages(
+        publishers: specificPublishers,
+      );
     }
     await packageManager.close();
     return 0;

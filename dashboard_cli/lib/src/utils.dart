@@ -48,3 +48,73 @@ double calulatePercentile(List<int> values, double percent) {
 
   return lowerAdjusted + upperAdjusted;
 }
+
+abstract class Logger {
+  factory Logger() {
+    return _Logger();
+  }
+
+  void write(String message);
+
+  Logger subLogger(String name);
+
+  void close({bool printElapsedTime = false});
+}
+
+class _Logger implements Logger {
+  final List<_SubLogger> _subloggers = [];
+  final Stopwatch timer = Stopwatch()..start();
+
+  @override
+  void write(String message) {
+    print(message);
+  }
+
+  @override
+  Logger subLogger(String name) {
+    _SubLogger logger = _SubLogger(this, '  ', name);
+    _subloggers.add(logger);
+    return logger;
+  }
+
+  @override
+  void close({bool printElapsedTime = false}) {
+    for (var logger in _subloggers) {
+      logger.close();
+    }
+
+    if (printElapsedTime) {
+      num seconds = timer.elapsedMilliseconds / 1000.0;
+      write('Finished in ${seconds.toStringAsFixed(1)} sec.');
+    }
+  }
+}
+
+class _SubLogger implements Logger {
+  final Logger parent;
+  final String indent;
+
+  final StringBuffer buf = StringBuffer();
+
+  _SubLogger(this.parent, this.indent, String name) {
+    buf.writeln(name);
+  }
+
+  @override
+  void write(String message) {
+    buf.writeln('$indent$message');
+  }
+
+  @override
+  Logger subLogger(String name) {
+    throw 'unsupported';
+  }
+
+  @override
+  void close({bool printElapsedTime = false}) {
+    if (buf.isNotEmpty) {
+      parent.write(buf.toString().trimRight());
+      buf.clear();
+    }
+  }
+}

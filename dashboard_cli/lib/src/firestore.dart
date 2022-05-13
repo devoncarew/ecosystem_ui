@@ -1,7 +1,6 @@
-import 'dart:io' as io;
-
 import 'package:googleapis/firestore/v1.dart';
 import 'package:googleapis_auth/auth_io.dart';
+import 'package:pool/pool.dart';
 
 import 'github.dart';
 import 'pub.dart';
@@ -21,8 +20,8 @@ class Firestore {
     // Set the GOOGLE_APPLICATION_CREDENTIALS env var to the path containing the
     // cloud console service account key.
 
-    print("env['GOOGLE_APPLICATION_CREDENTIALS']="
-        "${io.Platform.environment['GOOGLE_APPLICATION_CREDENTIALS']}");
+    // print("env['GOOGLE_APPLICATION_CREDENTIALS']="
+    //     "${io.Platform.environment['GOOGLE_APPLICATION_CREDENTIALS']}");
 
     _client = await clientViaApplicationDefaultCredentials(
       scopes: [FirestoreApi.datastoreScope],
@@ -291,21 +290,30 @@ class Firestore {
     }).toList();
   }
 
-  Future updateSdkDependencies(List<SdkDependency> sdkDependencies) async {
+  Future updateSdkDependencies(
+    List<SdkDependency> sdkDependencies, {
+    required Logger logger,
+  }) async {
     // Read current deps
     final List<String> currentDeps = await getSdkDependencies();
 
+    final pool = Pool(4);
+
     // Update commit info
-    for (var dep in sdkDependencies) {
-      print('updating ${dep.repository}...');
+    logger.write('');
+    logger.write('updating dep info...');
+
+    await pool.forEach<SdkDependency, void>(sdkDependencies, (dep) async {
+      Logger depLogger = logger.subLogger('  ${dep.repository}');
       await updateSdkDependency(dep);
-    }
+      depLogger.close();
+    }).toList();
 
     // Log sdk dep additions.
     Set<String> newDeps = Set.from(sdkDependencies.map((p) => p.name))
       ..removeAll(currentDeps);
     for (var dep in newDeps) {
-      print('  adding $dep');
+      logger.write('  adding $dep');
       await log(entity: 'SDK dep', change: 'added $dep');
     }
 
@@ -313,24 +321,29 @@ class Firestore {
     Set<String> oldDeps = currentDeps.toSet()
       ..removeAll(sdkDependencies.map((p) => p.name));
     for (var dep in oldDeps) {
-      print('  removing $dep');
+      logger.write('  removing $dep');
       await documents.delete(getDocumentName('sdk_deps', dep));
       await log(entity: 'SDK dep', change: 'removing $dep');
     }
   }
 
-  Future updateMaintainers(List<PackageMaintainer> maintainers) async {
-    for (var pkg in maintainers) {
-      print('  $pkg');
+  Future updateMaintainers(
+    List<PackageMaintainer> maintainers, {
+    required Logger logger,
+  }) async {
+    logger.write('Upating owners...');
+
+    final pool = Pool(4);
+
+    await pool.forEach<PackageMaintainer, void>(maintainers, (pkg) async {
+      final log = logger.subLogger('  $pkg');
 
       // todo: log ownership changes
-
       final Document doc = Document(
         fields: {
           'maintainer': valueStr(pkg.maintainer ?? ''),
         },
       );
-
       final DocumentMask mask = DocumentMask(
         fieldPaths: doc.fields!.keys.toList(),
       );
@@ -341,7 +354,9 @@ class Firestore {
         getDocumentName('packages', pkg.packageName),
         updateMask_fieldPaths: mask.fieldPaths,
       );
-    }
+
+      log.close();
+    }).toList();
   }
 
   Future updateRepositoryInfo(RepositoryInfo repo) async {
@@ -349,28 +364,17 @@ class Firestore {
       fields: {
         'org': valueStr(repo.org),
         'name': valueStr(repo.name),
-        if (repo.dependabotConfig != null)
-          'dependabotConfig': valueStr(repo.dependabotConfig!),
-        if (repo.actionsConfig != null)
-          'actionsConfig': valueStr(repo.actionsConfig!),
-        if (repo.actionsFile != null)
-          'actionsFile': valueStr(repo.actionsFile!),
+        'actionsConfig': valueStrNullable(repo.actionsConfig),
+        'actionsFile': valueStrNullable(repo.actionsFile),
+        'dependabotConfig': valueStrNullable(repo.dependabotConfig),
       },
     );
 
     final repositoryPath =
         getDocumentName('repositories', repo.firestoreEntityId);
 
-    final DocumentMask mask = DocumentMask(
-      fieldPaths: doc.fields!.keys.toList(),
-    );
-
     // todo: handle error conditions
-    await documents.patch(
-      doc,
-      repositoryPath,
-      updateMask_fieldPaths: mask.fieldPaths,
-    );
+    await documents.patch(doc, repositoryPath);
   }
 
   Future updateSdkDependency(SdkDependency dependency) async {
@@ -437,6 +441,8 @@ class Config {
 }
 
 Value valueStr(String value) => Value(stringValue: value);
+Value valueStrNullable(String? value) =>
+    value == null ? valueNull() : Value(stringValue: value);
 Value valueBool(bool value) => Value(booleanValue: value);
 Value valueInt(int value) => Value(integerValue: value.toString());
 Value valueNull() => Value(nullValue: 'NULL_VALUE');

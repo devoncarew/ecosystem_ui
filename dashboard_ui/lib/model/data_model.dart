@@ -130,7 +130,6 @@ class DataModel {
   Future _initSdkDeps() async {
     FirebaseFirestore.instance
         .collection('sdk_deps')
-        //.orderBy('timestamp', descending: true)
         .snapshots()
         .listen((QuerySnapshot<SnapshotItems> snapshot) {
       _strobeBusy();
@@ -151,6 +150,40 @@ class DataModel {
   /// todo: doc
   ValueListenable<List<RepositoryInfo>> get repositories => _repositories;
   final ValueNotifier<List<RepositoryInfo>> _repositories = ValueNotifier([]);
+
+  Future<List<Stat>> queryStats({
+    required String category,
+    required Duration timePeriod,
+  }) async {
+    // time limit
+    // category
+
+    //     category
+    // "sdk"
+    // (string)
+    // stat
+    // "depsCount"
+    // timestamp
+    // May 12, 2022 at 3:01:54 PM UTC-7
+    // value
+    // 68
+
+    final startTime = Timestamp.fromDate(DateTime.now().subtract(timePeriod));
+
+    QuerySnapshot<SnapshotItems> result = await FirebaseFirestore.instance
+        .collection('stats')
+        .where('category', isEqualTo: category)
+        .where('timestamp', isGreaterThanOrEqualTo: startTime)
+        // .orderBy('timestamp', descending: true)
+        .get();
+
+    final stats = result.docs.map<Stat>(Stat.fromFirestore).toList();
+    stats.sort();
+    // for (var stat in stats) {
+    //   print(stat);
+    // }
+    return stats;
+  }
 
   RepositoryInfo? getRepositoryForPackage(PackageInfo package) {
     return repositories.value.firstWhereOrNull((repo) {
@@ -244,6 +277,38 @@ class DataModel {
       }
     });
   }
+}
+
+class Stat implements Comparable<Stat> {
+  final String category;
+  final String stat;
+  final int value;
+  final Timestamp timestamp;
+
+  Stat({
+    required this.category,
+    required this.stat,
+    required this.value,
+    required this.timestamp,
+  });
+
+  static Stat fromFirestore(DocumentSnapshot<SnapshotItems> snapshot) {
+    final data = snapshot.data()!;
+    return Stat(
+      category: data['category'],
+      stat: data['stat'],
+      value: data['value'],
+      timestamp: data['timestamp'],
+    );
+  }
+
+  @override
+  int compareTo(Stat other) {
+    return timestamp.compareTo(other.timestamp);
+  }
+
+  @override
+  String toString() => '$category:$stat:$value:$timestamp';
 }
 
 class PackageInfo {
@@ -386,6 +451,15 @@ class PackageInfo {
       publisher += ' (unlisted)';
     }
     return publisher;
+  }
+
+  static int compareUnsyncedDays(PackageInfo a, PackageInfo b) {
+    var diffDays = (a.unpublishedDays ?? -1) - (b.unpublishedDays ?? -1);
+    if (diffDays == 0) {
+      return (a.unpublishedCommits ?? 0) - (b.unpublishedCommits ?? 0);
+    } else {
+      return diffDays;
+    }
   }
 
   static final _version100 = Version.parse('1.0.0');
@@ -647,6 +721,7 @@ class RepositoryInfo {
 
   factory RepositoryInfo.from(QueryDocumentSnapshot<SnapshotItems> doc) {
     final data = doc.data();
+
     return RepositoryInfo(
       org: doc.get('org'),
       name: doc.get('name'),
@@ -696,7 +771,12 @@ class SdkDep {
   }
 
   static int compareUnsyncedDays(SdkDep a, SdkDep b) {
-    return (a.unsyncedDays ?? 0) - (b.unsyncedDays ?? 0);
+    var dayDiff = (a.unsyncedDays ?? 0) - (b.unsyncedDays ?? 0);
+    if (dayDiff == 0) {
+      return (a.unsyncedCommits) - (b.unsyncedCommits);
+    } else {
+      return dayDiff;
+    }
   }
 
   static ValidationResult? validateSyncLatency(SdkDep dep) {

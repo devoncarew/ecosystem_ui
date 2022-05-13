@@ -6,6 +6,8 @@ import 'package:googleapis_auth/auth_io.dart';
 import 'package:googleapis_auth/src/adc_utils.dart';
 import 'package:http/http.dart';
 
+import 'utils.dart';
+
 class Sheets {
   late AutoRefreshingAuthClient _client;
   late SheetsApi sheetsApi;
@@ -29,17 +31,17 @@ class Sheets {
     sheetsApi = SheetsApi(_client);
   }
 
-  Future<List<PackageMaintainer>> getMaintainersData() async {
+  Future<List<PackageMaintainer>> getMaintainersData(Logger logger) async {
     final List<PackageMaintainer> maintainers = [];
 
     Spreadsheet mainSheet = await sheetsApi.spreadsheets.get(
       '1S0gBRbUjF1YuvwRWwfVVvaMCH_Pa-qfxxvnLsJQBoCU',
       includeGridData: true,
     );
-    print("  reading the '${mainSheet.properties!.title}' sheet");
+    logger.write("reading the '${mainSheet.properties!.title}' sheet");
 
     for (var sheet in mainSheet.sheets!) {
-      print("  tab '${sheet.properties!.title}'");
+      logger.write("tab '${sheet.properties!.title}'");
       GridData data = sheet.data!.first;
 
       // Validate that this sheet is well-formed.
@@ -76,7 +78,7 @@ class PackageMaintainer {
   PackageMaintainer({required this.packageName, required this.maintainer});
 
   @override
-  String toString() => 'package:$packageName: $maintainer';
+  String toString() => 'package:$packageName: ${maintainer ?? ''}';
 }
 
 extension GridDataValue on GridData {

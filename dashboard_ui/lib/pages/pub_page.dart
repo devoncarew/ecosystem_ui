@@ -264,9 +264,7 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
             return '${package.unpublishedCommits} commits, '
                 '${package.unpublishedDays} days';
           },
-          compareFunction: (a, b) {
-            return (a.unpublishedDays ?? -1) - (b.unpublishedDays ?? -1);
-          },
+          compareFunction: PackageInfo.compareUnsyncedDays,
           validators: [PackageInfo.validatePublishLatency],
         ),
         VTableColumn<PackageInfo>(
@@ -638,7 +636,7 @@ class GitHubActionsInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     if (repo == null) {
       return const Center(child: Text('No associated repository.'));
-    } else if (repo!.actionsConfig == null || repo!.actionsConfig!.isEmpty) {
+    } else if (repo!.actionsConfig == null) {
       return const Center(
         child: Text('GitHub Actions configuration not found.'),
       );
@@ -689,8 +687,7 @@ class DependabotConfigInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     if (repo == null) {
       return const Center(child: Text('No associated repository.'));
-    } else if (repo!.dependabotConfig == null ||
-        repo!.dependabotConfig!.isEmpty) {
+    } else if (repo!.dependabotConfig == null) {
       return Stack(
         fit: StackFit.passthrough,
         children: [

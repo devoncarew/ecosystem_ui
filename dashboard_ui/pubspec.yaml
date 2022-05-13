@@ -12,6 +12,7 @@ dependencies:
   firebase_core: ^1.13.1
   flutter:
     sdk: flutter
+  fl_chart: any
   provider: any
   pub_semver: any
   url_launcher: any
