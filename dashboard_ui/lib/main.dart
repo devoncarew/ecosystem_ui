@@ -9,6 +9,7 @@ import 'firebase_options.dart';
 import 'model/data_model.dart';
 import 'pages/changelog_page.dart';
 import 'pages/charts.dart';
+import 'pages/google3_page.dart';
 import 'pages/pub_page.dart';
 import 'pages/sdk_page.dart';
 import 'ui/theme.dart';
@@ -19,11 +20,8 @@ import 'utils/constants.dart';
 
 // todo: google3 data
 
-// todo: fix the issue where tables don't update when the lists change
-
-// todo: remove the commit info from the repositories data
-
-// todo: refactor packages UI to include sdk latency
+// todo: move the discontinued thing into the packages tab
+// todo: add something for unlisted
 
 void main() async {
   runApp(const PackagesApp());
@@ -100,16 +98,8 @@ class ScaffoldContainer extends StatefulWidget {
   State<ScaffoldContainer> createState() => _ScaffoldContainerState();
 }
 
-enum PageTypes {
-  packages,
-  sdk,
-  google3,
-  charts,
-  changes,
-}
-
 class _ScaffoldContainerState extends State<ScaffoldContainer> {
-  PageTypes selectedPageType = PageTypes.packages;
+  // todo: move to stateless?
 
   @override
   Widget build(BuildContext context) {
@@ -121,49 +111,31 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
     );
   }
 
-  void _toggleDiscontinued() {
-    widget.dataModel.toggleDiscontinued();
-  }
-
   Widget _build(BuildContext context, List<String> publishers) {
-    late NavPage page;
-
-    switch (selectedPageType) {
-      case PageTypes.packages:
-        page = PackagesPage(publishers: publishers);
-        break;
-      case PageTypes.sdk:
-        page = SDKPage(widget.dataModel);
-        break;
-      case PageTypes.google3:
-        // todo:
-        page = TempPage('google3');
-        break;
-      case PageTypes.charts:
-        page = ChartsPage(widget.dataModel);
-        break;
-      case PageTypes.changes:
-        page = ChangelogPage(widget.dataModel);
-        break;
-    }
-
-    final theme = Theme.of(context);
-
     final scaffold = Scaffold(
       appBar: AppBar(
-        title: Text('$appName - ${page.title}'),
+        title: const Text(appName),
+        // todo: use leading for the search + busy indicator?
+        bottom: const TabBar(
+          tabs: [
+            Tab(text: 'Packages'),
+            Tab(text: 'SDK'),
+            Tab(text: 'Google3'),
+          ],
+        ),
+        // todo: build this is a separate method
         actions: [
           Row(
             children: [
               // todo: search box
-              const SizedBox(width: 16),
+              const SizedBox(width: 8),
               ValueListenableBuilder<bool>(
                 valueListenable: widget.dataModel.busy,
                 builder: (BuildContext context, bool busy, _) {
                   return Center(
                     child: SizedBox(
-                      width: 16,
-                      height: 16,
+                      width: defaultIconSize,
+                      height: defaultIconSize,
                       child: busy
                           ? const CircularProgressIndicator(
                               color: Colors.white,
@@ -175,110 +147,59 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
                 },
               ),
               const SizedBox(width: 16),
-              PopupMenuButton(
-                icon: const Icon(Icons.more_vert),
+              IconButton(
+                icon: const Icon(Icons.table_chart),
+                tooltip: 'Recent Changes',
                 splashRadius: defaultSplashRadius,
-                itemBuilder: (BuildContext context) {
-                  return [
-                    PopupMenuItem<bool>(
-                      value: true,
-                      onTap: _toggleDiscontinued,
-                      child: ValueListenableBuilder<bool>(
-                        valueListenable: widget.dataModel.showDiscontinued,
-                        builder: (context, value, _) {
-                          return Text(value
-                              ? 'Hide discontinued'
-                              : 'Show discontinued');
-                        },
-                      ),
-                    ),
-                  ];
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return LargeDialog(
+                        title: 'Recent Changes',
+                        child: ChangelogView(dataModel: widget.dataModel),
+                      );
+                    },
+                  );
+                },
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.area_chart_sharp),
+                tooltip: 'Charts',
+                splashRadius: defaultSplashRadius,
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return LargeDialog(
+                        title: 'Charts',
+                        child: ChartsPage(dataModel: widget.dataModel),
+                      );
+                    },
+                  );
                 },
               ),
               const SizedBox(width: 16),
             ],
           ),
         ],
-        bottom: page.createBottomBar(context),
-        // ?? const PreferredSize(
-        //   preferredSize: Size(46, 46),
-        //   child: SizedBox(),
-        // ),
       ),
-      body: AnimatedSwitcher(
-        duration: kThemeAnimationDuration,
-        child: Padding(
-          padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
-          child: page.createChild(context, key: ValueKey(selectedPageType)),
-        ),
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
+      body: Padding(
+        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+        child: TabBarView(
           children: [
-            DrawerHeader(
-              decoration: BoxDecoration(color: theme.colorScheme.secondary),
-              child: Text(
-                'Switch View',
-                style: theme.textTheme.titleLarge!.copyWith(
-                  color: theme.colorScheme.onSecondary,
-                ),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.home),
-              title: const Text('Packages'),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() => selectedPageType = PageTypes.packages);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.table_chart),
-              title: const Text('SDK'),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() => selectedPageType = PageTypes.sdk);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.business),
-              title: const Text('Google3'),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() => selectedPageType = PageTypes.google3);
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.change_history),
-              title: const Text('Changes'),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() => selectedPageType = PageTypes.changes);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.area_chart_sharp),
-              title: const Text('Charts'),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() => selectedPageType = PageTypes.charts);
-              },
-            ),
+            PublisherPackagesWidget(publishers: publishers),
+            SDKDependenciesWidget(dataModel: widget.dataModel),
+            const Google3Widget(),
           ],
         ),
       ),
     );
 
-    int? tabPages = page.tabPages;
-    if (tabPages == null) {
-      return scaffold;
-    } else {
-      return DefaultTabController(
-        length: tabPages,
-        child: scaffold,
-      );
-    }
+    return DefaultTabController(
+      length: 3,
+      child: scaffold,
+    );
   }
 }

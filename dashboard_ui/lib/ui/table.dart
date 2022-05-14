@@ -3,14 +3,6 @@ import 'package:flutter/services.dart';
 
 import 'theme.dart';
 
-// todo: try adding keys
-
-// todo: support overview text (on the top left)
-
-// todo: support additional actions (at the top right)
-
-// todo: support copy csv to the clipboard
-
 typedef OnTap<T> = void Function(T object);
 
 class VTable<T> extends StatefulWidget {
@@ -57,6 +49,18 @@ class _VTableState<T> extends State<VTable<T>> {
     scrollController = ScrollController();
     sortedItems = widget.items.toList();
 
+    _performInitialSort();
+  }
+
+  @override
+  void didUpdateWidget(VTable<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    sortedItems = widget.items;
+    _performInitialSort();
+  }
+
+  void _performInitialSort() {
     if (widget.startsSorted && columns.first.supportsSort) {
       columns.first.sort(sortedItems, ascending: true);
       sortColumnIndex = 0;
@@ -93,10 +97,7 @@ class _VTableState<T> extends State<VTable<T>> {
                   children: [
                     Text(widget.tableDescription ?? ''),
                     const Expanded(child: SizedBox(width: 16)),
-                    ...widget.actions.expand((widget) => [
-                          widget,
-                          const SizedBox(width: 8),
-                        ]),
+                    ...widget.actions,
                     IconButton(
                       icon: const Icon(Icons.copy),
                       iconSize: defaultIconSize,
@@ -125,8 +126,6 @@ class _VTableState<T> extends State<VTable<T>> {
               ),
             Expanded(
               child: ListView.builder(
-                // key: ObjectKey(widget.items), // todo: think about this
-                // key: ValueKey(widget.items.length),
                 controller: scrollController,
                 itemCount: sortedItems.length,
                 itemExtent: VTable._rowHeight,

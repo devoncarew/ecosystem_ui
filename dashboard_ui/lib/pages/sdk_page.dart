@@ -5,32 +5,7 @@ import '../ui/table.dart';
 import '../ui/widgets.dart';
 import '../utils/constants.dart';
 
-class SDKPage extends NavPage {
-  final DataModel dataModel;
-
-  SDKPage(this.dataModel) : super('SDK');
-
-  @override
-  Widget createChild(BuildContext context, {Key? key}) {
-    return _SDKPage(dataModel: dataModel, key: key);
-  }
-}
-
-class _SDKPage extends StatelessWidget {
-  final DataModel dataModel;
-
-  const _SDKPage({
-    required this.dataModel,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return SDKDependenciesWidget(dataModel: dataModel);
-  }
-}
-
-class SDKDependenciesWidget extends StatelessWidget {
+class SDKDependenciesWidget extends StatefulWidget {
   final DataModel dataModel;
 
   const SDKDependenciesWidget({
@@ -39,12 +14,20 @@ class SDKDependenciesWidget extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<SDKDependenciesWidget> createState() => _SDKDependenciesWidgetState();
+}
+
+class _SDKDependenciesWidgetState extends State<SDKDependenciesWidget>
+    with AutomaticKeepAliveClientMixin {
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     return ValueListenableBuilder<List<PackageInfo>>(
-      valueListenable: dataModel.packages,
+      valueListenable: widget.dataModel.packages,
       builder: (context, packages, _) {
         return ValueListenableBuilder<List<SdkDep>>(
-          valueListenable: dataModel.sdkDependencies,
+          valueListenable: widget.dataModel.sdkDependencies,
           builder: (context, sdkDeps, _) {
             List<PackageRepoDep> deps = _calculateDeps(sdkDeps, packages);
 
@@ -160,6 +143,9 @@ class SDKDependenciesWidget extends StatelessWidget {
       );
     }).toList();
   }
+
+  @override
+  bool get wantKeepAlive => true;
 }
 
 class PackageRepoDep {
@@ -189,71 +175,3 @@ class PackageRepoDep {
     }
   }
 }
-
-// class SDKPackagesWidget extends StatelessWidget {
-//   final DataModel dataModel;
-
-//   const SDKPackagesWidget({
-//     required this.dataModel,
-//     Key? key,
-//   }) : super(key: key);
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return ValueListenableBuilder<List<PackageInfo>>(
-//       valueListenable: dataModel.packages,
-//       builder: (context, packages, _) {
-//         return VTable<PackageInfo>(
-//           items: _filterPackages(packages),
-//           columns: [
-//             VTableColumn(
-//               label: 'Package',
-//               width: 125,
-//               grow: 0.2,
-//               transformFunction: (p) => p.name,
-//               styleFunction: PackageInfo.getDisplayStyle,
-//             ),
-//             VTableColumn(
-//               label: 'Publisher',
-//               width: 125,
-//               grow: 0.2,
-//               transformFunction: PackageInfo.getPublisherDisplayName,
-//               styleFunction: PackageInfo.getDisplayStyle,
-//             ),
-//             VTableColumn(
-//               label: 'Maintainer',
-//               width: 125,
-//               grow: 0.2,
-//               transformFunction: (p) => p.maintainer,
-//               styleFunction: PackageInfo.getDisplayStyle,
-//             ),
-//             VTableColumn(
-//               label: 'Version',
-//               alignment: Alignment.centerRight,
-//               width: 100,
-//               transformFunction: (p) => p.version.toString(),
-//               compareFunction: (a, b) {
-//                 return a.version.compareTo(b.version);
-//               },
-//               styleFunction: PackageInfo.getDisplayStyle,
-//             ),
-//           ],
-//         );
-//       },
-//     );
-//   }
-
-//   List<PackageInfo> _filterPackages(List<PackageInfo> packages) {
-//     // Just SDK packages.
-//     packages = packages
-//         .where((p) => p.repoUrl == 'https://github.com/dart-lang/sdk')
-//         .toList();
-
-//     // Remove the discontinued packages.
-//     packages = packages.where((p) => !p.discontinued).toList();
-
-//     packages.sort((a, b) => a.name.compareTo(b.name));
-
-//     return packages;
-//   }
-// }

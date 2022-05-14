@@ -7,78 +7,11 @@ import '../ui/table.dart';
 import '../ui/widgets.dart';
 import '../utils/utils.dart';
 
-class PackagesPage extends NavPage {
-  final List<String> publishers;
-
-  PackagesPage({
-    required this.publishers,
-  }) : super('Packages');
-
-  @override
-  int? get tabPages => publishers.length;
-
-  @override
-  PreferredSizeWidget? createBottomBar(BuildContext context) {
-    return TabBar(
-      tabs: [
-        for (var publisher in publishers) Tab(text: publisher),
-      ],
-    );
-  }
-
-  @override
-  Widget createChild(BuildContext context, {Key? key}) {
-    return _PubPage(
-      publishers: publishers,
-      key: key,
-    );
-  }
-}
-
-class _PubPage extends StatefulWidget {
-  final List<String> publishers;
-
-  const _PubPage({
-    required this.publishers,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  State<_PubPage> createState() => _PubPageState();
-}
-
-class _PubPageState extends State<_PubPage> {
-  // @override
-  // void didUpdateWidget(covariant PubPage oldWidget) {
-  //   super.didUpdateWidget(oldWidget);
-
-  //   tabController.dispose();
-  //   tabController = TabController(
-  //     length: widget.publishers.length,
-  //     initialIndex: tabController.index,
-  //     vsync: this,
-  //   );
-  // }
-
-  @override
-  Widget build(BuildContext context) {
-    return TabBarView(
-      children: [
-        for (var publisher in widget.publishers)
-          PublisherPackagesWidget(
-            publisher: publisher,
-            key: ValueKey(publisher),
-          ),
-      ],
-    );
-  }
-}
-
 class PublisherPackagesWidget extends StatefulWidget {
-  final String publisher;
+  final List<String> publishers;
 
   const PublisherPackagesWidget({
-    required this.publisher,
+    required this.publishers,
     Key? key,
   }) : super(key: key);
 
@@ -87,55 +20,39 @@ class PublisherPackagesWidget extends StatefulWidget {
       _PublisherPackagesWidgetState();
 }
 
-class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
+class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget>
+    with AutomaticKeepAliveClientMixin {
   PackageInfo? selectedPackage;
+  final Set<String> visiblePublishers = {};
+  bool showUnlisted = false;
+  bool showDiscontinued = false;
 
-// ValueListenableBuilder<bool>(
-//                         valueListenable: widget.dataModel.showDiscontinued,
-//                         builder: (context, value, _) {
+  @override
+  void initState() {
+    super.initState();
+
+    visiblePublishers.add(widget.publishers.first);
+  }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     var dataModel = DataModel.of(context);
 
-    return ValueListenableBuilder<bool>(
-      valueListenable: dataModel.showDiscontinued,
-      builder: (context, showDiscontinued, _) {
-        return _build(context, dataModel, showDiscontinued);
-      },
-    );
-  }
-
-  Widget _build(
-    BuildContext context,
-    DataModel dataModel,
-    bool showDiscontinued,
-  ) {
     return ValueListenableBuilder<List<PackageInfo>>(
-      valueListenable: dataModel.getPackagesForPublisher(widget.publisher),
+      valueListenable: dataModel.packages,
       builder: (context, packages, _) {
         return Column(
           children: [
             Expanded(
               flex: 4,
               child: createTable(
-                _filterPackages(packages, showDiscontinued),
+                _filterPackages(packages),
                 dataModel: dataModel,
                 allPackages: packages,
               ),
             ),
-            // // TODO: Animate showing and hiding this.
-            // AnimatedContainer(
-            //   duration: const Duration(milliseconds: 200),
-            //   height: selectedPackage != null ? 300 : 0,
-            //   child: selectedPackage != null
-            //       ? ClipRect(
-            //           child: PackageDetailsWidget(
-            //             package: selectedPackage!,
-            //           ),
-            //         )
-            //       : const SizedBox(),
-            // ),
             if (selectedPackage != null)
               Expanded(
                 flex: 3,
@@ -165,10 +82,15 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
     required List<PackageInfo> allPackages,
   }) {
     var description = '${packages.length} packages';
-    if (allPackages.length > packages.length) {
+    var allFromPublisher = allPackages.where((p) {
+      return visiblePublishers.contains(p.publisher);
+    }).toList();
+    if (allFromPublisher.length > packages.length) {
       description = '$description ('
-          '${allPackages.length - packages.length} not shown)';
+          '${allFromPublisher.length - packages.length} not shown)';
     }
+
+    const toolbarHeight = 32.0;
 
     return VTable<PackageInfo>(
       items: packages,
@@ -176,6 +98,68 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
       supportsSelection: true,
       onTap: _onTap,
       tableDescription: description,
+      actions: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: toolbarHeight),
+          child: ToggleButtons(
+            borderRadius: BorderRadius.circular(6),
+            textStyle: Theme.of(context).textTheme.subtitle1,
+            children: [
+              ...widget.publishers.map((p) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(p),
+                );
+              }),
+            ],
+            isSelected: [
+              ...widget.publishers.map((p) => visiblePublishers.contains(p)),
+            ],
+            onPressed: (index) {
+              setState(() {
+                var publisher = widget.publishers[index];
+                visiblePublishers.toggle(publisher);
+              });
+            },
+          ),
+        ),
+        const SizedBox(width: 16),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: toolbarHeight),
+          child: ToggleButtons(
+            borderRadius: BorderRadius.circular(6),
+            children: [
+              Tooltip(
+                message: '${showUnlisted ? 'Hide' : 'Show'} Unlisted Packages',
+                child: const Icon(Icons.remove_red_eye, size: defaultIconSize),
+              ),
+              Tooltip(
+                message:
+                    '${showDiscontinued ? 'Hide' : 'Show'} Discontinued Packages',
+                child: const Icon(Icons.no_accounts, size: defaultIconSize),
+              ),
+            ],
+            isSelected: [
+              showUnlisted,
+              showDiscontinued,
+            ],
+            onPressed: (index) {
+              setState(() {
+                if (index == 0) {
+                  showUnlisted = !showUnlisted;
+                } else {
+                  showDiscontinued = !showDiscontinued;
+                }
+              });
+            },
+          ),
+        ),
+        const SizedBox(width: 10),
+        const SizedBox(
+          height: toolbarHeight,
+          child: VerticalDivider(),
+        ),
+      ],
       columns: [
         VTableColumn<PackageInfo>(
           label: 'Name',
@@ -283,13 +267,17 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget> {
   }
 
   List<PackageInfo> _filterPackages(
-      List<PackageInfo> packages, bool showDiscontinued) {
-    if (showDiscontinued) {
-      return packages;
-    } else {
-      return packages.where((p) => !p.discontinued).toList();
-    }
+    List<PackageInfo> packages,
+  ) {
+    return packages
+        .where((p) => visiblePublishers.contains(p.publisher))
+        .where((p) => showUnlisted ? true : !p.unlisted)
+        .where((p) => showDiscontinued ? true : !p.discontinued)
+        .toList();
   }
+
+  @override
+  bool get wantKeepAlive => true;
 }
 
 class PackageDetailsWidget extends StatefulWidget {

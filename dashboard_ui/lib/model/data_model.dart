@@ -56,13 +56,6 @@ class DataModel {
     }
   }
 
-  ValueListenable<bool> get showDiscontinued => _showDiscontinued;
-  final ValueNotifier<bool> _showDiscontinued = ValueNotifier(false);
-
-  void toggleDiscontinued() {
-    _showDiscontinued.value = !_showDiscontinued.value;
-  }
-
   ValueListenable<bool> get loading => _loading;
   final ValueNotifier<bool> _loading = ValueNotifier(true);
 
@@ -283,7 +276,7 @@ class Stat implements Comparable<Stat> {
   final String category;
   final String stat;
   final int value;
-  final Timestamp timestamp;
+  final DateTime timestamp;
 
   Stat({
     required this.category,
@@ -298,7 +291,7 @@ class Stat implements Comparable<Stat> {
       category: data['category'],
       stat: data['stat'],
       value: data['value'],
-      timestamp: data['timestamp'],
+      timestamp: (data['timestamp'] as Timestamp).toDate(),
     );
   }
 

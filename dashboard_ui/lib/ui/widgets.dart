@@ -140,6 +140,7 @@ class LargeDialog extends StatelessWidget {
       return AlertDialog(
         title: Text(title),
         contentTextStyle: Theme.of(context).textTheme.bodyText2,
+        contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
         content: DecoratedBox(
           decoration: const BoxDecoration(
             border: Border(bottom: BorderSide(color: Colors.grey)),
@@ -147,7 +148,7 @@ class LargeDialog extends StatelessWidget {
           child: SizedBox(
             width: width,
             height: height,
-            child: child,
+            child: ClipRect(child: child),
           ),
         ),
         actions: <Widget>[
@@ -181,6 +182,64 @@ class TempPage extends NavPage {
     return Center(
       child: Text(title),
       key: key,
+    );
+  }
+}
+
+const _toolbarHeight = 32.0;
+
+class ExclusiveToggleButtons<T extends Enum> extends StatefulWidget {
+  final List<T> values;
+  final T initialState;
+
+  const ExclusiveToggleButtons({
+    required this.values,
+    required this.initialState,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  State<ExclusiveToggleButtons> createState() =>
+      _ExclusiveToggleButtonsState<T>();
+}
+
+class _ExclusiveToggleButtonsState<T extends Enum>
+    extends State<ExclusiveToggleButtons<T>> {
+  late T selection;
+
+  @override
+  void initState() {
+    super.initState();
+
+    selection = widget.initialState;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: _toolbarHeight),
+      child: ToggleButtons(
+        borderRadius: BorderRadius.circular(6),
+        textStyle: Theme.of(context).textTheme.subtitle1,
+        children: [
+          ...widget.values.map((e) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Text(e.name),
+            );
+          }),
+        ],
+        isSelected: [
+          ...widget.values.map((e) => e == selection),
+        ],
+        onPressed: (index) {
+          // todo:
+
+          setState(() {
+            selection = widget.values[index];
+          });
+        },
+      ),
     );
   }
 }

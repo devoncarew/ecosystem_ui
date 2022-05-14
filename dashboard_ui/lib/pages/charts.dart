@@ -1,18 +1,23 @@
 // ignore_for_file: avoid_print
 
-import 'package:flutter/material.dart';
+import 'dart:math' as math;
+
+import 'package:dashboard_ui/ui/widgets.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
 
 import '../model/data_model.dart';
-import '../ui/widgets.dart';
 
-class ChartsPage extends NavPage {
+class ChartsPage extends StatelessWidget {
   final DataModel dataModel;
 
-  ChartsPage(this.dataModel) : super('Charts');
+  const ChartsPage({
+    required this.dataModel,
+    Key? key,
+  }) : super(key: key);
 
   @override
-  Widget createChild(BuildContext context, {Key? key}) {
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Center(
@@ -24,17 +29,31 @@ class ChartsPage extends NavPage {
           ),
           builder: (BuildContext context, AsyncSnapshot<List<Stat>> snapshot) {
             if (snapshot.hasError) {
-              print(snapshot.error);
               return Text('${snapshot.error}');
             } else if (snapshot.hasData) {
               final stats = snapshot.data!;
-              return LineChartSample(
-                depsCount: stats.where((s) => s.stat == 'depsCount').toList(),
-                latencyP50:
-                    stats.where((s) => s.stat == 'syncLatency.p50').toList(),
-                latencyP90:
-                    stats.where((s) => s.stat == 'syncLatency.p90').toList(),
+
+              final TimeSeriesGroup group = TimeSeriesGroup(
+                'SDK Sync Latency',
+                const Duration(days: 30),
+                // todo:
+                // const Duration(days: 90),
               );
+
+              group.addSeries(
+                TimeSeries('SDK Deps Count',
+                    stats.where((s) => s.stat == 'depsCount').toList()),
+              );
+              group.addSeries(
+                TimeSeries('SDK Sync Latency P50',
+                    stats.where((s) => s.stat == 'syncLatency.p50').toList()),
+              );
+              group.addSeries(
+                TimeSeries('SDK Sync Latency P90',
+                    stats.where((s) => s.stat == 'syncLatency.p90').toList()),
+              );
+
+              return TimeSeriesLineChart(group: group);
             } else {
               return const CircularProgressIndicator();
             }
@@ -45,176 +64,27 @@ class ChartsPage extends NavPage {
   }
 }
 
-class _LineChart extends StatelessWidget {
-  static final DateTime now = DateTime.now();
+final titleColor = Colors.grey.shade700;
+final borderColor = Colors.grey.shade500;
 
-  final List<Stat> depsCount;
-  final List<Stat> latencyP50;
-  final List<Stat> latencyP90;
-
-  const _LineChart({
-    required this.depsCount,
-    required this.latencyP50,
-    required this.latencyP90,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LineChart(
-      sampleData1,
-      swapAnimationDuration: kThemeAnimationDuration,
-    );
-  }
-
-  LineChartData get sampleData1 => LineChartData(
-        // lineTouchData: lineTouchData1,
-        gridData: gridData,
-        titlesData: titlesData1,
-        borderData: borderData,
-        lineBarsData: lineBarsData1,
-        // todo: p90 is off the scale here...
-        minX: 0, // todo:
-        maxX: 14, // todo:
-        maxY: 80,
-        minY: 0,
-      );
-
-  FlTitlesData get titlesData1 => FlTitlesData(
-        bottomTitles: AxisTitles(
-          sideTitles: bottomTitles,
-        ),
-        rightTitles: AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
-        topTitles: AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
-        leftTitles: AxisTitles(
-          sideTitles: leftTitles(),
-        ),
-      );
-
-  List<LineChartBarData> get lineBarsData1 => [
-        lineChartBarData1_1,
-        lineChartBarData1_2,
-        lineChartBarData1_3,
-      ];
-
-  Widget leftTitleWidgets(double value, TitleMeta meta) {
-    const style = TextStyle(
-      color: Color(0xff75729e),
-      fontWeight: FontWeight.bold,
-      fontSize: 14,
-    );
-    String text = value.toInt().toString();
-    return Text(text, style: style, textAlign: TextAlign.center);
-  }
-
-  SideTitles leftTitles() => SideTitles(
-        getTitlesWidget: leftTitleWidgets,
-        showTitles: true,
-        interval: 10,
-        reservedSize: 40,
-      );
-
-  Widget bottomTitleWidgets(double value, TitleMeta meta) {
-    const style = TextStyle(
-      color: Color(0xff72719b),
-      fontWeight: FontWeight.bold,
-      fontSize: 16,
-    );
-    Widget text;
-    int val = 14 - value.toInt();
-    text = Text(
-      DateTime.now().subtract(Duration(days: val)).toString(),
-      style: style,
-    );
-
-    // switch (value.toInt()) {
-    //   case 2:
-    //     text = const Text('SEPT', style: style);
-    //     break;
-    //   case 7:
-    //     text = const Text('OCT', style: style);
-    //     break;
-    //   case 12:
-    //     text = const Text('DEC', style: style);
-    //     break;
-    //   default:
-    //     text = const Text('');
-    //     break;
-    // }
-
-    return Padding(child: text, padding: const EdgeInsets.only(top: 10.0));
-  }
-
-  SideTitles get bottomTitles => SideTitles(
-        showTitles: true,
-        reservedSize: 32,
-        interval: 7,
-        getTitlesWidget: bottomTitleWidgets,
-      );
-
-  FlGridData get gridData => FlGridData(show: false);
-
-  FlBorderData get borderData => FlBorderData(
-        show: true,
-        border: const Border(
-          bottom: BorderSide(color: Color(0xff4e4965), width: 4),
-          left: BorderSide(color: Colors.transparent),
-          right: BorderSide(color: Colors.transparent),
-          top: BorderSide(color: Colors.transparent),
-        ),
-      );
-
-  LineChartBarData get lineChartBarData1_1 => LineChartBarData(
-        isCurved: true,
-        color: const Color(0xff4af699),
-        barWidth: 2,
-        isStrokeCapRound: true,
-        dotData: FlDotData(show: false),
-        belowBarData: BarAreaData(show: false),
-        spots: depsCount.map(_statToFlSpot).toList(),
-      );
-
-  LineChartBarData get lineChartBarData1_2 => LineChartBarData(
-        isCurved: true,
-        color: const Color(0xffaa4cfc),
-        barWidth: 2,
-        isStrokeCapRound: true,
-        dotData: FlDotData(show: false),
-        belowBarData: BarAreaData(
-          show: false,
-          color: const Color(0x00aa4cfc),
-        ),
-        spots: latencyP50.map(_statToFlSpot).toList(),
-      );
-
-  LineChartBarData get lineChartBarData1_3 => LineChartBarData(
-        isCurved: true,
-        color: const Color(0xff27b6fc),
-        barWidth: 2,
-        isStrokeCapRound: true,
-        dotData: FlDotData(show: false),
-        belowBarData: BarAreaData(show: false),
-        spots: latencyP90.map(_statToFlSpot).toList(),
-      );
-
-  static FlSpot _statToFlSpot(Stat stat) {
-    double x = now.difference(stat.timestamp.toDate()).inHours / 24.0;
-    return FlSpot(14 - x, stat.value.toDouble());
-  }
+enum ChartTypes {
+  sdkDeps,
+  sdkLatency,
+  publisherPackages,
+  publisherLatency,
 }
 
-class LineChartSample extends StatelessWidget {
-  final List<Stat> depsCount;
-  final List<Stat> latencyP50;
-  final List<Stat> latencyP90;
+enum TimeRanges {
+  days30,
+  days90,
+  days360,
+}
 
-  const LineChartSample({
-    required this.depsCount,
-    required this.latencyP50,
-    required this.latencyP90,
+class TimeSeriesLineChart extends StatelessWidget {
+  final TimeSeriesGroup group;
+
+  const TimeSeriesLineChart({
+    required this.group,
     Key? key,
   }) : super(key: key);
 
@@ -225,32 +95,228 @@ class LineChartSample extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            const SizedBox(height: 16),
-            const Text(
-              'SDK Sync Latency',
-              style: TextStyle(fontSize: 20),
-              textAlign: TextAlign.center,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const ExclusiveToggleButtons(
+                  values: ChartTypes.values,
+                  initialState: ChartTypes.publisherLatency,
+                ),
+                Expanded(
+                  child: Text(
+                    group.label,
+                    style: Theme.of(context)
+                        .textTheme
+                        .subtitle1!
+                        .copyWith(color: titleColor),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const ExclusiveToggleButtons(
+                  values: TimeRanges.values,
+                  initialState: TimeRanges.days90,
+                ),
+              ],
             ),
-            const SizedBox(height: 37),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.only(right: 16, left: 6),
-                child: _LineChart(
-                  depsCount: depsCount,
-                  latencyP50: latencyP50,
-                  latencyP90: latencyP90,
-                ),
+                padding: const EdgeInsets.only(top: 16, right: 16),
+                child: _LineChart(group: group),
               ),
             ),
           ],
         ),
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: () {
-            print('refresh');
-          },
-        )
       ],
     );
+  }
+}
+
+// todo: the dot is very large
+// todo: legend
+
+class _LineChart extends StatelessWidget {
+  // todo: redo these colors
+  static final colors = [
+    const Color(0xff27b6fc),
+    Colors.green.shade400,
+    Colors.teal,
+    Colors.grey,
+    Colors.brown,
+  ];
+
+  final TimeSeriesGroup group;
+
+  const _LineChart({
+    required this.group,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final range = group.getBounds();
+
+    return LineChart(
+      LineChartData(
+        titlesData: getTitlesData(),
+        gridData: FlGridData(
+          verticalInterval: 1.0,
+          checkToShowVerticalLine: (double value) {
+            DateTime vert = startDate.add(Duration(days: value.round()));
+            return vert.day == 1;
+          },
+        ),
+        borderData: FlBorderData(
+          show: true,
+          border: Border.all(color: borderColor, width: 2),
+        ),
+        lineBarsData: group.series.map(createBarData).toList(),
+        minX: range.left,
+        maxX: range.right,
+        maxY: range.top,
+        minY: range.bottom,
+      ),
+      swapAnimationDuration: kThemeAnimationDuration,
+    );
+  }
+
+  FlTitlesData getTitlesData() {
+    return FlTitlesData(
+      leftTitles: AxisTitles(
+        sideTitles: SideTitles(
+          getTitlesWidget: leftTitleWidgets,
+          showTitles: true,
+          reservedSize: 40,
+        ),
+      ),
+      bottomTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          reservedSize: 34,
+          interval: 7, // todo:
+          getTitlesWidget: bottomTitleWidgets,
+        ),
+      ),
+      rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+    );
+  }
+
+  LineChartBarData createBarData(TimeSeries series) {
+    return LineChartBarData(
+      color: colors[group.series.indexOf(series)],
+      barWidth: 2,
+      isStrokeCapRound: true,
+      dotData: FlDotData(show: false),
+      belowBarData: BarAreaData(show: false),
+      spots: series.toFlSpots(),
+    );
+  }
+
+  Widget leftTitleWidgets(double value, TitleMeta meta) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: Text(
+        value.toInt().toString(),
+        style: TextStyle(
+          color: borderColor,
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
+        textAlign: TextAlign.right,
+      ),
+    );
+  }
+
+  Widget bottomTitleWidgets(double value, TitleMeta meta) {
+    var date = startDate.add(Duration(days: value.round()));
+    return Padding(
+      child: Text(
+        '${date.month}/${date.day}',
+        style: TextStyle(
+          color: borderColor,
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
+        textAlign: TextAlign.center,
+      ),
+      padding: const EdgeInsets.only(top: 10),
+    );
+  }
+}
+
+final startDate = DateTime(2022, 1, 1).toUtc();
+
+double dateToDay(DateTime date) {
+  return date.difference(startDate).inHours / 24.0;
+}
+
+class TimeSeries {
+  final String label;
+  final List<Stat> stats;
+
+  TimeSeries(this.label, this.stats);
+
+  double getOldestDate() {
+    if (stats.isEmpty) return 0;
+
+    return stats.fold<double>(
+      dateToDay(stats.first.timestamp),
+      (value, stat) => math.min(value, dateToDay(stat.timestamp)),
+    );
+  }
+
+  double getLargestValue() {
+    if (stats.isEmpty) return 0;
+
+    return stats.fold<double>(
+      stats.first.value.toDouble(),
+      (value, stat) => math.max(value, stat.value.toDouble()),
+    );
+  }
+
+  List<FlSpot> toFlSpots() {
+    return stats
+        .map((stat) => FlSpot(dateToDay(stat.timestamp), stat.value.toDouble()))
+        .toList();
+  }
+}
+
+class TimeSeriesGroup {
+  final String label;
+  final Duration duration;
+  List<TimeSeries> series = [];
+  double _maxValue = 0;
+  late double _startDay;
+  late double _endDay;
+
+  TimeSeriesGroup(this.label, this.duration) {
+    final now = DateTime.now();
+    _endDay = dateToDay(now);
+    _startDay = dateToDay(now.subtract(duration));
+  }
+
+  void addSeries(TimeSeries series) {
+    this.series.add(series);
+
+    _maxValue = math.max(_maxValue, series.getLargestValue());
+  }
+
+  Rect getBounds() {
+    return Rect.fromLTRB(
+      _startDay,
+      _nearestDecimalMultiple(_maxValue),
+      _endDay,
+      0,
+    );
+  }
+
+  static double _nearestDecimalMultiple(double value) {
+    // drop all digits
+    // ceiling
+    // add digits back
+    var digits = value.ceil().toString().length - 1;
+    var multiplier = math.pow(10, digits);
+    value = value / multiplier;
+    value = value.ceilToDouble();
+    return value * multiplier;
   }
 }

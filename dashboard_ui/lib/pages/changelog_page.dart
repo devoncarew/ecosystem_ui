@@ -7,18 +7,18 @@ import '../ui/table.dart';
 class ChangelogPage extends NavPage {
   final DataModel dataModel;
 
-  ChangelogPage(this.dataModel) : super('Changes');
+  ChangelogPage(this.dataModel) : super('Recent Changes');
 
   @override
   Widget createChild(BuildContext context, {Key? key}) {
-    return _ChangelogPage(dataModel: dataModel, key: key);
+    return ChangelogView(dataModel: dataModel, key: key);
   }
 }
 
-class _ChangelogPage extends StatelessWidget {
+class ChangelogView extends StatelessWidget {
   final DataModel dataModel;
 
-  const _ChangelogPage({
+  const ChangelogView({
     required this.dataModel,
     Key? key,
   }) : super(key: key);

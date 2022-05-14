@@ -65,3 +65,9 @@ String relativeDateInDays({
   var days = (hoursDiff / 24.0).round();
   return short ? '$days days' : '$days days ago ($dateText)';
 }
+
+extension SetToggle<E> on Set<E> {
+  void toggle(E value) {
+    contains(value) ? remove(value) : add(value);
+  }
+}
