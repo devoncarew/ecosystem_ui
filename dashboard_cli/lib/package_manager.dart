@@ -31,14 +31,16 @@ class PackageManager {
   Future updateStats() async {
     final logger = Logger();
 
+    // await firestore.convertOlderStats();
+
     // sdk stats
     DateTime timestampUtc = DateTime.now().toUtc();
     logger.write('updating sdk stats...');
     final sdkDeps = await firestore.getSdkDeps();
     logger.write('${sdkDeps.length} sdk deps');
     await firestore.logStat(
-      category: 'sdk',
-      stat: 'depsCount',
+      category: 'sdk.deps',
+      stat: 'count',
       value: sdkDeps.length,
       timestampUtc: timestampUtc,
     );
@@ -49,8 +51,8 @@ class PackageManager {
     int p50 = calulatePercentile(latencyDays, 0.5).round();
     logger.write('p50 sync latency: $p50 days');
     await firestore.logStat(
-      category: 'sdk',
-      stat: 'syncLatency.p50',
+      category: 'sdk.latency',
+      stat: 'p50',
       value: p50,
       timestampUtc: timestampUtc,
     );
@@ -58,8 +60,8 @@ class PackageManager {
     int p90 = calulatePercentile(latencyDays, 0.9).round();
     logger.write('p90 sync latency: $p90 days');
     await firestore.logStat(
-      category: 'sdk',
-      stat: 'syncLatency.p90',
+      category: 'sdk.latency',
+      stat: 'p90',
       value: p90,
       timestampUtc: timestampUtc,
     );
@@ -71,6 +73,7 @@ class PackageManager {
     timestampUtc = DateTime.now().toUtc();
 
     final publishers = await firestore.queryPublishers();
+
     final allPackages = await firestore.queryPackagesForPublishers(publishers);
 
     final pool = Pool(4);
@@ -86,14 +89,16 @@ class PackageManager {
           packages.where((p) => p.maintainer?.isEmpty ?? true).length;
       log.write('${packages.length} packages ($unowned unowned)');
       await firestore.logStat(
-        category: 'publisher.packageCount',
-        stat: publisher,
+        category: 'package.count',
+        stat: 'count',
+        detail: publisher,
         value: packages.length,
         timestampUtc: timestampUtc,
       );
       await firestore.logStat(
-        category: 'publisher.unownedCount',
-        stat: publisher,
+        category: 'package.count',
+        stat: 'unowned',
+        detail: publisher,
         value: unowned,
         timestampUtc: timestampUtc,
       );
@@ -105,8 +110,9 @@ class PackageManager {
       int p50 = calulatePercentile(latencyDays, 0.5).round();
       log.write('p50 publish latency: $p50 days');
       await firestore.logStat(
-        category: 'publisher.publishLatency.p50',
-        stat: publisher,
+        category: 'package.latency',
+        stat: 'p50',
+        detail: publisher,
         value: p50,
         timestampUtc: timestampUtc,
       );
@@ -114,8 +120,9 @@ class PackageManager {
       int p90 = calulatePercentile(latencyDays, 0.9).round();
       log.write('p90 publish latency: $p90 days');
       await firestore.logStat(
-        category: 'publisher.publishLatency.p90',
-        stat: publisher,
+        category: 'package.latency',
+        stat: 'p90',
+        detail: publisher,
         value: p90,
         timestampUtc: timestampUtc,
       );

@@ -104,14 +104,6 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget>
           child: ToggleButtons(
             borderRadius: BorderRadius.circular(6),
             textStyle: Theme.of(context).textTheme.subtitle1,
-            children: [
-              ...widget.publishers.map((p) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Text(p),
-                );
-              }),
-            ],
             isSelected: [
               ...widget.publishers.map((p) => visiblePublishers.contains(p)),
             ],
@@ -121,6 +113,14 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget>
                 visiblePublishers.toggle(publisher);
               });
             },
+            children: [
+              ...widget.publishers.map((p) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(p),
+                );
+              }),
+            ],
           ),
         ),
         const SizedBox(width: 16),
@@ -128,17 +128,6 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget>
           constraints: const BoxConstraints(maxHeight: toolbarHeight),
           child: ToggleButtons(
             borderRadius: BorderRadius.circular(6),
-            children: [
-              Tooltip(
-                message: '${showUnlisted ? 'Hide' : 'Show'} Unlisted Packages',
-                child: const Icon(Icons.remove_red_eye, size: defaultIconSize),
-              ),
-              Tooltip(
-                message:
-                    '${showDiscontinued ? 'Hide' : 'Show'} Discontinued Packages',
-                child: const Icon(Icons.no_accounts, size: defaultIconSize),
-              ),
-            ],
             isSelected: [
               showUnlisted,
               showDiscontinued,
@@ -152,6 +141,17 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget>
                 }
               });
             },
+            children: [
+              Tooltip(
+                message: '${showUnlisted ? 'Hide' : 'Show'} Unlisted Packages',
+                child: const Icon(Icons.remove_red_eye, size: defaultIconSize),
+              ),
+              Tooltip(
+                message:
+                    '${showDiscontinued ? 'Hide' : 'Show'} Discontinued Packages',
+                child: const Icon(Icons.no_accounts, size: defaultIconSize),
+              ),
+            ],
           ),
         ),
         const SizedBox(width: 10),

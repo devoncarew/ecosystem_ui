@@ -109,10 +109,6 @@ class LoadingScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text(appName),
-        bottom: const PreferredSize(
-          preferredSize: Size(46, 46),
-          child: SizedBox(),
-        ),
       ),
       body: const Center(
         child: CircularProgressIndicator(),
@@ -180,39 +176,25 @@ class TempPage extends NavPage {
   @override
   Widget createChild(BuildContext context, {Key? key}) {
     return Center(
-      child: Text(title),
       key: key,
+      child: Text(title),
     );
   }
 }
 
 const _toolbarHeight = 32.0;
 
-class ExclusiveToggleButtons<T extends Enum> extends StatefulWidget {
+class ExclusiveToggleButtons<T extends Enum> extends StatelessWidget {
   final List<T> values;
-  final T initialState;
+  final T selection;
+  final void Function(T item)? onPressed;
 
   const ExclusiveToggleButtons({
     required this.values,
-    required this.initialState,
+    required this.selection,
+    this.onPressed,
     Key? key,
   }) : super(key: key);
-
-  @override
-  State<ExclusiveToggleButtons> createState() =>
-      _ExclusiveToggleButtonsState<T>();
-}
-
-class _ExclusiveToggleButtonsState<T extends Enum>
-    extends State<ExclusiveToggleButtons<T>> {
-  late T selection;
-
-  @override
-  void initState() {
-    super.initState();
-
-    selection = widget.initialState;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -221,25 +203,29 @@ class _ExclusiveToggleButtonsState<T extends Enum>
       child: ToggleButtons(
         borderRadius: BorderRadius.circular(6),
         textStyle: Theme.of(context).textTheme.subtitle1,
+        isSelected: [
+          ...values.map((e) => e == selection),
+        ],
+        onPressed: (index) {
+          if (onPressed != null) {
+            onPressed!(values[index]);
+          }
+        },
         children: [
-          ...widget.values.map((e) {
+          ...values.map((e) {
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Text(e.name),
+              child: Text(_splitCamelCase(e.name)),
             );
           }),
         ],
-        isSelected: [
-          ...widget.values.map((e) => e == selection),
-        ],
-        onPressed: (index) {
-          // todo:
-
-          setState(() {
-            selection = widget.values[index];
-          });
-        },
       ),
     );
+  }
+
+  static String _splitCamelCase(String str) {
+    return str.characters
+        .map((c) => c == c.toLowerCase() ? c : ' ${c.toLowerCase()}')
+        .join();
   }
 }

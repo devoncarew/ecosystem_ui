@@ -4,11 +4,37 @@ import 'dart:math' as math;
 
 import 'package:dashboard_ui/ui/widgets.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../model/data_model.dart';
+import '../ui/theme.dart';
 
-class ChartsPage extends StatelessWidget {
+final titleColor = Colors.grey.shade700;
+final borderColor = Colors.grey.shade500;
+
+enum ChartTypes {
+  sdkDeps('sdk.deps'),
+  sdkLatency('sdk.latency'),
+  packageCounts('package.count'),
+  publishLatency('package.latency');
+
+  final String category;
+
+  const ChartTypes(this.category);
+}
+
+enum TimeRanges {
+  month(30),
+  quarter(91),
+  year(365);
+
+  final int days;
+
+  const TimeRanges(this.days);
+}
+
+class ChartsPage extends StatefulWidget {
   final DataModel dataModel;
 
   const ChartsPage({
@@ -17,79 +43,27 @@ class ChartsPage extends StatelessWidget {
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Center(
-        child: FutureBuilder<List<Stat>>(
-          // todo: move the query elsewhere...
-          future: dataModel.queryStats(
-            category: 'sdk',
-            timePeriod: const Duration(days: 90),
-          ),
-          builder: (BuildContext context, AsyncSnapshot<List<Stat>> snapshot) {
-            if (snapshot.hasError) {
-              return Text('${snapshot.error}');
-            } else if (snapshot.hasData) {
-              final stats = snapshot.data!;
+  State<ChartsPage> createState() => _ChartsPageState();
+}
 
-              final TimeSeriesGroup group = TimeSeriesGroup(
-                'SDK Sync Latency',
-                const Duration(days: 30),
-                // todo:
-                // const Duration(days: 90),
-              );
+class _ChartsPageState extends State<ChartsPage> {
+  late QueryEngine queryEngine;
 
-              group.addSeries(
-                TimeSeries('SDK Deps Count',
-                    stats.where((s) => s.stat == 'depsCount').toList()),
-              );
-              group.addSeries(
-                TimeSeries('SDK Sync Latency P50',
-                    stats.where((s) => s.stat == 'syncLatency.p50').toList()),
-              );
-              group.addSeries(
-                TimeSeries('SDK Sync Latency P90',
-                    stats.where((s) => s.stat == 'syncLatency.p90').toList()),
-              );
+  @override
+  void initState() {
+    super.initState();
 
-              return TimeSeriesLineChart(group: group);
-            } else {
-              return const CircularProgressIndicator();
-            }
-          },
-        ),
-      ),
-    );
+    queryEngine = QueryEngine(widget.dataModel);
+    queryEngine.query();
   }
-}
 
-final titleColor = Colors.grey.shade700;
-final borderColor = Colors.grey.shade500;
-
-enum ChartTypes {
-  sdkDeps,
-  sdkLatency,
-  publisherPackages,
-  publisherLatency,
-}
-
-enum TimeRanges {
-  days30,
-  days90,
-  days360,
-}
-
-class TimeSeriesLineChart extends StatelessWidget {
-  final TimeSeriesGroup group;
-
-  const TimeSeriesLineChart({
-    required this.group,
-    Key? key,
-  }) : super(key: key);
+  // todo: have a progress indicator
 
   @override
   Widget build(BuildContext context) {
+    final titleStyle =
+        Theme.of(context).textTheme.subtitle1!.copyWith(color: titleColor);
+
     return Stack(
       children: <Widget>[
         Column(
@@ -98,30 +72,71 @@ class TimeSeriesLineChart extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const ExclusiveToggleButtons(
-                  values: ChartTypes.values,
-                  initialState: ChartTypes.publisherLatency,
+                ValueListenableBuilder<ChartTypes>(
+                  valueListenable: queryEngine.chartType,
+                  builder: (context, chartType, child) {
+                    return ExclusiveToggleButtons<ChartTypes>(
+                      values: ChartTypes.values,
+                      selection: chartType,
+                      onPressed: (item) {
+                        queryEngine.query(chartType: item);
+                      },
+                    );
+                  },
                 ),
                 Expanded(
-                  child: Text(
-                    group.label,
-                    style: Theme.of(context)
-                        .textTheme
-                        .subtitle1!
-                        .copyWith(color: titleColor),
-                    textAlign: TextAlign.center,
+                  child: ValueListenableBuilder<QueryResult>(
+                    valueListenable: queryEngine.queryResult,
+                    builder: (context, result, _) {
+                      return Text(
+                        result.group.label,
+                        style: titleStyle,
+                        textAlign: TextAlign.center,
+                      );
+                    },
                   ),
                 ),
-                const ExclusiveToggleButtons(
-                  values: TimeRanges.values,
-                  initialState: TimeRanges.days90,
+                ValueListenableBuilder<bool>(
+                  valueListenable: queryEngine.busy,
+                  builder: (BuildContext context, bool busy, _) {
+                    return Center(
+                      child: SizedBox(
+                        width: defaultIconSize,
+                        height: defaultIconSize,
+                        child: busy
+                            ? const CircularProgressIndicator(
+                                // color: Colors.white,
+                                strokeWidth: 2,
+                              )
+                            : null,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 16),
+                ValueListenableBuilder<TimeRanges>(
+                  valueListenable: queryEngine.timeRange,
+                  builder: (context, range, child) {
+                    return ExclusiveToggleButtons<TimeRanges>(
+                      values: TimeRanges.values,
+                      selection: range,
+                      onPressed: (item) {
+                        queryEngine.query(timeRange: item);
+                      },
+                    );
+                  },
                 ),
               ],
             ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.only(top: 16, right: 16),
-                child: _LineChart(group: group),
+                child: ValueListenableBuilder<QueryResult>(
+                  valueListenable: queryEngine.queryResult,
+                  builder: (context, result, _) {
+                    return _TimeSeriesLineChart(group: result.group);
+                  },
+                ),
               ),
             ),
           ],
@@ -131,22 +146,19 @@ class TimeSeriesLineChart extends StatelessWidget {
   }
 }
 
-// todo: the dot is very large
-// todo: legend
-
-class _LineChart extends StatelessWidget {
-  // todo: redo these colors
+class _TimeSeriesLineChart extends StatelessWidget {
+  // todo: add more colors
   static final colors = [
-    const Color(0xff27b6fc),
-    Colors.green.shade400,
-    Colors.teal,
-    Colors.grey,
-    Colors.brown,
+    const Color(0xFF68A7AD),
+    const Color(0xFF398AB9),
+    const Color(0xFFE5CB9F),
+    const Color(0xFFD8D2CB),
+    const Color(0xFFBB6464),
   ];
 
   final TimeSeriesGroup group;
 
-  const _LineChart({
+  const _TimeSeriesLineChart({
     required this.group,
   });
 
@@ -154,27 +166,35 @@ class _LineChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final range = group.getBounds();
 
-    return LineChart(
-      LineChartData(
-        titlesData: getTitlesData(),
-        gridData: FlGridData(
-          verticalInterval: 1.0,
-          checkToShowVerticalLine: (double value) {
-            DateTime vert = startDate.add(Duration(days: value.round()));
-            return vert.day == 1;
-          },
+    return Stack(
+      children: [
+        LineChart(
+          LineChartData(
+            titlesData: getTitlesData(),
+            gridData: FlGridData(
+              verticalInterval: 1.0,
+              checkToShowVerticalLine: (double value) {
+                DateTime vert = startDate.add(Duration(days: value.round()));
+                return vert.day == 1;
+              },
+            ),
+            borderData: FlBorderData(
+              show: true,
+              border: Border.all(color: borderColor, width: 2),
+            ),
+            lineBarsData: group.series.map(createBarData).toList(),
+            minX: range.left,
+            maxX: range.right,
+            maxY: range.top,
+            minY: range.bottom,
+          ),
+          swapAnimationDuration: kThemeAnimationDuration,
         ),
-        borderData: FlBorderData(
-          show: true,
-          border: Border.all(color: borderColor, width: 2),
+        Padding(
+          padding: const EdgeInsets.only(left: 60, top: 22),
+          child: _ChartLegendWidget(group: group, colors: colors),
         ),
-        lineBarsData: group.series.map(createBarData).toList(),
-        minX: range.left,
-        maxX: range.right,
-        maxY: range.top,
-        minY: range.bottom,
-      ),
-      swapAnimationDuration: kThemeAnimationDuration,
+      ],
     );
   }
 
@@ -202,7 +222,7 @@ class _LineChart extends StatelessWidget {
 
   LineChartBarData createBarData(TimeSeries series) {
     return LineChartBarData(
-      color: colors[group.series.indexOf(series)],
+      color: colors[group.series.indexOf(series) % colors.length],
       barWidth: 2,
       isStrokeCapRound: true,
       dotData: FlDotData(show: false),
@@ -229,6 +249,7 @@ class _LineChart extends StatelessWidget {
   Widget bottomTitleWidgets(double value, TitleMeta meta) {
     var date = startDate.add(Duration(days: value.round()));
     return Padding(
+      padding: const EdgeInsets.only(top: 10),
       child: Text(
         '${date.month}/${date.day}',
         style: TextStyle(
@@ -238,7 +259,6 @@ class _LineChart extends StatelessWidget {
         ),
         textAlign: TextAlign.center,
       ),
-      padding: const EdgeInsets.only(top: 10),
     );
   }
 }
@@ -252,8 +272,24 @@ double dateToDay(DateTime date) {
 class TimeSeries {
   final String label;
   final List<Stat> stats;
+  final String? units;
 
-  TimeSeries(this.label, this.stats);
+  TimeSeries(this.label, this.stats, {this.units});
+
+  /// Return both the label as well as the value of the last newest entry.
+  String get describe {
+    if (stats.isEmpty) {
+      return label;
+    } else {
+      var stat = stats.last;
+      var suffix = units == null
+          ? ''
+          : stat.value == 1
+              ? ' $units'
+              : ' ${units}s';
+      return '$label (${stat.value}$suffix)';
+    }
+  }
 
   double getOldestDate() {
     if (stats.isEmpty) return 0;
@@ -303,20 +339,231 @@ class TimeSeriesGroup {
   Rect getBounds() {
     return Rect.fromLTRB(
       _startDay,
-      _nearestDecimalMultiple(_maxValue),
+      series.isEmpty ? 100 : _nearestRoundNumber(_maxValue),
       _endDay,
       0,
     );
   }
 
-  static double _nearestDecimalMultiple(double value) {
-    // drop all digits
-    // ceiling
-    // add digits back
+  static double _nearestRoundNumber(double value) {
+    // drop all digits; ceiling; add digits back
     var digits = value.ceil().toString().length - 1;
     var multiplier = math.pow(10, digits);
     value = value / multiplier;
-    value = value.ceilToDouble();
+    if (value < 1.5) {
+      value = value < 1.25 ? 1.25 : 1.5;
+    } else {
+      value = value.ceilToDouble();
+    }
     return value * multiplier;
   }
+}
+
+class _ChartLegendWidget extends StatelessWidget {
+  final TimeSeriesGroup group;
+  final List<Color> colors;
+
+  const _ChartLegendWidget({
+    required this.group,
+    required this.colors,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade700),
+      ),
+      padding: const EdgeInsets.only(left: 12, top: 12, right: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ...group.series.map((series) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color:
+                          colors[group.series.indexOf(series) % colors.length],
+                      border: Border.all(color: Colors.grey.shade700),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    series.describe,
+                    style: TextStyle(
+                      color: borderColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+    );
+  }
+}
+
+class QueryEngine {
+  final DataModel dataModel;
+
+  QueryEngine(this.dataModel);
+
+  void query({
+    ChartTypes? chartType,
+    TimeRanges? timeRange,
+  }) {
+    if (chartType != null) {
+      _chartType.value = chartType;
+    }
+
+    if (timeRange != null) {
+      _timeRange.value = timeRange;
+    }
+
+    chartType = _chartType.value;
+    timeRange = _timeRange.value;
+
+    final duration = Duration(days: timeRange.days);
+
+    _busy.value = true;
+
+    dataModel
+        .queryStats(category: chartType.category, timePeriod: duration)
+        .then(
+      (List<Stat> result) {
+        _busy.value = false;
+
+        late TimeSeriesGroup group;
+
+        switch (chartType!) {
+          case ChartTypes.sdkDeps:
+            group = TimeSeriesGroup('SDK Dependencies', duration);
+            group.addSeries(TimeSeries('SDK dependency count', result));
+            break;
+          case ChartTypes.sdkLatency:
+            group = TimeSeriesGroup('SDK Sync Latency', duration);
+            group.addSeries(
+              TimeSeries(
+                'SDK P50 sync latency',
+                result.where((s) => s.stat == 'p50').toList(),
+                units: 'day',
+              ),
+            );
+            group.addSeries(
+              TimeSeries(
+                'SDk P90 sync latency',
+                result.where((s) => s.stat == 'p90').toList(),
+                units: 'day',
+              ),
+            );
+            break;
+          case ChartTypes.packageCounts:
+            group = TimeSeriesGroup('Package Counts', duration);
+
+            var counts = <String, List<Stat>>{};
+            var unowned = <String, List<Stat>>{};
+            for (var stat in result) {
+              if (stat.stat == 'count') {
+                counts.putIfAbsent(stat.detail!, () => []).add(stat);
+              } else if (stat.stat == 'unowned') {
+                unowned.putIfAbsent(stat.detail!, () => []).add(stat);
+              }
+            }
+
+            // flutter.dev doesn't use this
+            unowned.remove('flutter.dev');
+
+            // we care less about having these owned
+            unowned.remove('labs.dart.dev');
+            unowned.remove('google.dev');
+
+            for (var entry in counts.entries) {
+              group.addSeries(TimeSeries('${entry.key} count', entry.value));
+            }
+            for (var entry in unowned.entries) {
+              group.addSeries(TimeSeries('${entry.key} unowned', entry.value));
+            }
+
+            group.series.sort((a, b) => a.label.compareTo(b.label));
+
+            break;
+          case ChartTypes.publishLatency:
+            group = TimeSeriesGroup('Publish Latency', duration);
+
+            var p50 = <String, List<Stat>>{};
+            var p90 = <String, List<Stat>>{};
+            for (var stat in result) {
+              if (stat.stat == 'p50') {
+                p50.putIfAbsent(stat.detail!, () => []).add(stat);
+              } else if (stat.stat == 'p90') {
+                p90.putIfAbsent(stat.detail!, () => []).add(stat);
+              }
+            }
+
+            for (var entry in p50.entries) {
+              group.addSeries(
+                TimeSeries(
+                  '${entry.key} P50 latency',
+                  entry.value,
+                  units: 'day',
+                ),
+              );
+            }
+            for (var entry in p90.entries) {
+              group.addSeries(
+                TimeSeries(
+                  '${entry.key} P90 latency',
+                  entry.value,
+                  units: 'day',
+                ),
+              );
+            }
+
+            group.series.sort((a, b) => a.label.compareTo(b.label));
+
+            break;
+        }
+
+        _queryResult.value = QueryResult(group: group);
+      },
+    );
+  }
+
+  // todo: this isn't fully correct - use counts
+  ValueListenable<bool> get busy => _busy;
+  final ValueNotifier<bool> _busy = ValueNotifier(true);
+
+  ValueListenable<ChartTypes> get chartType => _chartType;
+  final ValueNotifier<ChartTypes> _chartType =
+      ValueNotifier(ChartTypes.publishLatency);
+
+  ValueListenable<TimeRanges> get timeRange => _timeRange;
+  final ValueNotifier<TimeRanges> _timeRange =
+      ValueNotifier(TimeRanges.quarter);
+
+  ValueListenable<QueryResult> get queryResult => _queryResult;
+  final ValueNotifier<QueryResult> _queryResult =
+      ValueNotifier(QueryResult.empty());
+}
+
+class QueryResult {
+  final TimeSeriesGroup group;
+
+  QueryResult({required this.group});
+
+  factory QueryResult.empty() => QueryResult(
+        group: TimeSeriesGroup('', const Duration(days: 30)),
+      );
 }

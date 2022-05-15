@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
 import 'model/data_model.dart';
-import 'pages/changelog_page.dart';
+import 'pages/changelog.dart';
 import 'pages/charts.dart';
 import 'pages/google3_page.dart';
 import 'pages/pub_page.dart';
@@ -19,9 +19,6 @@ import 'utils/constants.dart';
 // todo: have a search / filter field
 
 // todo: google3 data
-
-// todo: move the discontinued thing into the packages tab
-// todo: add something for unlisted
 
 void main() async {
   runApp(const PackagesApp());
@@ -51,9 +48,11 @@ class _PackagesAppState extends State<PackagesApp> {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    // ignore: no_leading_underscores_for_local_identifiers
     final _firestore = FirebaseFirestore.instance;
 
     // Set up the datamodel.
+    // ignore: no_leading_underscores_for_local_identifiers
     final _dataModel = DataModel(firestore: _firestore);
     await _dataModel.init();
     await _dataModel.loaded();

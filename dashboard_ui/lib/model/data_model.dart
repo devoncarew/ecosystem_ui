@@ -275,12 +275,14 @@ class DataModel {
 class Stat implements Comparable<Stat> {
   final String category;
   final String stat;
+  final String? detail;
   final int value;
   final DateTime timestamp;
 
   Stat({
     required this.category,
     required this.stat,
+    required this.detail,
     required this.value,
     required this.timestamp,
   });
@@ -290,6 +292,7 @@ class Stat implements Comparable<Stat> {
     return Stat(
       category: data['category'],
       stat: data['stat'],
+      detail: data['detail'],
       value: data['value'],
       timestamp: (data['timestamp'] as Timestamp).toDate(),
     );

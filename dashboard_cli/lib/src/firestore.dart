@@ -86,6 +86,122 @@ class Firestore {
     return repositories.toList()..sort();
   }
 
+  Future convertOlderStats() async {
+    final List<FirestorePackageInfo> packages = [];
+    ListDocumentsResponse? response;
+    do {
+      response = await documents.list(
+        documentsPath,
+        'stats',
+        pageToken: response?.nextPageToken,
+      );
+
+      // final Document doc = Document(
+      //   fields: {
+      //     'category': valueStr(category),
+      //     'stat': valueStr(stat),
+      //     'value': valueInt(value),
+      //     'timestamp': Value(timestampValue: timestampUtc.toIso8601String()),
+      //   },
+      // );
+
+      for (var doc in response.documents!) {
+        final fields = doc.fields!;
+
+        String field(String name) {
+          return fields[name]!.stringValue!;
+        }
+
+        DateTime? parseTimestamp(String? val) {
+          return val == null ? null : DateTime.parse(val);
+        }
+
+        String category = field('category');
+        String stat = field('stat');
+        int value = int.parse(fields['value']!.integerValue!);
+        DateTime timestamp =
+            parseTimestamp(fields['timestamp']!.timestampValue!)!;
+
+        print('$category,$stat,$value ==>');
+
+        // [publisher.unownedCount,dart.dev] => [package.count,unowned,]
+        // [publisher.packageCount,dart.dev] => [package.count,count,]
+        if (category == 'publisher.unownedCount') {
+          await logStat(
+            category: 'package.count',
+            stat: 'unowned',
+            detail: stat,
+            value: value,
+            timestampUtc: timestamp,
+          );
+        } else if (category == 'publisher.packageCount') {
+          await logStat(
+            category: 'package.count',
+            stat: 'count',
+            detail: stat,
+            value: value,
+            timestampUtc: timestamp,
+          );
+        }
+
+        // [publisher.publishLatency.p50,dart.dev] => [package.latency,p50]
+        // [publisher.publishLatency.p90,dart.dev] => [package.latency,p90]
+        else if (category == 'publisher.publishLatency.p50') {
+          await logStat(
+            category: 'package.latency',
+            stat: 'p50',
+            detail: stat,
+            value: value,
+            timestampUtc: timestamp,
+          );
+        } else if (category == 'publisher.publishLatency.p90') {
+          await logStat(
+            category: 'package.latency',
+            stat: 'p90',
+            detail: stat,
+            value: value,
+            timestampUtc: timestamp,
+          );
+        }
+
+        // [sdk,depsCount] => [sdk.deps,count]
+        else if (category == 'sdk' && stat == 'depsCount') {
+          await logStat(
+            category: 'sdk.deps',
+            stat: 'count',
+            value: value,
+            timestampUtc: timestamp,
+          );
+        }
+
+        // [sdk,syncLatency.p50] => [sdk.latency,p50]
+        // [sdk,syncLatency.p90] => [sdk.latency,p90]
+        else if (category == 'sdk' && stat == 'syncLatency.p50') {
+          await logStat(
+            category: 'sdk.latency',
+            stat: 'p50',
+            value: value,
+            timestampUtc: timestamp,
+          );
+        } else if (category == 'sdk' && stat == 'syncLatency.p90') {
+          await logStat(
+            category: 'sdk.latency',
+            stat: 'p90',
+            value: value,
+            timestampUtc: timestamp,
+          );
+        } else {
+          print('  not found');
+          continue;
+        }
+
+        await documents.delete(doc.name!);
+      }
+    } while (response.nextPageToken != null);
+
+    return packages;
+  }
+
   Future<List<FirestorePackageInfo>> queryPackagesForPublishers(
     List<String> publishers, {
     bool excludeDiscontinued = true,
@@ -222,6 +338,7 @@ class Firestore {
   Future logStat({
     required String category,
     required String stat,
+    String? detail,
     required int value,
     DateTime? timestampUtc,
   }) async {
@@ -231,6 +348,7 @@ class Firestore {
       fields: {
         'category': valueStr(category),
         'stat': valueStr(stat),
+        'detail': valueStrNullable(detail),
         'value': valueInt(value),
         'timestamp': Value(timestampValue: timestampUtc.toIso8601String()),
       },
