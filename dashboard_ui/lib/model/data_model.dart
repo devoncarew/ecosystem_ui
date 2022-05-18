@@ -105,7 +105,7 @@ class DataModel {
       _strobeBusy();
       var publishers = snapshot.docs.map((doc) => doc.id).toList()..sort();
 
-      for (var pub in _defaultPublisherSortOrder.reversed) {
+      for (var pub in defaultPublisherSortOrder.reversed) {
         if (publishers.contains(pub)) {
           publishers.remove(pub);
           publishers.insert(0, pub);
@@ -661,7 +661,7 @@ const _defaultPublishers = [
 
 // If these publishers are in the set we want to display, show them in this
 // order (roughly, the SLO order).
-const _defaultPublisherSortOrder = [
+const defaultPublisherSortOrder = [
   'dart.dev',
   'flutter.dev',
   'tools.dart.dev',

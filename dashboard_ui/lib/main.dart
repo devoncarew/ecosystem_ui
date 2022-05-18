@@ -190,7 +190,7 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
           children: [
             PublisherPackagesWidget(publishers: publishers),
             SDKDependenciesWidget(dataModel: widget.dataModel),
-            const Google3Widget(),
+            Google3Widget(dataModel: widget.dataModel),
           ],
         ),
       ),

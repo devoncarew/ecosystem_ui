@@ -14,10 +14,12 @@ final titleColor = Colors.grey.shade700;
 final borderColor = Colors.grey.shade500;
 
 enum ChartTypes {
-  sdkDeps('sdk.deps'),
+  publishP50('package.latency'),
+  publishP90('package.latency'),
+  packages('package.count'),
+  unowned('package.count'),
   sdkLatency('sdk.latency'),
-  packageCounts('package.count'),
-  publishLatency('package.latency');
+  sdkDeps('sdk.deps');
 
   final String category;
 
@@ -25,6 +27,7 @@ enum ChartTypes {
 }
 
 enum TimeRanges {
+  week(7),
   month(30),
   quarter(91),
   year(365);
@@ -48,6 +51,7 @@ class ChartsPage extends StatefulWidget {
 
 class _ChartsPageState extends State<ChartsPage> {
   late QueryEngine queryEngine;
+  int zoom = 1;
 
   @override
   void initState() {
@@ -55,9 +59,14 @@ class _ChartsPageState extends State<ChartsPage> {
 
     queryEngine = QueryEngine(widget.dataModel);
     queryEngine.query();
-  }
 
-  // todo: have a progress indicator
+    queryEngine.queryResult.addListener(() {
+      setState(() {
+        // Reset the zoom.
+        zoom = 1;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,73 +78,109 @@ class _ChartsPageState extends State<ChartsPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                ValueListenableBuilder<ChartTypes>(
-                  valueListenable: queryEngine.chartType,
-                  builder: (context, chartType, child) {
-                    return ExclusiveToggleButtons<ChartTypes>(
-                      values: ChartTypes.values,
-                      selection: chartType,
-                      onPressed: (item) {
-                        queryEngine.query(chartType: item);
-                      },
-                    );
-                  },
-                ),
-                Expanded(
-                  child: ValueListenableBuilder<QueryResult>(
-                    valueListenable: queryEngine.queryResult,
-                    builder: (context, result, _) {
-                      return Text(
-                        result.group.label,
-                        style: titleStyle,
-                        textAlign: TextAlign.center,
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  ValueListenableBuilder<ChartTypes>(
+                    valueListenable: queryEngine.chartType,
+                    builder: (context, chartType, child) {
+                      return ExclusiveToggleButtons<ChartTypes>(
+                        values: ChartTypes.values,
+                        selection: chartType,
+                        onPressed: (item) {
+                          queryEngine.query(chartType: item);
+                        },
                       );
                     },
                   ),
-                ),
-                ValueListenableBuilder<bool>(
-                  valueListenable: queryEngine.busy,
-                  builder: (BuildContext context, bool busy, _) {
-                    return Center(
-                      child: SizedBox(
-                        width: defaultIconSize,
-                        height: defaultIconSize,
-                        child: busy
-                            ? const CircularProgressIndicator(
-                                // color: Colors.white,
-                                strokeWidth: 2,
-                              )
-                            : null,
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 16),
-                ValueListenableBuilder<TimeRanges>(
-                  valueListenable: queryEngine.timeRange,
-                  builder: (context, range, child) {
-                    return ExclusiveToggleButtons<TimeRanges>(
-                      values: TimeRanges.values,
-                      selection: range,
-                      onPressed: (item) {
-                        queryEngine.query(timeRange: item);
+                  Expanded(
+                    child: ValueListenableBuilder<QueryResult>(
+                      valueListenable: queryEngine.queryResult,
+                      builder: (context, result, _) {
+                        return Text(
+                          result.group.label,
+                          style: titleStyle,
+                          textAlign: TextAlign.center,
+                        );
                       },
-                    );
-                  },
-                ),
-              ],
+                    ),
+                  ),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: queryEngine.busy,
+                    builder: (BuildContext context, bool busy, _) {
+                      return Center(
+                        child: SizedBox(
+                          width: defaultIconSize,
+                          height: defaultIconSize,
+                          child: busy
+                              ? const CircularProgressIndicator(
+                                  // color: Colors.white,
+                                  strokeWidth: 2,
+                                )
+                              : null,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  ValueListenableBuilder<TimeRanges>(
+                    valueListenable: queryEngine.timeRange,
+                    builder: (context, range, child) {
+                      return ExclusiveToggleButtons<TimeRanges>(
+                        values: TimeRanges.values,
+                        selection: range,
+                        onPressed: (item) {
+                          queryEngine.query(timeRange: item);
+                        },
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 16, right: 16),
-                child: ValueListenableBuilder<QueryResult>(
-                  valueListenable: queryEngine.queryResult,
-                  builder: (context, result, _) {
-                    return _TimeSeriesLineChart(group: result.group);
-                  },
+              child: ClipRect(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ValueListenableBuilder<QueryResult>(
+                          valueListenable: queryEngine.queryResult,
+                          builder: (context, result, _) {
+                            return _TimeSeriesLineChart(
+                              group: result.group,
+                              zoom: zoom,
+                            );
+                          },
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.zoom_in),
+                              splashRadius: defaultSplashRadius,
+                              onPressed: () {
+                                setState(() => zoom *= 2);
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.zoom_out),
+                              splashRadius: defaultSplashRadius,
+                              onPressed: zoom == 1
+                                  ? null
+                                  : () => setState(() => zoom ~/= 2),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -147,19 +192,21 @@ class _ChartsPageState extends State<ChartsPage> {
 }
 
 class _TimeSeriesLineChart extends StatelessWidget {
-  // todo: add more colors
   static final colors = [
-    const Color(0xFF68A7AD),
-    const Color(0xFF398AB9),
-    const Color(0xFFE5CB9F),
-    const Color(0xFFD8D2CB),
-    const Color(0xFFBB6464),
+    const Color(0xFFffc09f),
+    const Color(0xFFa0ced9),
+    const Color(0xFF809bce),
+    const Color(0xFFeac4d5),
+    const Color(0xFFadf7b6),
+    const Color(0xFFffee93),
   ];
 
   final TimeSeriesGroup group;
+  final int zoom;
 
   const _TimeSeriesLineChart({
     required this.group,
+    this.zoom = 1,
   });
 
   @override
@@ -185,7 +232,7 @@ class _TimeSeriesLineChart extends StatelessWidget {
             lineBarsData: group.series.map(createBarData).toList(),
             minX: range.left,
             maxX: range.right,
-            maxY: range.top,
+            maxY: range.top / zoom,
             minY: range.bottom,
           ),
           swapAnimationDuration: kThemeAnimationDuration,
@@ -211,7 +258,7 @@ class _TimeSeriesLineChart extends StatelessWidget {
         sideTitles: SideTitles(
           showTitles: true,
           reservedSize: 34,
-          interval: 7, // todo:
+          interval: group.timeInternal,
           getTitlesWidget: bottomTitleWidgets,
         ),
       ),
@@ -291,6 +338,10 @@ class TimeSeries {
     }
   }
 
+  int get lastValueOrZero {
+    return stats.isEmpty ? 0 : stats.last.value;
+  }
+
   double getOldestDate() {
     if (stats.isEmpty) return 0;
 
@@ -330,10 +381,18 @@ class TimeSeriesGroup {
     _startDay = dateToDay(now.subtract(duration));
   }
 
+  double get timeInternal =>
+      duration.inDays < 14 ? 1 : (duration.inDays / 12.0).roundToDouble();
+
   void addSeries(TimeSeries series) {
     this.series.add(series);
 
     _maxValue = math.max(_maxValue, series.getLargestValue());
+  }
+
+  void sort() {
+    // Sort the series in descending order of the largest last value.
+    series.sort((a, b) => b.lastValueOrZero - a.lastValueOrZero);
   }
 
   Rect getBounds() {
@@ -436,11 +495,14 @@ class QueryEngine {
     timeRange = _timeRange.value;
 
     final duration = Duration(days: timeRange.days);
+    // We overquery by a few days in order to try to have continuity to the end
+    // of the graph.
+    final queryDuration = Duration(days: timeRange.days + 3);
 
     _busy.value = true;
 
     dataModel
-        .queryStats(category: chartType.category, timePeriod: duration)
+        .queryStats(category: chartType.category, timePeriod: queryDuration)
         .then(
       (List<Stat> result) {
         _busy.value = false;
@@ -453,7 +515,7 @@ class QueryEngine {
             group.addSeries(TimeSeries('SDK dependency count', result));
             break;
           case ChartTypes.sdkLatency:
-            group = TimeSeriesGroup('SDK Sync Latency', duration);
+            group = TimeSeriesGroup('SDK Sync Latency (days)', duration);
             group.addSeries(
               TimeSeries(
                 'SDK P50 sync latency',
@@ -463,56 +525,52 @@ class QueryEngine {
             );
             group.addSeries(
               TimeSeries(
-                'SDk P90 sync latency',
+                'SDK P90 sync latency',
                 result.where((s) => s.stat == 'p90').toList(),
                 units: 'day',
               ),
             );
             break;
-          case ChartTypes.packageCounts:
+          case ChartTypes.packages:
             group = TimeSeriesGroup('Package Counts', duration);
 
             var counts = <String, List<Stat>>{};
+            for (var stat in result.where((stat) => stat.stat == 'count')) {
+              counts.putIfAbsent(stat.detail!, () => []).add(stat);
+            }
+
+            for (var entry in counts.entries) {
+              group.addSeries(TimeSeries('${entry.key} count', entry.value));
+            }
+            group.sort();
+
+            break;
+          case ChartTypes.unowned:
+            group = TimeSeriesGroup('Unowned Package Counts', duration);
+
             var unowned = <String, List<Stat>>{};
-            for (var stat in result) {
-              if (stat.stat == 'count') {
-                counts.putIfAbsent(stat.detail!, () => []).add(stat);
-              } else if (stat.stat == 'unowned') {
-                unowned.putIfAbsent(stat.detail!, () => []).add(stat);
-              }
+            for (var stat in result.where((stat) => stat.stat == 'unowned')) {
+              unowned.putIfAbsent(stat.detail!, () => []).add(stat);
             }
 
             // flutter.dev doesn't use this
             unowned.remove('flutter.dev');
 
-            // we care less about having these owned
-            unowned.remove('labs.dart.dev');
-            unowned.remove('google.dev');
-
-            for (var entry in counts.entries) {
-              group.addSeries(TimeSeries('${entry.key} count', entry.value));
-            }
             for (var entry in unowned.entries) {
               group.addSeries(TimeSeries('${entry.key} unowned', entry.value));
             }
-
-            group.series.sort((a, b) => a.label.compareTo(b.label));
+            group.sort();
 
             break;
-          case ChartTypes.publishLatency:
-            group = TimeSeriesGroup('Publish Latency', duration);
+          case ChartTypes.publishP50:
+            group = TimeSeriesGroup('Publish Latency P50 (days)', duration);
 
-            var p50 = <String, List<Stat>>{};
-            var p90 = <String, List<Stat>>{};
-            for (var stat in result) {
-              if (stat.stat == 'p50') {
-                p50.putIfAbsent(stat.detail!, () => []).add(stat);
-              } else if (stat.stat == 'p90') {
-                p90.putIfAbsent(stat.detail!, () => []).add(stat);
-              }
+            var publisherLatencies = <String, List<Stat>>{};
+            for (var stat in result.where((s) => s.stat == 'p50')) {
+              publisherLatencies.putIfAbsent(stat.detail!, () => []).add(stat);
             }
 
-            for (var entry in p50.entries) {
+            for (var entry in publisherLatencies.entries) {
               group.addSeries(
                 TimeSeries(
                   '${entry.key} P50 latency',
@@ -521,7 +579,18 @@ class QueryEngine {
                 ),
               );
             }
-            for (var entry in p90.entries) {
+            group.sort();
+
+            break;
+          case ChartTypes.publishP90:
+            group = TimeSeriesGroup('Publish Latency P90 (days)', duration);
+
+            var publisherLatencies = <String, List<Stat>>{};
+            for (var stat in result.where((s) => s.stat == 'p90')) {
+              publisherLatencies.putIfAbsent(stat.detail!, () => []).add(stat);
+            }
+
+            for (var entry in publisherLatencies.entries) {
               group.addSeries(
                 TimeSeries(
                   '${entry.key} P90 latency',
@@ -530,8 +599,7 @@ class QueryEngine {
                 ),
               );
             }
-
-            group.series.sort((a, b) => a.label.compareTo(b.label));
+            group.sort();
 
             break;
         }
@@ -547,11 +615,11 @@ class QueryEngine {
 
   ValueListenable<ChartTypes> get chartType => _chartType;
   final ValueNotifier<ChartTypes> _chartType =
-      ValueNotifier(ChartTypes.publishLatency);
+      ValueNotifier(ChartTypes.publishP50);
 
   ValueListenable<TimeRanges> get timeRange => _timeRange;
-  final ValueNotifier<TimeRanges> _timeRange =
-      ValueNotifier(TimeRanges.quarter);
+  // TODO: switch this to 'quarter' once we've accumulated more data
+  final ValueNotifier<TimeRanges> _timeRange = ValueNotifier(TimeRanges.week);
 
   ValueListenable<QueryResult> get queryResult => _queryResult;
   final ValueNotifier<QueryResult> _queryResult =

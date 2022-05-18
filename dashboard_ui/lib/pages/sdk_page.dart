@@ -86,20 +86,20 @@ class _SDKDependenciesWidgetState extends State<SDKDependenciesWidget>
                   ],
                 ),
                 VTableColumn(
-                    label: 'Synced to Commit',
-                    width: 75,
-                    grow: 0.2,
-                    alignment: Alignment.centerRight,
-                    transformFunction: (dep) =>
-                        dep.sdkDep.commit.substring(0, commitLength),
-                    renderFunction: (BuildContext context, dep) {
-                      return Hyperlink(
-                        url:
-                            '${dep.sdkDep.repository}/commit/${dep.sdkDep.commit}',
-                        displayText:
-                            dep.sdkDep.commit.substring(0, commitLength),
-                      );
-                    }),
+                  label: 'Synced to Commit',
+                  width: 75,
+                  grow: 0.2,
+                  alignment: Alignment.centerRight,
+                  transformFunction: (dep) =>
+                      dep.sdkDep.commit.substring(0, commitLength),
+                  renderFunction: (BuildContext context, dep) {
+                    return Hyperlink(
+                      url:
+                          '${dep.sdkDep.repository}/commit/${dep.sdkDep.commit}',
+                      displayText: dep.sdkDep.commit.substring(0, commitLength),
+                    );
+                  },
+                ),
                 VTableColumn(
                   label: 'SDK Sync Latency',
                   width: 100,
@@ -120,7 +120,10 @@ class _SDKDependenciesWidgetState extends State<SDKDependenciesWidget>
     );
   }
 
-  List<PackageInfo> _filterPackages(List<PackageInfo> packages, String repo) {
+  static List<PackageInfo> _filterPackages(
+    List<PackageInfo> packages,
+    String repo,
+  ) {
     packages = packages.where((p) => p.repoUrl == repo).toList();
 
     // Remove the discontinued packages.
@@ -131,15 +134,14 @@ class _SDKDependenciesWidgetState extends State<SDKDependenciesWidget>
     return packages;
   }
 
-  List<PackageRepoDep> _calculateDeps(
+  static List<PackageRepoDep> _calculateDeps(
     List<SdkDep> sdkDeps,
-    List<PackageInfo> allPackages,
+    List<PackageInfo> packages,
   ) {
     return sdkDeps.map((dep) {
-      final packages = _filterPackages(allPackages, dep.repository);
       return PackageRepoDep(
-        packages: packages,
         sdkDep: dep,
+        packages: _filterPackages(packages, dep.repository),
       );
     }).toList();
   }
@@ -149,12 +151,12 @@ class _SDKDependenciesWidgetState extends State<SDKDependenciesWidget>
 }
 
 class PackageRepoDep {
-  final List<PackageInfo> packages;
   final SdkDep sdkDep;
+  final List<PackageInfo> packages;
 
   PackageRepoDep({
-    required this.packages,
     required this.sdkDep,
+    required this.packages,
   });
 
   int get unsyncedCommits => sdkDep.unsyncedCommits;
