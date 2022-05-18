@@ -31,8 +31,6 @@ class DefaultFirebaseOptions {
           'DefaultFirebaseOptions have not been configured for ios - '
           'you can reconfigure this by running the FlutterFire CLI again.',
         );
-      case TargetPlatform.macOS:
-        return macos;
     }
 
     throw UnsupportedError(
@@ -47,16 +45,5 @@ class DefaultFirebaseOptions {
     projectId: 'dart-package-dashboard',
     authDomain: 'dart-package-dashboard.firebaseapp.com',
     storageBucket: 'dart-package-dashboard.appspot.com',
-  );
-
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAcP0xgXO-ZxOAZZez7DYJQhB5C3nxTx_o',
-    appId: '1:376956967576:ios:921a3de01ee30736498eed',
-    messagingSenderId: '376956967576',
-    projectId: 'dart-package-dashboard',
-    storageBucket: 'dart-package-dashboard.appspot.com',
-    iosClientId:
-        '376956967576-1rai17ahple8tpfqlogqngoqnvgdbeen.apps.googleusercontent.com',
-    iosBundleId: 'com.example.packagesWeb',
   );
 }
