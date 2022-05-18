@@ -26,7 +26,7 @@ String printValue(Value value) {
       value.booleanValue ??
       value.integerValue ??
       value.timestampValue ??
-      value;
+      value.nullValue;
   return o.toString();
 }
 

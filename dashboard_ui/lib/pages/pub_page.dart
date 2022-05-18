@@ -513,7 +513,11 @@ class PackageMetaInfo extends StatelessWidget {
               splashRadius: defaultSplashRadius,
               onPressed: package.repoUrl == null
                   ? null
-                  : () => url.launchUrl(Uri.parse('${package.repoUrl}/issues')),
+                  : () {
+                      final issuesUrl =
+                          package.issueTracker ?? '${package.repoUrl}/issues';
+                      url.launchUrl(Uri.parse(issuesUrl));
+                    },
             ),
             IconButton(
               icon: const Icon(Icons.launch),
