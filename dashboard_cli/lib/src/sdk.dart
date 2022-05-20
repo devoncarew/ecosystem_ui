@@ -97,16 +97,17 @@ class Sdk {
 
 class SdkDependency {
   final String name;
-  final String? commit;
   final String repository;
+  final String? commit;
 
+  // Note that this information is populated after construction.
   Commit? commitInfo;
   List<Commit> unsyncedCommits = [];
 
   SdkDependency({
     required this.name,
-    required this.commit,
     required this.repository,
+    required this.commit,
   });
 
   @override

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:graphql/client.dart';
 import 'package:http/http.dart' as http;
 
+import 'utils.dart';
+
 const String userLoginDependabot = 'dependabot[bot]';
 
 class Github {
@@ -238,7 +240,7 @@ class RepositoryInfo {
 
   String get name => path.substring(path.indexOf('/') + 1);
 
-  String get firestoreEntityId => path.replaceAll('/', '%2F');
+  String get firestoreEntityId => firestoreEntityEncode(path);
 
   @override
   String toString() => path;

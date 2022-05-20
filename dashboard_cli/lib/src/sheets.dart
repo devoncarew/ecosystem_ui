@@ -35,7 +35,8 @@ class Sheets {
     final List<PackageMaintainer> maintainers = [];
 
     Spreadsheet mainSheet = await sheetsApi.spreadsheets.get(
-      '1S0gBRbUjF1YuvwRWwfVVvaMCH_Pa-qfxxvnLsJQBoCU',
+      // '1S0gBRbUjF1YuvwRWwfVVvaMCH_Pa-qfxxvnLsJQBoCU',
+      '1g8g9Bo-N-3UxVSgHDSXdZNKAHDZRVr4huN99Lt89iUw',
       includeGridData: true,
     );
     logger.write("reading the '${mainSheet.properties!.title}' sheet");
@@ -49,9 +50,12 @@ class Sheets {
           data.getCellValueAsString(2, 0) == 'Maintainer') {
         for (var row in data.rowData!.skip(1)) {
           String? packageName = row.values![0].formattedValue;
-          String? maintainer = row.values![2].formattedValue;
+          if (packageName == null) {
+            continue;
+          }
 
-          if (packageName != null) {
+          if (row.values!.length >= 3) {
+            String? maintainer = row.values![2].formattedValue;
             maintainers.add(
               PackageMaintainer(
                 packageName: packageName,
