@@ -118,3 +118,7 @@ class _SubLogger implements Logger {
     }
   }
 }
+
+String firestoreEntityEncode(String str) {
+  return str.replaceAll('/', '%2F');
+}

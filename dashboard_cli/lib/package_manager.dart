@@ -3,6 +3,7 @@ import 'package:pool/pool.dart';
 
 import 'src/firestore.dart';
 import 'src/github.dart';
+import 'src/google3.dart';
 import 'src/pub.dart';
 import 'src/sdk.dart';
 import 'src/sheets.dart';
@@ -137,15 +138,17 @@ class PackageManager {
   Future updatePublisherPackages({List<String>? publishers}) async {
     final logger = Logger();
 
-    publishers ??= await firestore.queryPublishers();
-    logger.write('Updating info for publishers: ${publishers.join(', ')}');
-    logger.write('');
+    try {
+      publishers ??= await firestore.queryPublishers();
+      logger.write('Updating info for publishers: ${publishers.join(', ')}');
+      logger.write('');
 
-    for (var publisher in publishers) {
-      await _updatePublisherPackages(publisher, logger: logger);
+      for (var publisher in publishers) {
+        await _updatePublisherPackages(publisher, logger: logger);
+      }
+    } finally {
+      logger.close(printElapsedTime: true);
     }
-
-    logger.close(printElapsedTime: true);
   }
 
   Future _updatePublisherPackages(
@@ -170,6 +173,9 @@ class PackageManager {
       var existingInfo = await firestore.getPackageInfo(packageName);
 
       log.write(packageInfo.version);
+      if (packageInfo.repository != null) {
+        log.write(packageInfo.repository ?? '');
+      }
 
       var repoInfo = packageInfo.repoInfo;
       var url = repoInfo?.getDirectFileUrl('analysis_options.yaml');
@@ -188,7 +194,8 @@ class PackageManager {
       // These queries depend on the repository information being correct.
       if (!packageInfo.isDiscontinued &&
           packageInfo.repository != null &&
-          !packageInfo.repository!.endsWith('.git')) {
+          !packageInfo.repository!.endsWith('.git') &&
+          !packageInfo.repository!.endsWith('/')) {
         var repoInfo = packageInfo.repoInfo!;
 
         var commits = await github.queryCommitsAfter(
@@ -292,6 +299,73 @@ class PackageManager {
     }).toList();
 
     await firestore.updateSdkDependencies(sdkDependencies, logger: logger);
+
+    logger.write('');
+    logger.close(printElapsedTime: true);
+
+    github.close();
+  }
+
+  Future updateFromGoogle3() async {
+    final logger = Logger();
+
+    logger.write('Retrieving info about Google3 synced packages...');
+    final google3 = Google3();
+
+    final publishers = await firestore.queryPublishers();
+
+    final allPackages = await firestore.queryPackagesForPublishers(publishers);
+    // Convert the list of packages to a list of repos.
+    final repositories = allPackages
+        .map((p) {
+          final repository = p.repository;
+          if (repository == null) {
+            return null;
+          }
+          final repo = RepoInfo(repository);
+          return repo.repoOrgAndName == null
+              ? null
+              : 'https://github.com/${repo.repoOrgAndName}';
+        })
+        .whereType<String>()
+        .toSet();
+
+    var google3Dependencies =
+        await google3.getSyncedPackageRepos(repositories: repositories);
+
+    logger.write('${google3Dependencies.length} deps found.');
+    logger.write('');
+
+    // TODO: for google3, this does not need to use the github API; it can
+    // instead use googlesource.
+    final Github github = Github();
+    final pool = Pool(4);
+
+    await pool.forEach<Google3Dependency, void>(
+      google3Dependencies,
+      (Google3Dependency dep) async {
+        final repoLogger = logger.subLogger(dep.repository);
+
+        // Get the info about the given sha.
+        RepositoryInfo repo = RepositoryInfo(
+            path: dep.repository.substring('https://github.com/'.length));
+        dep.commitInfo =
+            await github.getCommitInfoForSha(repo: repo, sha: dep.commit);
+        repoLogger.write('${dep.commitInfo}');
+
+        // Find how many newer, unsynced commits there are.
+        dep.unsyncedCommits = await github.queryCommitsAfter(
+            repo: repo,
+            afterTimestamp: dep.commitInfo!.committedDate.toIso8601String())
+          ..sort();
+        repoLogger.write('unsynced commits: ${dep.unsyncedCommits.length}');
+
+        repoLogger.close();
+      },
+    ).toList();
+
+    await firestore.updateGoogle3Dependencies(google3Dependencies,
+        logger: logger);
 
     logger.write('');
     logger.close(printElapsedTime: true);

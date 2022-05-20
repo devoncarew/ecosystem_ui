@@ -3,6 +3,7 @@ import 'package:googleapis_auth/auth_io.dart';
 import 'package:pool/pool.dart';
 
 import 'github.dart';
+import 'google3.dart';
 import 'pub.dart';
 import 'sdk.dart';
 import 'sheets.dart';
@@ -248,9 +249,27 @@ class Firestore {
     }
   }
 
-  Future<Map<String, Value>?> getRepositoryInfo(String repoName) async {
+  Future<Map<String, Value>?> getSdkRepositoryInfo(String repoName) async {
     try {
       final packagePath = getDocumentName('sdk_deps', repoName);
+      var result = await documents.get(packagePath);
+      return result.fields;
+    } on DetailedApiRequestError catch (e) {
+      if (e.status == 404) {
+        // Ignore these - we know some documents won't yet exist.
+        return null;
+      }
+      print(e);
+      return null;
+    } catch (e) {
+      print(e);
+      return null;
+    }
+  }
+
+  Future<Map<String, Value>?> getGoogle3RepositoryInfo(String repoName) async {
+    try {
+      final packagePath = getDocumentName('google3_deps', repoName);
       var result = await documents.get(packagePath);
       return result.fields;
     } on DetailedApiRequestError catch (e) {
@@ -397,6 +416,17 @@ class Firestore {
     }).toList();
   }
 
+  Future<List<String>> getGoogle3Dependencies() async {
+    ListDocumentsResponse response = await documents.list(
+      documentsPath,
+      'google3_deps',
+      pageSize: 200,
+    );
+    return response.documents!.map((Document doc) {
+      return doc.fields!['orgAndName']!.stringValue!;
+    }).toList();
+  }
+
   Future<List<FirestoreSdkDep>> getSdkDeps() async {
     ListDocumentsResponse response = await documents.list(
       documentsPath,
@@ -442,6 +472,45 @@ class Firestore {
       logger.write('  removing $dep');
       await documents.delete(getDocumentName('sdk_deps', dep));
       await log(entity: 'SDK dep', change: 'removing $dep');
+    }
+  }
+
+  Future updateGoogle3Dependencies(
+    List<Google3Dependency> google3Dependencies, {
+    required Logger logger,
+  }) async {
+    // Read current deps
+    // todo: google3 deps
+    final List<String> currentDeps = await getGoogle3Dependencies();
+
+    final pool = Pool(4);
+
+    // Update commit info
+    logger.write('');
+    logger.write('updating dep info...');
+
+    await pool.forEach<Google3Dependency, void>(google3Dependencies,
+        (dep) async {
+      Logger depLogger = logger.subLogger('  ${dep.repository}');
+      await updateGoogle3Dependency(dep);
+      depLogger.close();
+    }).toList();
+
+    // Log google3_deps dep additions.
+    Set<String> newDeps = Set.from(google3Dependencies.map((p) => p.orgAndName))
+      ..removeAll(currentDeps);
+    for (var dep in newDeps) {
+      logger.write('  adding $dep');
+      await log(entity: 'Google3 dep', change: 'added $dep');
+    }
+
+    // Remove any repos which are no longer deps.
+    Set<String> oldDeps = currentDeps.toSet()
+      ..removeAll(google3Dependencies.map((p) => p.orgAndName));
+    for (var dep in oldDeps) {
+      logger.write('  removing $dep');
+      await documents.delete(getDocumentName('google3_deps', dep));
+      await log(entity: 'Google3 dep', change: 'removing $dep');
     }
   }
 
@@ -496,7 +565,7 @@ class Firestore {
   }
 
   Future updateSdkDependency(SdkDependency dependency) async {
-    var existingInfo = await getRepositoryInfo(dependency.name);
+    var existingInfo = await getSdkRepositoryInfo(dependency.name);
     var commit = dependency.commitInfo!;
 
     String? unsyncedTimestamp;
@@ -552,6 +621,68 @@ class Firestore {
       }
     }
   }
+
+  Future updateGoogle3Dependency(Google3Dependency dependency) async {
+    var existingInfo = await getGoogle3RepositoryInfo(
+      firestoreEntityEncode(dependency.orgAndName),
+    );
+    var commit = dependency.commitInfo!;
+
+    String? unsyncedTimestamp;
+    if (dependency.unsyncedCommits.isNotEmpty) {
+      dependency.unsyncedCommits.sort();
+      var oldest = dependency.unsyncedCommits.last;
+      unsyncedTimestamp = oldest.committedDate.toIso8601String();
+    }
+
+    final Document doc = Document(
+      fields: {
+        'orgAndName': valueStr(dependency.orgAndName),
+        'commit': valueStr(dependency.commit),
+        'repository': valueStr(dependency.repository),
+        'syncedCommitDate': Value(
+          timestampValue: commit.committedDate.toIso8601String(),
+        ),
+        'unsyncedCommits': valueInt(dependency.unsyncedCommits.length),
+        'unsyncedCommitDate': unsyncedTimestamp == null
+            ? valueNull()
+            : Value(timestampValue: unsyncedTimestamp),
+      },
+    );
+
+    // todo: handle error conditions
+    var updatedInfo = await documents.patch(
+      doc,
+      getDocumentName(
+        'google3_deps',
+        firestoreEntityEncode(dependency.orgAndName),
+      ),
+    );
+
+    const ignoreKeys = {
+      'syncedCommitDate',
+      'unsyncedCommits',
+      'unsyncedCommitDate',
+    };
+
+    // Record any interesting changes in the log.
+    if (existingInfo != null) {
+      var updatedFields = updatedInfo.fields!;
+      for (var field in existingInfo.keys) {
+        if (updatedFields.keys.contains(field) &&
+            !compareValues(existingInfo[field]!, updatedFields[field]!)) {
+          if (ignoreKeys.contains(field)) {
+            continue;
+          }
+
+          log(
+            entity: 'Google3 dep: ${dependency.orgAndName}',
+            change: '$field => ${printValue(updatedFields[field]!)}',
+          );
+        }
+      }
+    }
+  }
 }
 
 class Config {
@@ -569,6 +700,7 @@ class FirestorePackageInfo {
   final String name;
   final String? publisher;
   final String? maintainer;
+  final String? repository;
   final bool discontinued;
   final bool unlisted;
   final int? unpublishedCommits;
@@ -578,6 +710,7 @@ class FirestorePackageInfo {
     required this.name,
     required this.publisher,
     required this.maintainer,
+    required this.repository,
     required this.discontinued,
     required this.unlisted,
     required this.unpublishedCommits,
@@ -606,6 +739,7 @@ class FirestorePackageInfo {
       name: nullableField('name')!,
       publisher: nullableField('publisher'),
       maintainer: nullableField('maintainer'),
+      repository: nullableField('repository'),
       discontinued: fields['discontinued']!.booleanValue!,
       unlisted: fields['unlisted']!.booleanValue!,
       unpublishedCommits: parseInt(fields['unpublishedCommits']?.integerValue),

@@ -33,11 +33,11 @@ class DataModel {
     // Start the process of loading other data, but don't delay startup (don't
     // wait on the results).
     () async {
-      // todo: read google3 data
       await _initPackagesData();
       await _initChangelog();
       await _initRepositories();
       await _initSdkDeps();
+      await _initGoogle3Deps();
     }();
   }
 
@@ -69,23 +69,6 @@ class DataModel {
   ValueListenable<List<PackageInfo>> getPackagesForPublisher(String publisher) {
     return _publisherNotifiers.putIfAbsent(publisher, () => ValueNotifier([]));
   }
-
-  // Future<List<Commit>> getCommitsFor({
-  //   required String org,
-  //   required String repo,
-  //   int quantity = 100,
-  // }) {
-  //   return FirebaseFirestore.instance
-  //       .collection('repositories')
-  //       .doc('$org%2F$repo')
-  //       .collection('commits')
-  //       .orderBy('committedDate', descending: true)
-  //       .limit(quantity)
-  //       .get()
-  //       .then((QuerySnapshot<SnapshotItems> snapshot) {
-  //     return snapshot.docs.map((doc) => Commit.from(doc)).toList();
-  //   });
-  // }
 
   final Map<String, ValueNotifier<List<PackageInfo>>> _publisherNotifiers = {};
 
@@ -137,6 +120,30 @@ class DataModel {
         );
       }).toList();
       _sdkDependencies.value = result;
+    });
+  }
+
+  ValueListenable<List<Google3Dep>> get googleDependencies =>
+      _googleDependencies;
+  final ValueNotifier<List<Google3Dep>> _googleDependencies = ValueNotifier([]);
+
+  Future _initGoogle3Deps() async {
+    FirebaseFirestore.instance
+        .collection('google3_deps')
+        .snapshots()
+        .listen((QuerySnapshot<SnapshotItems> snapshot) {
+      _strobeBusy();
+      var result = snapshot.docs.map((item) {
+        return Google3Dep(
+          orgAndName: item.get('orgAndName'),
+          commit: item.get('commit'),
+          repository: item.get('repository'),
+          syncedCommitDate: item.get('syncedCommitDate'),
+          unsyncedCommits: item.get('unsyncedCommits'),
+          unsyncedCommitDate: item.get('unsyncedCommitDate'),
+        );
+      }).toList();
+      _googleDependencies.value = result;
     });
   }
 
@@ -551,7 +558,7 @@ class PackageInfo {
     // Validate that the pubspec explicitly has a 'repository' key (not just a
     // homepage with a github link).
     final pubspec = package.parsedPubspec;
-    if (pubspec.containsKey('homepage') && !pubspec.containsKey('repository')) {
+    if (!pubspec.containsKey('repository')) {
       return ValidationResult(
         "'repository' pubspec field not populated",
         Severity.info,
@@ -776,6 +783,69 @@ class SdkDep {
   }
 
   static ValidationResult? validateSyncLatency(SdkDep dep) {
+    if ((dep.unsyncedDays ?? 0) > 365) {
+      return ValidationResult.error(
+        'Greater than 365 days of latency',
+      );
+    }
+
+    if ((dep.unsyncedDays ?? 0) > 30) {
+      return ValidationResult.warning(
+        'Greater than 30 days of latency',
+      );
+    }
+
+    return null;
+  }
+
+  @override
+  String toString() => '$repository $commit';
+}
+
+class Google3Dep {
+  final String orgAndName;
+  final String commit;
+  final String repository;
+  final Timestamp syncedCommitDate;
+  final int unsyncedCommits;
+  final Timestamp? unsyncedCommitDate;
+
+  Google3Dep({
+    required this.orgAndName,
+    required this.commit,
+    required this.repository,
+    required this.syncedCommitDate,
+    required this.unsyncedCommits,
+    required this.unsyncedCommitDate,
+  });
+
+  int? get unsyncedDays {
+    var date = unsyncedCommitDate;
+    if (date == null) {
+      return null;
+    }
+
+    return DateTime.now().toUtc().difference(date.toDate()).inDays;
+  }
+
+  String get syncLatencyDescription {
+    var latencyDays = unsyncedDays;
+    if (latencyDays == null) {
+      return '';
+    }
+    return '$unsyncedCommits commits, $unsyncedDays days';
+  }
+
+  static int compareUnsyncedDays(Google3Dep a, Google3Dep b) {
+    var dayDiff = (a.unsyncedDays ?? 0) - (b.unsyncedDays ?? 0);
+    if (dayDiff == 0) {
+      return (a.unsyncedCommits) - (b.unsyncedCommits);
+    } else {
+      return dayDiff;
+    }
+  }
+
+  static ValidationResult? validateSyncLatency(Google3Dep dep) {
     if ((dep.unsyncedDays ?? 0) > 365) {
       return ValidationResult.error(
         'Greater than 365 days of latency',
