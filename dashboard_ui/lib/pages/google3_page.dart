@@ -4,6 +4,7 @@ import '../model/data_model.dart';
 import '../ui/table.dart';
 import '../ui/widgets.dart';
 import '../utils/constants.dart';
+import '../utils/utils.dart';
 
 class Google3Widget extends StatefulWidget {
   final DataModel dataModel;
@@ -36,12 +37,15 @@ class _Google3WidgetState extends State<Google3Widget>
               tableDescription: '${google3Deps.length} repos',
               columns: [
                 VTableColumn(
-                  label: 'Repo',
+                  label: 'Repository',
                   width: 175,
                   grow: 0.2,
                   transformFunction: (dep) => dep.dep.repository,
                   renderFunction: (BuildContext context, dep) {
-                    return Hyperlink(url: dep.dep.repository);
+                    return Hyperlink(
+                      url: dep.dep.repository,
+                      displayText: trimPrefix(dep.dep.repository, 'https://'),
+                    );
                   },
                 ),
                 VTableColumn(

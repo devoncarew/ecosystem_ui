@@ -318,6 +318,7 @@ class PackageInfo {
   final String name;
   final String publisher;
   final String maintainer;
+  // todo: make repository nullable
   final String repository;
   final String? issueTracker;
   final Version version;
@@ -328,9 +329,6 @@ class PackageInfo {
   final Timestamp publishedDate;
   final int? unpublishedCommits;
   final Timestamp? unpublishedCommitDate;
-
-  // todo: monorepo?
-  // todo: repoPath
 
   Map<String, dynamic>? _parsedPubspec;
 
@@ -433,6 +431,11 @@ class PackageInfo {
     }
 
     return DateTime.now().toUtc().difference(date.toDate()).inDays;
+  }
+
+  String get publishedDateDisplay {
+    var str = publishedDate.toDate().toIso8601String();
+    return str.split('T').first;
   }
 
   static TextStyle? getDisplayStyle(PackageInfo package) {

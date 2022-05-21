@@ -43,12 +43,14 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget>
     return ValueListenableBuilder<List<PackageInfo>>(
       valueListenable: dataModel.packages,
       builder: (context, packages, _) {
+        final filteredPackages = _filterPackages(packages);
+
         return Column(
           children: [
             Expanded(
               flex: 4,
               child: createTable(
-                _filterPackages(packages),
+                filteredPackages,
                 dataModel: dataModel,
                 allPackages: packages,
               ),
@@ -66,13 +68,11 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget>
     );
   }
 
-  void _onTap(PackageInfo package) {
-    setState(() {
-      if (selectedPackage == package) {
-        selectedPackage = null;
-      } else {
+  void _onSelectionChanged(PackageInfo? package) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setState(() {
         selectedPackage = package;
-      }
+      });
     });
   }
 
@@ -96,7 +96,7 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget>
       items: packages,
       startsSorted: true,
       supportsSelection: true,
-      onTap: _onTap,
+      onSelectionChanged: _onSelectionChanged,
       tableDescription: description,
       actions: [
         ConstrainedBox(
@@ -198,6 +198,7 @@ class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget>
             } else {
               return Hyperlink(
                 url: package.repository,
+                displayText: trimPrefix(package.repository, 'https://'),
                 style: PackageInfo.getDisplayStyle(package),
               );
             }
@@ -300,7 +301,7 @@ class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
   void initState() {
     super.initState();
 
-    tabController = TabController(length: 5, vsync: this);
+    tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -328,12 +329,11 @@ class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
                   indicatorColor: Theme.of(context).colorScheme.onSecondary,
                   controller: tabController,
                   // Metadata, Pubspec, Analysis options, Dependabot
-                  tabs: [
-                    Tab(text: 'package:${widget.package.name}'),
-                    const Tab(text: 'Pubspec'),
-                    const Tab(text: 'Analysis options'),
-                    const Tab(text: 'GitHub Actions'),
-                    const Tab(text: 'Dependabot'),
+                  tabs: const [
+                    Tab(text: 'Pubspec'),
+                    Tab(text: 'Analysis options'),
+                    Tab(text: 'GitHub Actions'),
+                    Tab(text: 'Dependabot'),
                   ],
                 ),
               ),
@@ -341,12 +341,6 @@ class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
                 child: TabBarView(
                   controller: tabController,
                   children: [
-                    // Metadata
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child:
-                          PackageMetaInfo(package: widget.package, repo: repo),
-                    ),
                     // Pubspec
                     Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -391,15 +385,26 @@ class PubspecInfoWidget extends StatelessWidget {
     return Stack(
       fit: StackFit.passthrough,
       children: [
-        const OverlayButtons(
-          infoText: 'Information from last publish',
-          children: [],
-        ),
         SingleChildScrollView(
-          child: Text(
+          child: SelectableText(
             _pubspecText,
             style: const TextStyle(fontFamily: 'RobotoMono'),
           ),
+        ),
+        OverlayButtons(
+          infoText: 'Package data from publish ${package.publishedDateDisplay}',
+          children: [
+            IconButton(
+              icon: const Icon(Icons.launch),
+              tooltip: 'pub.dev/${package.name}',
+              iconSize: defaultIconSize,
+              splashRadius: defaultSplashRadius,
+              onPressed: () {
+                url.launchUrl(
+                    Uri.parse('https://pub.dev/packages/${package.name}'));
+              },
+            ),
+          ],
         ),
       ],
     );
@@ -408,157 +413,6 @@ class PubspecInfoWidget extends StatelessWidget {
   String get _pubspecText {
     var printer = const YamlPrinter();
     return printer.print(package.parsedPubspec);
-  }
-}
-
-class PackageMetaInfo extends StatelessWidget {
-  final PackageInfo package;
-  final RepositoryInfo? repo;
-
-  const PackageMetaInfo({
-    required this.package,
-    required this.repo,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.passthrough,
-      children: [
-        SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'package:${package.name}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(_packageDescription),
-              const Divider(),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        _details('Maintainer', package.maintainer),
-                        const SizedBox(height: 8),
-                        _details('Publisher', package.publisher),
-                        const SizedBox(height: 8),
-                        _details('SDK constraint', _sdkConstraintDisplay),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        _details('Version', package.version.toString()),
-                        const SizedBox(height: 8),
-                        _details(
-                          'Last published',
-                          relativeDateInDays(
-                            dateUtc: package.publishedDate.toDate(),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Expanded(child: SizedBox()),
-                ],
-              ),
-              const Divider(),
-              ...package.validatePackage().map((validation) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Icon(
-                        validation.icon,
-                        size: 20,
-                        color: validation.colorForSeverity.withAlpha(255),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(validation.message),
-                    ],
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
-        OverlayButtons(
-          children: [
-            IconButton(
-              icon: Image.asset(
-                'resources/images/dart_logo_128.png',
-                width: defaultIconSize,
-              ),
-              tooltip: 'pub.dev',
-              iconSize: defaultIconSize,
-              splashRadius: defaultSplashRadius,
-              onPressed: () {
-                url.launchUrl(
-                    Uri.parse('https://pub.dev/packages/${package.name}'));
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.bug_report),
-              tooltip: 'Package issues',
-              iconSize: defaultIconSize,
-              splashRadius: defaultSplashRadius,
-              onPressed: package.repoUrl == null
-                  ? null
-                  : () {
-                      final issuesUrl =
-                          package.issueTracker ?? '${package.repoUrl}/issues';
-                      url.launchUrl(Uri.parse(issuesUrl));
-                    },
-            ),
-            IconButton(
-              icon: const Icon(Icons.launch),
-              tooltip: 'Package repo',
-              iconSize: defaultIconSize,
-              splashRadius: defaultSplashRadius,
-              onPressed: package.repository.isEmpty
-                  ? null
-                  : () => url.launchUrl(Uri.parse(package.repository)),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _details(String title, String value) {
-    return Row(
-      children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 100),
-          child: Text(
-            '$title: ',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
-        SelectableText(value),
-      ],
-    );
-  }
-
-  String get _packageDescription {
-    return package.parsedPubspec['description'] ?? '';
-  }
-
-  String get _sdkConstraintDisplay {
-    final dep = package.sdkDep;
-    if (dep == null) {
-      return '';
-    }
-    return dep.contains(' ') ? "'$dep'" : dep;
   }
 }
 
@@ -589,7 +443,7 @@ class AnalysisOptionsInfo extends StatelessWidget {
         fit: StackFit.passthrough,
         children: [
           SingleChildScrollView(
-            child: Text(
+            child: SelectableText(
               package.analysisOptions!,
               style: const TextStyle(fontFamily: 'RobotoMono'),
             ),
@@ -639,7 +493,7 @@ class GitHubActionsInfo extends StatelessWidget {
         fit: StackFit.passthrough,
         children: [
           SingleChildScrollView(
-            child: Text(
+            child: SelectableText(
               r.actionsConfig!,
               style: const TextStyle(fontFamily: 'RobotoMono'),
             ),
@@ -683,6 +537,9 @@ class DependabotConfigInfo extends StatelessWidget {
       return Stack(
         fit: StackFit.passthrough,
         children: [
+          const Center(
+            child: Text('Dependabot configuration not found.'),
+          ),
           OverlayButtons(
             infoText: '.github/dependabot.yaml',
             children: [
@@ -694,9 +551,6 @@ class DependabotConfigInfo extends StatelessWidget {
               ),
             ],
           ),
-          const Center(
-            child: Text('Dependabot configuration not found.'),
-          ),
         ],
       );
     } else {
@@ -705,6 +559,12 @@ class DependabotConfigInfo extends StatelessWidget {
       return Stack(
         fit: StackFit.passthrough,
         children: [
+          SingleChildScrollView(
+            child: SelectableText(
+              repo!.dependabotConfig!,
+              style: const TextStyle(fontFamily: 'RobotoMono'),
+            ),
+          ),
           OverlayButtons(
             infoText: '.github/dependabot.yaml',
             children: [
@@ -721,12 +581,6 @@ class DependabotConfigInfo extends StatelessWidget {
                 },
               ),
             ],
-          ),
-          SingleChildScrollView(
-            child: Text(
-              repo!.dependabotConfig!,
-              style: const TextStyle(fontFamily: 'RobotoMono'),
-            ),
           ),
         ],
       );

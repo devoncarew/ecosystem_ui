@@ -18,8 +18,6 @@ import 'utils/constants.dart';
 
 // todo: have a search / filter field
 
-// todo: google3 data
-
 void main() async {
   runApp(const PackagesApp());
 }

@@ -71,3 +71,7 @@ extension SetToggle<E> on Set<E> {
     contains(value) ? remove(value) : add(value);
   }
 }
+
+String trimPrefix(String str, String prefix) {
+  return str.startsWith(prefix) ? str.substring(prefix.length) : str;
+}

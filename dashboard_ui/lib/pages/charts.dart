@@ -27,7 +27,6 @@ enum ChartTypes {
 }
 
 enum TimeRanges {
-  week(7),
   month(30),
   quarter(91),
   year(365);
@@ -619,7 +618,7 @@ class QueryEngine {
 
   ValueListenable<TimeRanges> get timeRange => _timeRange;
   // TODO: switch this to 'quarter' once we've accumulated more data
-  final ValueNotifier<TimeRanges> _timeRange = ValueNotifier(TimeRanges.week);
+  final ValueNotifier<TimeRanges> _timeRange = ValueNotifier(TimeRanges.month);
 
   ValueListenable<QueryResult> get queryResult => _queryResult;
   final ValueNotifier<QueryResult> _queryResult =

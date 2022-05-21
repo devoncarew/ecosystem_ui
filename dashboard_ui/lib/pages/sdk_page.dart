@@ -4,6 +4,7 @@ import '../model/data_model.dart';
 import '../ui/table.dart';
 import '../ui/widgets.dart';
 import '../utils/constants.dart';
+import '../utils/utils.dart';
 
 class SDKDependenciesWidget extends StatefulWidget {
   final DataModel dataModel;
@@ -42,12 +43,16 @@ class _SDKDependenciesWidgetState extends State<SDKDependenciesWidget>
               ],
               columns: [
                 VTableColumn(
-                  label: 'Repo',
+                  label: 'Repository',
                   width: 275,
                   grow: 0.2,
                   transformFunction: (dep) => dep.sdkDep.repository,
                   renderFunction: (BuildContext context, dep) {
-                    return Hyperlink(url: dep.sdkDep.repository);
+                    return Hyperlink(
+                      url: dep.sdkDep.repository,
+                      displayText:
+                          trimPrefix(dep.sdkDep.repository, 'https://'),
+                    );
                   },
                 ),
                 VTableColumn(

@@ -58,6 +58,7 @@ class _HyperlinkState extends State<Hyperlink> {
     const underline = TextStyle(decoration: TextDecoration.underline);
 
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (event) {
         setState(() => hovered = true);
       },

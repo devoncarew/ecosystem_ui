@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'theme.dart';
 
-typedef OnTap<T> = void Function(T object);
+typedef OnSelectionChanged<T> = void Function(T object);
 
 class VTable<T> extends StatefulWidget {
   static const double _rowHeight = 42;
@@ -15,7 +15,7 @@ class VTable<T> extends StatefulWidget {
   final bool startsSorted;
   final bool supportsSelection;
   final bool hideHeader;
-  final OnTap<T>? onTap;
+  final OnSelectionChanged<T?>? onSelectionChanged;
   final String? tableDescription;
   final List<Widget> actions;
 
@@ -25,7 +25,7 @@ class VTable<T> extends StatefulWidget {
     this.startsSorted = false,
     this.supportsSelection = false,
     this.hideHeader = false,
-    this.onTap,
+    this.onSelectionChanged,
     this.tableDescription,
     this.actions = const [],
     Key? key,
@@ -50,6 +50,12 @@ class _VTableState<T> extends State<VTable<T>> {
     sortedItems = widget.items.toList();
 
     _performInitialSort();
+
+    selectedItem.addListener(() {
+      if (widget.onSelectionChanged != null) {
+        widget.onSelectionChanged!(selectedItem.value);
+      }
+    });
   }
 
   @override
@@ -58,6 +64,12 @@ class _VTableState<T> extends State<VTable<T>> {
 
     sortedItems = widget.items;
     _performInitialSort();
+
+    // Clear the selection if the selected item is no longer in the table.
+    if (selectedItem.value != null &&
+        !sortedItems.contains(selectedItem.value)) {
+      selectedItem.value = null;
+    }
   }
 
   void _performInitialSort() {
@@ -255,10 +267,6 @@ class _VTableState<T> extends State<VTable<T>> {
           selectedItem.value = null;
         }
       });
-    }
-
-    if (widget.onTap != null) {
-      widget.onTap!(item);
     }
   }
 }
