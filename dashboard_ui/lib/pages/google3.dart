@@ -6,19 +6,19 @@ import '../ui/widgets.dart';
 import '../utils/constants.dart';
 import '../utils/utils.dart';
 
-class Google3Widget extends StatefulWidget {
+class Google3Sheet extends StatefulWidget {
   final DataModel dataModel;
 
-  const Google3Widget({
+  const Google3Sheet({
     required this.dataModel,
     Key? key,
   }) : super(key: key);
 
   @override
-  State<Google3Widget> createState() => _Google3WidgetState();
+  State<Google3Sheet> createState() => _Google3SheetState();
 }
 
-class _Google3WidgetState extends State<Google3Widget>
+class _Google3SheetState extends State<Google3Sheet>
     with AutomaticKeepAliveClientMixin {
   @override
   Widget build(BuildContext context) {

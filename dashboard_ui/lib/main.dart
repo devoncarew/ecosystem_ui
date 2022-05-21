@@ -9,9 +9,9 @@ import 'firebase_options.dart';
 import 'model/data_model.dart';
 import 'pages/changelog.dart';
 import 'pages/charts.dart';
-import 'pages/google3_page.dart';
-import 'pages/pub_page.dart';
-import 'pages/sdk_page.dart';
+import 'pages/google3.dart';
+import 'pages/packages.dart';
+import 'pages/sdk.dart';
 import 'ui/theme.dart';
 import 'ui/widgets.dart';
 import 'utils/constants.dart';
@@ -186,9 +186,9 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
         padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
         child: TabBarView(
           children: [
-            PublisherPackagesWidget(publishers: publishers),
-            SDKDependenciesWidget(dataModel: widget.dataModel),
-            Google3Widget(dataModel: widget.dataModel),
+            PackagesSheet(publishers: publishers),
+            SDKSheet(dataModel: widget.dataModel),
+            Google3Sheet(dataModel: widget.dataModel),
           ],
         ),
       ),

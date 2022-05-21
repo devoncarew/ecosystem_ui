@@ -7,20 +7,19 @@ import '../ui/table.dart';
 import '../ui/widgets.dart';
 import '../utils/utils.dart';
 
-class PublisherPackagesWidget extends StatefulWidget {
+class PackagesSheet extends StatefulWidget {
   final List<String> publishers;
 
-  const PublisherPackagesWidget({
+  const PackagesSheet({
     required this.publishers,
     Key? key,
   }) : super(key: key);
 
   @override
-  State<PublisherPackagesWidget> createState() =>
-      _PublisherPackagesWidgetState();
+  State<PackagesSheet> createState() => _PackagesSheetState();
 }
 
-class _PublisherPackagesWidgetState extends State<PublisherPackagesWidget>
+class _PackagesSheetState extends State<PackagesSheet>
     with AutomaticKeepAliveClientMixin {
   PackageInfo? selectedPackage;
   final Set<String> visiblePublishers = {};

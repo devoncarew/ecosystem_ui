@@ -112,6 +112,7 @@ class _VTableState<T> extends State<VTable<T>> {
                     ...widget.actions,
                     IconButton(
                       icon: const Icon(Icons.copy),
+                      tooltip: 'Copy table data to clipboard',
                       iconSize: defaultIconSize,
                       splashRadius: defaultSplashRadius,
                       onPressed: () => _copyTableToClipboard(context),

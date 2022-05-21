@@ -6,19 +6,19 @@ import '../ui/widgets.dart';
 import '../utils/constants.dart';
 import '../utils/utils.dart';
 
-class SDKDependenciesWidget extends StatefulWidget {
+class SDKSheet extends StatefulWidget {
   final DataModel dataModel;
 
-  const SDKDependenciesWidget({
+  const SDKSheet({
     required this.dataModel,
     Key? key,
   }) : super(key: key);
 
   @override
-  State<SDKDependenciesWidget> createState() => _SDKDependenciesWidgetState();
+  State<SDKSheet> createState() => _SDKSheetState();
 }
 
-class _SDKDependenciesWidgetState extends State<SDKDependenciesWidget>
+class _SDKSheetState extends State<SDKSheet>
     with AutomaticKeepAliveClientMixin {
   @override
   Widget build(BuildContext context) {
