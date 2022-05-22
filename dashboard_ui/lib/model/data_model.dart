@@ -12,6 +12,7 @@ import 'package:collection/collection.dart';
 
 import '../ui/table.dart';
 import '../utils/constants.dart';
+import '../utils/utils.dart';
 
 typedef SnapshotItems = Map<String, dynamic>;
 
@@ -331,6 +332,7 @@ class PackageInfo {
   final Timestamp? unpublishedCommitDate;
 
   Map<String, dynamic>? _parsedPubspec;
+  String? _pubspecDisplay;
 
   factory PackageInfo.from(QueryDocumentSnapshot<SnapshotItems> snapshot) {
     var data = snapshot.data();
@@ -436,6 +438,36 @@ class PackageInfo {
   String get publishedDateDisplay {
     var str = publishedDate.toDate().toIso8601String();
     return str.split('T').first;
+  }
+
+  String get pubspecDisplay {
+    if (_pubspecDisplay == null) {
+      var printer = const YamlPrinter();
+      _pubspecDisplay = printer.print(parsedPubspec);
+    }
+    return _pubspecDisplay!;
+  }
+
+  bool matchesFilter(String filter) {
+    if (name.contains(filter)) {
+      return true;
+    }
+
+    if (publisher.contains(filter) ||
+        maintainer.contains(filter) ||
+        repository.contains(filter) ||
+        version.toString().contains(filter)) {
+      return true;
+    }
+
+    if (pubspecDisplay.contains(filter) ||
+        (analysisOptions?.contains(filter) ?? false)) {
+      return true;
+    }
+
+    // todo: github actions, dependabot
+
+    return false;
   }
 
   static TextStyle? getDisplayStyle(PackageInfo package) {

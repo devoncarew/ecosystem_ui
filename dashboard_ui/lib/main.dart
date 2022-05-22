@@ -16,7 +16,7 @@ import 'ui/theme.dart';
 import 'ui/widgets.dart';
 import 'utils/constants.dart';
 
-// todo: have a search / filter field
+// todo: have a search  field
 
 void main() async {
   runApp(const PackagesApp());
@@ -129,6 +129,7 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
               ValueListenableBuilder<bool>(
                 valueListenable: widget.dataModel.busy,
                 builder: (BuildContext context, bool busy, _) {
+                  // todo: smaller
                   return Center(
                     child: SizedBox(
                       width: defaultIconSize,

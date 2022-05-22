@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart' as url;
 
 import '../utils/constants.dart';
+import 'theme.dart';
 
 class OverlayButtons extends StatelessWidget {
   final String? infoText;
@@ -76,26 +77,50 @@ class _HyperlinkState extends State<Hyperlink> {
   }
 }
 
+// todo: escape to clear the filter
+
 class SearchField extends StatelessWidget {
-  const SearchField({Key? key}) : super(key: key);
+  final double height;
+  final String hintText;
+  final ValueChanged<String>? onChanged;
+  final bool showClearAction;
+
+  const SearchField({
+    this.height = 36,
+    this.hintText = 'Search',
+    this.onChanged,
+    this.showClearAction = false,
+    Key? key,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 125,
-      height: 36,
+      width: 175,
+      height: height,
       child: TextField(
         cursorColor: Colors.grey,
+        maxLines: 1,
+        onChanged: onChanged,
         decoration: InputDecoration(
+          // prefixIcon: const Icon(Icons.search),
+          suffixIcon: showClearAction
+              ? IconButton(
+                  icon: const Icon(Icons.cancel),
+                  iconSize: defaultIconSize - 4,
+                  splashRadius: defaultSplashRadius,
+                  // TODO: also clear the text
+                  onPressed: () => onChanged!(''),
+                )
+              : null,
           fillColor: Colors.white,
           filled: true,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide.none,
+            borderSide: BorderSide(color: Colors.grey.shade500),
+            borderRadius: BorderRadius.circular(6),
           ),
-          hintText: 'Search',
-          hintStyle: const TextStyle(color: Colors.grey, fontSize: 18),
-          prefixIcon: const Icon(Icons.search),
+          hintText: hintText,
+          hintStyle: const TextStyle(color: Colors.grey, fontSize: 12),
         ),
       ),
     );
@@ -121,18 +146,20 @@ class LoadingScreen extends StatelessWidget {
 class LargeDialog extends StatelessWidget {
   final String title;
   final Widget child;
+  final bool medium;
 
   const LargeDialog({
     required this.title,
     required this.child,
+    this.medium = false,
     Key? key,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
-      var width = constraints.maxWidth - 48 * 2;
-      var height = constraints.maxHeight - 48 * 2;
+      var width = constraints.maxWidth - 48 * (medium ? 4 : 2);
+      var height = constraints.maxHeight - 48 * (medium ? 8 : 2);
 
       return AlertDialog(
         title: Text(title),
@@ -156,30 +183,6 @@ class LargeDialog extends StatelessWidget {
         ],
       );
     });
-  }
-}
-
-abstract class NavPage {
-  final String title;
-
-  NavPage(this.title);
-
-  int? get tabPages => null;
-
-  PreferredSizeWidget? createBottomBar(BuildContext context) => null;
-
-  Widget createChild(BuildContext context, {Key? key});
-}
-
-class TempPage extends NavPage {
-  TempPage(String name) : super('Temp page $name');
-
-  @override
-  Widget createChild(BuildContext context, {Key? key}) {
-    return Center(
-      key: key,
-      child: Text(title),
-    );
   }
 }
 

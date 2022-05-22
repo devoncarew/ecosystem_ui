@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 
 import 'theme.dart';
 
-typedef OnSelectionChanged<T> = void Function(T object);
+typedef ItemTapHandler<T> = void Function(T object);
+typedef OnSelectionChanged<T> = void Function(T? object);
+typedef DetailProvider<T> = Widget Function(BuildContext context, T object);
 
 class VTable<T> extends StatefulWidget {
   static const double _rowHeight = 42;
@@ -14,9 +16,11 @@ class VTable<T> extends StatefulWidget {
   final List<VTableColumn<T>> columns;
   final bool startsSorted;
   final bool supportsSelection;
-  final bool hideHeader;
-  final OnSelectionChanged<T?>? onSelectionChanged;
+  final ItemTapHandler<T>? onItemTap;
+  final OnSelectionChanged<T>? onSelectionChanged;
+  final DetailProvider<T>? itemDetailProvider;
   final String? tableDescription;
+  final List<Widget> filterWidgets;
   final List<Widget> actions;
 
   const VTable({
@@ -24,9 +28,11 @@ class VTable<T> extends StatefulWidget {
     required this.columns,
     this.startsSorted = false,
     this.supportsSelection = false,
-    this.hideHeader = false,
+    this.onItemTap,
     this.onSelectionChanged,
+    this.itemDetailProvider,
     this.tableDescription,
+    this.filterWidgets = const [],
     this.actions = const [],
     Key? key,
   }) : super(key: key);
@@ -83,107 +89,138 @@ class _VTableState<T> extends State<VTable<T>> {
 
   @override
   Widget build(BuildContext context) {
+    // todo: use restorationId?
+
+    final showDetail =
+        widget.itemDetailProvider != null && selectedItem.value != null;
+
+    return Column(
+      children: [
+        createActionRow(context),
+        const Divider(),
+        Expanded(
+          child: Stack(
+            // fit: StackFit.expand,
+            alignment: Alignment.centerRight,
+            children: [
+              LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  Map<VTableColumn, double> colWidths =
+                      _layoutColumns(constraints);
+                  return Column(
+                    // crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      createHeaderRow(colWidths),
+                      Expanded(
+                        child: createRows(colWidths),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              if (showDetail)
+                DetailWidget(
+                  child: widget.itemDetailProvider!(
+                      context, selectedItem.value as T),
+                )
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Padding createActionRow(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: 8,
+        top: 16,
+        // right: 8,
+        // bottom: 8,
+      ),
+      child: Row(
+        children: [
+          Text(widget.tableDescription ?? ''),
+          ...widget.filterWidgets,
+          const Expanded(child: SizedBox(width: 8)),
+          ...widget.actions,
+          IconButton(
+            icon: const Icon(Icons.copy),
+            tooltip: 'Copy table data to clipboard',
+            iconSize: defaultIconSize,
+            splashRadius: defaultSplashRadius,
+            onPressed: () => _copyTableToClipboard(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Row createHeaderRow(Map<VTableColumn<dynamic>, double> colWidths) {
+    var sortColumn = sortColumnIndex == null ? null : columns[sortColumnIndex!];
+
+    return Row(
+      children: [
+        for (var column in columns)
+          InkWell(
+            onTap: () => trySort(column),
+            child: _ColumnHeader(
+              title: column.label,
+              width: colWidths[column],
+              alignment: column.alignment,
+              sortAscending: column == sortColumn ? sortAscending : null,
+            ),
+          ),
+      ],
+    );
+  }
+
+  ListView createRows(Map<VTableColumn<dynamic>, double> colWidths) {
     final rowSeparator = BoxDecoration(
       border: Border(top: BorderSide(color: Colors.grey.shade300)),
     );
 
-    // todo: use restorationId?
-
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        Map<VTableColumn, double> colWidths = _layoutColumns(constraints);
-        var sortColumn =
-            sortColumnIndex == null ? null : columns[sortColumnIndex!];
-
-        return Column(
-          children: [
-            if (!widget.hideHeader)
-              Padding(
-                padding: const EdgeInsets.only(
-                  left: 8,
-                  top: 16,
-                  // right: 8,
-                  // bottom: 8,
-                ),
-                child: Row(
-                  children: [
-                    Text(widget.tableDescription ?? ''),
-                    const Expanded(child: SizedBox(width: 16)),
-                    ...widget.actions,
-                    IconButton(
-                      icon: const Icon(Icons.copy),
-                      tooltip: 'Copy table data to clipboard',
-                      iconSize: defaultIconSize,
-                      splashRadius: defaultSplashRadius,
-                      onPressed: () => _copyTableToClipboard(context),
-                    ),
-                  ],
-                ),
-              ),
-            if (!widget.hideHeader) const Divider(),
-            if (!widget.hideHeader)
-              Row(
+    return ListView.builder(
+      controller: scrollController,
+      itemCount: sortedItems.length,
+      itemExtent: VTable._rowHeight,
+      itemBuilder: (BuildContext context, int index) {
+        T item = sortedItems[index];
+        final selected = item == selectedItem.value;
+        return Container(
+          key: ValueKey(item),
+          color: selected ? Theme.of(context).hoverColor : null,
+          child: InkWell(
+            onTap: () => _select(item),
+            child: DecoratedBox(
+              decoration: rowSeparator,
+              child: Row(
                 children: [
                   for (var column in columns)
-                    InkWell(
-                      onTap: () => trySort(column),
-                      child: _ColumnHeader(
-                        title: column.label,
-                        width: colWidths[column],
-                        alignment: column.alignment,
-                        sortAscending:
-                            column == sortColumn ? sortAscending : null,
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1, right: 1),
+                      child: SizedBox(
+                        height: VTable._rowHeight - 1,
+                        width: colWidths[column]! - 1,
+                        child: Tooltip(
+                          message: column.validate(item)?.message ?? '',
+                          waitDuration: tooltipDelay,
+                          child: Container(
+                            alignment: column.alignment ?? Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: VTable._horizPadding,
+                              vertical: VTable._vertPadding,
+                            ),
+                            color: column.validate(item)?.colorForSeverity,
+                            child: column.widgetFor(context, item),
+                          ),
+                        ),
                       ),
-                    ),
+                    )
                 ],
               ),
-            Expanded(
-              child: ListView.builder(
-                controller: scrollController,
-                itemCount: sortedItems.length,
-                itemExtent: VTable._rowHeight,
-                itemBuilder: (BuildContext context, int index) {
-                  T item = sortedItems[index];
-                  final selected = item == selectedItem.value;
-                  return Container(
-                    key: ValueKey(item),
-                    color: selected ? Theme.of(context).hoverColor : null,
-                    child: InkWell(
-                      onTap: () => _select(item),
-                      child: DecoratedBox(
-                        decoration: rowSeparator,
-                        child: Row(children: [
-                          for (var column in columns)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 1, right: 1),
-                              child: SizedBox(
-                                height: VTable._rowHeight - 1,
-                                width: colWidths[column]! - 1,
-                                child: Tooltip(
-                                  message: column.validate(item)?.message ?? '',
-                                  waitDuration: tooltipDelay,
-                                  child: Container(
-                                    alignment: column.alignment ??
-                                        Alignment.centerLeft,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: VTable._horizPadding,
-                                      vertical: VTable._vertPadding,
-                                    ),
-                                    color:
-                                        column.validate(item)?.colorForSeverity,
-                                    child: column.widgetFor(context, item),
-                                  ),
-                                ),
-                              ),
-                            )
-                        ]),
-                      ),
-                    ),
-                  );
-                },
-              ),
             ),
-          ],
+          ),
         );
       },
     );
@@ -269,6 +306,30 @@ class _VTableState<T> extends State<VTable<T>> {
         }
       });
     }
+
+    if (widget.onItemTap != null) {
+      widget.onItemTap!(item);
+    }
+  }
+}
+
+class DetailWidget extends StatelessWidget {
+  final Widget child;
+
+  const DetailWidget({
+    required this.child,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 2,
+      child: SizedBox(
+        width: 375,
+        child: child,
+      ),
+    );
   }
 }
 

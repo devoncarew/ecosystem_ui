@@ -25,6 +25,7 @@ class _PackagesSheetState extends State<PackagesSheet>
   final Set<String> visiblePublishers = {};
   bool showUnlisted = false;
   bool showDiscontinued = false;
+  String? filterText;
 
   @override
   void initState() {
@@ -44,19 +45,44 @@ class _PackagesSheetState extends State<PackagesSheet>
       builder: (context, packages, _) {
         final filteredPackages = _filterPackages(packages);
 
+        // Experimenting with side content.
+        // return Row(
+        //   children: [
+        //     Expanded(
+        //       flex: 5,
+        //       child: createTable(
+        //         filteredPackages,
+        //         dataModel: dataModel,
+        //         allPackages: packages,
+        //       ),
+        //     ),
+        //     if (selectedPackage != null)
+        //       Expanded(
+        //         flex: 2,
+        //         child: SingleChildScrollView(
+        //           padding: const EdgeInsets.only(left: 8, right: 3),
+        //           child: VerticalDetailsWidget(
+        //             package: selectedPackage!,
+        //           ),
+        //         ),
+        //       ),
+        //   ],
+        // );
+
         return Column(
           children: [
             Expanded(
-              flex: 4,
+              flex: 5,
               child: createTable(
                 filteredPackages,
                 dataModel: dataModel,
                 allPackages: packages,
               ),
             ),
+            if (selectedPackage != null) const Divider(),
             if (selectedPackage != null)
               Expanded(
-                flex: 3,
+                flex: 2,
                 child: PackageDetailsWidget(
                   package: selectedPackage!,
                 ),
@@ -74,6 +100,22 @@ class _PackagesSheetState extends State<PackagesSheet>
       });
     });
   }
+
+  // void _handleItemTap(DataModel dataModel, PackageInfo package) {
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) {
+  //       return Provider<DataModel>(
+  //         create: (context) => dataModel,
+  //         child: LargeDialog(
+  //           title: 'package:${package.name}',
+  //           medium: true,
+  //           child: PackageDetailsWidget(package: package),
+  //         ),
+  //       );
+  //     },
+  //   );
+  // }
 
   VTable createTable(
     List<PackageInfo> packages, {
@@ -96,8 +138,19 @@ class _PackagesSheetState extends State<PackagesSheet>
       startsSorted: true,
       supportsSelection: true,
       onSelectionChanged: _onSelectionChanged,
+      // onItemTap: (item) => _handleItemTap(dataModel, item),
       tableDescription: description,
       actions: [
+        SearchField(
+          hintText: 'Filter',
+          height: toolbarHeight,
+          // TODO: fix the notification here
+          //showClearAction: filterText != null,
+          onChanged: (value) {
+            _updateFilter(value);
+          },
+        ),
+        const SizedBox(width: 16),
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: toolbarHeight),
           child: ToggleButtons(
@@ -162,7 +215,7 @@ class _PackagesSheetState extends State<PackagesSheet>
       columns: [
         VTableColumn<PackageInfo>(
           label: 'Name',
-          width: 110,
+          width: 90,
           grow: 0.2,
           transformFunction: (package) => package.name,
           styleFunction: PackageInfo.getDisplayStyle,
@@ -170,14 +223,14 @@ class _PackagesSheetState extends State<PackagesSheet>
         ),
         VTableColumn<PackageInfo>(
           label: 'Publisher',
-          width: 110,
+          width: 90,
           grow: 0.2,
           transformFunction: PackageInfo.getPublisherDisplayName,
           styleFunction: PackageInfo.getDisplayStyle,
         ),
         VTableColumn<PackageInfo>(
           label: 'Maintainer',
-          width: 120,
+          width: 100,
           grow: 0.2,
           transformFunction: (package) => package.maintainer,
           styleFunction: PackageInfo.getDisplayStyle,
@@ -187,7 +240,7 @@ class _PackagesSheetState extends State<PackagesSheet>
         ),
         VTableColumn<PackageInfo>(
           label: 'Repository',
-          width: 200,
+          width: 150,
           grow: 0.2,
           transformFunction: (package) => package.repository,
           styleFunction: PackageInfo.getDisplayStyle,
@@ -208,7 +261,7 @@ class _PackagesSheetState extends State<PackagesSheet>
         ),
         VTableColumn(
           label: 'SDK Sync Latency',
-          width: 100,
+          width: 80,
           grow: 0.2,
           alignment: Alignment.centerRight,
           transformFunction: (package) {
@@ -237,7 +290,7 @@ class _PackagesSheetState extends State<PackagesSheet>
         ),
         VTableColumn(
           label: 'Publish Latency',
-          width: 100,
+          width: 80,
           grow: 0.2,
           alignment: Alignment.centerRight,
           transformFunction: (package) {
@@ -253,7 +306,7 @@ class _PackagesSheetState extends State<PackagesSheet>
         ),
         VTableColumn<PackageInfo>(
           label: 'Version',
-          width: 100,
+          width: 70,
           alignment: Alignment.centerRight,
           transformFunction: (package) => package.version.toString(),
           styleFunction: PackageInfo.getDisplayStyle,
@@ -266,6 +319,14 @@ class _PackagesSheetState extends State<PackagesSheet>
     );
   }
 
+  void _updateFilter(String filter) {
+    filter = filter.trim().toLowerCase();
+
+    setState(() {
+      filterText = filter.isEmpty ? null : filter;
+    });
+  }
+
   List<PackageInfo> _filterPackages(
     List<PackageInfo> packages,
   ) {
@@ -273,6 +334,7 @@ class _PackagesSheetState extends State<PackagesSheet>
         .where((p) => visiblePublishers.contains(p.publisher))
         .where((p) => showUnlisted ? true : !p.unlisted)
         .where((p) => showDiscontinued ? true : !p.discontinued)
+        .where((p) => filterText == null ? true : p.matchesFilter(filterText!))
         .toList();
   }
 
@@ -309,62 +371,53 @@ class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
     final RepositoryInfo? repo =
         dataModel.getRepositoryForPackage(widget.package);
 
-    // todo: use a Divider widget
-
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      child: Container(
-        padding: const EdgeInsets.only(top: 8),
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Colors.grey)),
-        ),
-        child: Card(
-          margin: EdgeInsets.zero,
-          child: Column(
-            children: [
-              Container(
-                color: Theme.of(context).colorScheme.secondary,
-                child: TabBar(
-                  indicatorColor: Theme.of(context).colorScheme.onSecondary,
-                  controller: tabController,
-                  // Metadata, Pubspec, Analysis options, Dependabot
-                  tabs: const [
-                    Tab(text: 'Pubspec'),
-                    Tab(text: 'Analysis options'),
-                    Tab(text: 'GitHub Actions'),
-                    Tab(text: 'Dependabot'),
-                  ],
-                ),
+      padding: const EdgeInsets.only(left: 8, bottom: 6, right: 8),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: Column(
+          children: [
+            Container(
+              color: Theme.of(context).colorScheme.secondary,
+              child: TabBar(
+                indicatorColor: Theme.of(context).colorScheme.onSecondary,
+                controller: tabController,
+                tabs: const [
+                  Tab(text: 'Pubspec'),
+                  Tab(text: 'Analysis options'),
+                  Tab(text: 'GitHub Actions'),
+                  Tab(text: 'Dependabot'),
+                ],
               ),
-              Expanded(
-                child: TabBarView(
-                  controller: tabController,
-                  children: [
-                    // Pubspec
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: PubspecInfoWidget(package: widget.package),
-                    ),
-                    // Analysis options
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: AnalysisOptionsInfo(package: widget.package),
-                    ),
-                    // GitHub Actions
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: GitHubActionsInfo(repo: repo),
-                    ),
-                    // Dependabot
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: DependabotConfigInfo(repo: repo),
-                    ),
-                  ],
-                ),
-              )
-            ],
-          ),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: tabController,
+                children: [
+                  // Pubspec
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: PubspecInfoWidget(package: widget.package),
+                  ),
+                  // Analysis options
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: AnalysisOptionsInfo(package: widget.package),
+                  ),
+                  // GitHub Actions
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: GitHubActionsInfo(repo: repo),
+                  ),
+                  // Dependabot
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: DependabotConfigInfo(repo: repo),
+                  ),
+                ],
+              ),
+            )
+          ],
         ),
       ),
     );
@@ -386,7 +439,7 @@ class PubspecInfoWidget extends StatelessWidget {
       children: [
         SingleChildScrollView(
           child: SelectableText(
-            _pubspecText,
+            package.pubspecDisplay,
             style: const TextStyle(fontFamily: 'RobotoMono'),
           ),
         ),
@@ -407,11 +460,6 @@ class PubspecInfoWidget extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  String get _pubspecText {
-    var printer = const YamlPrinter();
-    return printer.print(package.parsedPubspec);
   }
 }
 

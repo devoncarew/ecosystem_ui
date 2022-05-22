@@ -1,19 +1,7 @@
-import 'package:dashboard_ui/ui/widgets.dart';
 import 'package:flutter/material.dart';
 
 import '../model/data_model.dart';
 import '../ui/table.dart';
-
-class ChangelogPage extends NavPage {
-  final DataModel dataModel;
-
-  ChangelogPage(this.dataModel) : super('Recent Changes');
-
-  @override
-  Widget createChild(BuildContext context, {Key? key}) {
-    return ChangelogView(dataModel: dataModel, key: key);
-  }
-}
 
 class ChangelogView extends StatelessWidget {
   final DataModel dataModel;
