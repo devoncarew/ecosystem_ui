@@ -16,7 +16,13 @@ import 'ui/theme.dart';
 import 'ui/widgets.dart';
 import 'utils/constants.dart';
 
-// todo: have a search  field
+// todo: have a search field
+
+// todo: add filtering to the sdk page
+
+// todo: add filtering to the google3 page
+
+// todo: add a google3 sync latency column to the package page
 
 void main() async {
   runApp(const PackagesApp());
@@ -129,11 +135,10 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
               ValueListenableBuilder<bool>(
                 valueListenable: widget.dataModel.busy,
                 builder: (BuildContext context, bool busy, _) {
-                  // todo: smaller
                   return Center(
                     child: SizedBox(
-                      width: defaultIconSize,
-                      height: defaultIconSize,
+                      width: defaultIconSize - 6,
+                      height: defaultIconSize - 6,
                       child: busy
                           ? const CircularProgressIndicator(
                               color: Colors.white,

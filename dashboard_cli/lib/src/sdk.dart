@@ -54,6 +54,7 @@ class Sdk {
     // hard-coded repo mappings here.
     const specialCases = {
       'charcode': 'https://github.com/lrhn/charcode',
+      'http_retry': 'https://github.com/dart-archive/http_retry',
       'platform': 'https://github.com/google/platform.dart',
       'process': 'https://github.com/google/process.dart',
       'protobuf': 'https://github.com/google/protobuf.dart',

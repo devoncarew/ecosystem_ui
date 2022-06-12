@@ -1,50 +1,67 @@
-import 'package:dashboard_cli/src/pub.dart';
-
-import 'github.dart';
+import 'dart:convert';
+import 'dart:io';
 
 class Google3 {
-  // TODO: This is mocked out for now.
-  Future<List<Google3Dependency>> getSyncedPackageRepos({
-    required Set<String> repositories,
+  Future<List<Google3Dependency>> getPackageSyncInfo({
+    required Set<String> packages,
   }) async {
-    // TODO: The intent here is only to return information about the given
-    // repositories.
+    // TODO: read this from a json url
+    var dataFile = File('latest.json');
+    var json = jsonDecode(dataFile.readAsStringSync()) as Map<String, dynamic>;
+    var data = json['packages'] as List;
 
-    return [
-      // TODO: also collect info about copybara (has a config, ...)
-      Google3Dependency(
-        repository: 'https://github.com/dart-lang/args',
-        commit: '862d929b980b993334974d38485a39d891d83918',
-      ),
-      Google3Dependency(
-        repository: 'https://github.com/dart-lang/logging',
-        commit: 'dfbe88b890c3b4f7bc06da5a7b3b43e9e263b688',
-      ),
-      Google3Dependency(
-        repository: 'https://github.com/dart-lang/path',
-        commit: '3d41ea582f5b0b18de3d90008809b877ff3f69bc',
-      ),
-    ];
+    return data
+        .map((data) {
+          var map = data as Map<String, dynamic>;
+          final name = map['name'] as String;
+
+          if (!packages.contains(name)) {
+            return null;
+          }
+
+          // "name": "analyzer",
+          // "is_first_party": false,
+          // "version": "7621b914e9bde81a12efcf02f1e4227998a64256",
+          // "last_updated": "2022-06-02T04:22:31.000",
+          // "pending_commits": 6,
+          // "latency_seconds": 103895
+
+          DateTime? lastUpdated;
+          if (map['last_updated'] != null) {
+            lastUpdated = DateTime.parse(map['last_updated']);
+          }
+
+          return Google3Dependency(
+            name: map['name'] as String,
+            firstParty: map['is_first_party'] as bool,
+            commit: map['version'] as String?,
+            lastUpdated: lastUpdated,
+            pendingCommits: (map['pending_commits'] as int?) ?? 0,
+            latencySeconds: map['latency_seconds'] as int?,
+          );
+        })
+        .whereType<Google3Dependency>()
+        .toList();
   }
 }
 
 class Google3Dependency {
-  final String repository;
-  final String commit;
-
-  // Note that this information is populated after construction.
-  Commit? commitInfo;
-  List<Commit> unsyncedCommits = [];
+  final String name;
+  final bool firstParty;
+  final String? commit;
+  final DateTime? lastUpdated;
+  final int pendingCommits;
+  final int? latencySeconds;
 
   Google3Dependency({
-    required this.repository,
+    required this.name,
+    required this.firstParty,
     required this.commit,
+    required this.lastUpdated,
+    required this.pendingCommits,
+    required this.latencySeconds,
   });
 
-  String get orgAndName {
-    return RepoInfo(repository).repoOrgAndName!;
-  }
-
   @override
-  String toString() => '$repository 0x$commit';
+  String toString() => '$name 0x$commit';
 }

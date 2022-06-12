@@ -130,18 +130,18 @@ class DataModel {
 
   Future _initGoogle3Deps() async {
     FirebaseFirestore.instance
-        .collection('google3_deps')
+        .collection('google3')
         .snapshots()
         .listen((QuerySnapshot<SnapshotItems> snapshot) {
       _strobeBusy();
       var result = snapshot.docs.map((item) {
         return Google3Dep(
-          orgAndName: item.get('orgAndName'),
+          name: item.get('name'),
+          firstParty: item.get('firstParty'),
           commit: item.get('commit'),
-          repository: item.get('repository'),
-          syncedCommitDate: item.get('syncedCommitDate'),
-          unsyncedCommits: item.get('unsyncedCommits'),
-          unsyncedCommitDate: item.get('unsyncedCommitDate'),
+          lastUpdated: item.get('lastUpdated'),
+          pendingCommits: item.get('pendingCommits'),
+          latencySeconds: item.get('latencySeconds'),
         );
       }).toList();
       _googleDependencies.value = result;
@@ -195,6 +195,12 @@ class DataModel {
   SdkDep? getSdkDepForPackage(PackageInfo package) {
     return sdkDependencies.value.firstWhereOrNull((dep) {
       return dep.repository == package.repoUrl;
+    });
+  }
+
+  Google3Dep? getGoogle3DepForPackage(PackageInfo package) {
+    return googleDependencies.value.firstWhereOrNull((dep) {
+      return dep.name == package.name;
     });
   }
 
@@ -838,43 +844,45 @@ class SdkDep {
 }
 
 class Google3Dep {
-  final String orgAndName;
-  final String commit;
-  final String repository;
-  final Timestamp syncedCommitDate;
-  final int unsyncedCommits;
-  final Timestamp? unsyncedCommitDate;
+  final String name;
+  final bool firstParty;
+  final String? commit;
+  final Timestamp? lastUpdated;
+  final int pendingCommits;
+  final int? latencySeconds;
 
   Google3Dep({
-    required this.orgAndName,
+    required this.name,
+    required this.firstParty,
     required this.commit,
-    required this.repository,
-    required this.syncedCommitDate,
-    required this.unsyncedCommits,
-    required this.unsyncedCommitDate,
+    required this.lastUpdated,
+    required this.pendingCommits,
+    required this.latencySeconds,
   });
 
   int? get unsyncedDays {
-    var date = unsyncedCommitDate;
-    if (date == null) {
+    const secondsInDays = 24 * 60 * 60;
+
+    if (latencySeconds == null) {
       return null;
     }
 
-    return DateTime.now().toUtc().difference(date.toDate()).inDays;
+    return latencySeconds! ~/ secondsInDays;
   }
 
   String get syncLatencyDescription {
+    if (pendingCommits == 0) return '';
+
     var latencyDays = unsyncedDays;
-    if (latencyDays == null) {
-      return '';
-    }
-    return '$unsyncedCommits commits, $unsyncedDays days';
+    if (latencyDays == null) return '';
+
+    return '$pendingCommits commits, $unsyncedDays days';
   }
 
   static int compareUnsyncedDays(Google3Dep a, Google3Dep b) {
     var dayDiff = (a.unsyncedDays ?? 0) - (b.unsyncedDays ?? 0);
     if (dayDiff == 0) {
-      return (a.unsyncedCommits) - (b.unsyncedCommits);
+      return a.pendingCommits - b.pendingCommits;
     } else {
       return dayDiff;
     }
@@ -897,5 +905,5 @@ class Google3Dep {
   }
 
   @override
-  String toString() => '$repository $commit';
+  String toString() => '$name $commit';
 }

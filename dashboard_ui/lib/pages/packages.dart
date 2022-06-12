@@ -215,7 +215,7 @@ class _PackagesSheetState extends State<PackagesSheet>
       columns: [
         VTableColumn<PackageInfo>(
           label: 'Name',
-          width: 90,
+          width: 80,
           grow: 0.2,
           transformFunction: (package) => package.name,
           styleFunction: PackageInfo.getDisplayStyle,
@@ -223,8 +223,8 @@ class _PackagesSheetState extends State<PackagesSheet>
         ),
         VTableColumn<PackageInfo>(
           label: 'Publisher',
-          width: 90,
-          grow: 0.2,
+          width: 80,
+          grow: 0.1,
           transformFunction: PackageInfo.getPublisherDisplayName,
           styleFunction: PackageInfo.getDisplayStyle,
         ),
@@ -260,7 +260,7 @@ class _PackagesSheetState extends State<PackagesSheet>
           ],
         ),
         VTableColumn(
-          label: 'SDK Sync Latency',
+          label: 'SDK Latency',
           width: 80,
           grow: 0.2,
           alignment: Alignment.centerRight,
@@ -289,6 +289,35 @@ class _PackagesSheetState extends State<PackagesSheet>
           ],
         ),
         VTableColumn(
+          label: 'Google3 Latency',
+          width: 80,
+          grow: 0.2,
+          alignment: Alignment.centerRight,
+          transformFunction: (package) {
+            var dep = dataModel.getGoogle3DepForPackage(package);
+            return dep == null ? 'n/a' : dep.syncLatencyDescription;
+          },
+          compareFunction: (a, b) {
+            var aDep = dataModel.getGoogle3DepForPackage(a);
+            var bDep = dataModel.getGoogle3DepForPackage(b);
+            if (aDep == null && bDep == null) {
+              return 0;
+            } else if (aDep != null && bDep == null) {
+              return 1;
+            } else if (aDep == null && bDep != null) {
+              return -1;
+            } else {
+              return Google3Dep.compareUnsyncedDays(aDep!, bDep!);
+            }
+          },
+          validators: [
+            (package) {
+              var dep = dataModel.getGoogle3DepForPackage(package);
+              return dep == null ? null : Google3Dep.validateSyncLatency(dep);
+            },
+          ],
+        ),
+        VTableColumn(
           label: 'Publish Latency',
           width: 80,
           grow: 0.2,
@@ -306,7 +335,7 @@ class _PackagesSheetState extends State<PackagesSheet>
         ),
         VTableColumn<PackageInfo>(
           label: 'Version',
-          width: 70,
+          width: 80,
           alignment: Alignment.centerRight,
           transformFunction: (package) => package.version.toString(),
           styleFunction: PackageInfo.getDisplayStyle,

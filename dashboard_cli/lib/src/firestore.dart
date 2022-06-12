@@ -1,6 +1,5 @@
 import 'package:googleapis/firestore/v1.dart';
 import 'package:googleapis_auth/auth_io.dart';
-import 'package:pool/pool.dart';
 
 import 'github.dart';
 import 'google3.dart';
@@ -267,23 +266,23 @@ class Firestore {
     }
   }
 
-  Future<Map<String, Value>?> getGoogle3RepositoryInfo(String repoName) async {
-    try {
-      final packagePath = getDocumentName('google3_deps', repoName);
-      var result = await documents.get(packagePath);
-      return result.fields;
-    } on DetailedApiRequestError catch (e) {
-      if (e.status == 404) {
-        // Ignore these - we know some documents won't yet exist.
-        return null;
-      }
-      print(e);
-      return null;
-    } catch (e) {
-      print(e);
-      return null;
-    }
-  }
+  // Future<Map<String, Value>?> getGoogle3RepositoryInfo(String repoName) async {
+  //   try {
+  //     final packagePath = getDocumentName('google3', repoName);
+  //     var result = await documents.get(packagePath);
+  //     return result.fields;
+  //   } on DetailedApiRequestError catch (e) {
+  //     if (e.status == 404) {
+  //       // Ignore these - we know some documents won't yet exist.
+  //       return null;
+  //     }
+  //     print(e);
+  //     return null;
+  //   } catch (e) {
+  //     print(e);
+  //     return null;
+  //   }
+  // }
 
   Future<Document> updatePackageInfo(
     String packageName, {
@@ -419,11 +418,11 @@ class Firestore {
   Future<List<String>> getGoogle3Dependencies() async {
     ListDocumentsResponse response = await documents.list(
       documentsPath,
-      'google3_deps',
+      'google3',
       pageSize: 200,
     );
     return response.documents!.map((Document doc) {
-      return doc.fields!['orgAndName']!.stringValue!;
+      return doc.fields!['name']!.stringValue!;
     }).toList();
   }
 
@@ -445,17 +444,17 @@ class Firestore {
     // Read current deps
     final List<String> currentDeps = await getSdkDependencies();
 
-    final pool = Pool(4);
-
     // Update commit info
     logger.write('');
     logger.write('updating dep info...');
 
-    await pool.forEach<SdkDependency, void>(sdkDependencies, (dep) async {
-      Logger depLogger = logger.subLogger('  ${dep.repository}');
+    for (var dep in sdkDependencies) {
+      logger
+        ..write('  ${dep.repository}')
+        ..indent();
       await updateSdkDependency(dep);
-      depLogger.close();
-    }).toList();
+      logger.outdent();
+    }
 
     // Log sdk dep additions.
     Set<String> newDeps = Set.from(sdkDependencies.map((p) => p.name))
@@ -480,24 +479,22 @@ class Firestore {
     required Logger logger,
   }) async {
     // Read current deps
-    // todo: google3 deps
     final List<String> currentDeps = await getGoogle3Dependencies();
-
-    final pool = Pool(4);
 
     // Update commit info
     logger.write('');
     logger.write('updating dep info...');
 
-    await pool.forEach<Google3Dependency, void>(google3Dependencies,
-        (dep) async {
-      Logger depLogger = logger.subLogger('  ${dep.repository}');
+    for (var dep in google3Dependencies) {
+      logger
+        ..write('  ${dep.name}')
+        ..indent();
       await updateGoogle3Dependency(dep);
-      depLogger.close();
-    }).toList();
+      logger.outdent();
+    }
 
-    // Log google3_deps dep additions.
-    Set<String> newDeps = Set.from(google3Dependencies.map((p) => p.orgAndName))
+    // Log google3 dep additions.
+    Set<String> newDeps = Set.from(google3Dependencies.map((p) => p.name))
       ..removeAll(currentDeps);
     for (var dep in newDeps) {
       logger.write('  adding $dep');
@@ -506,10 +503,10 @@ class Firestore {
 
     // Remove any repos which are no longer deps.
     Set<String> oldDeps = currentDeps.toSet()
-      ..removeAll(google3Dependencies.map((p) => p.orgAndName));
+      ..removeAll(google3Dependencies.map((p) => p.name));
     for (var dep in oldDeps) {
       logger.write('  removing $dep');
-      await documents.delete(getDocumentName('google3_deps', dep));
+      await documents.delete(getDocumentName('google3', dep));
       await log(entity: 'Google3 dep', change: 'removing $dep');
     }
   }
@@ -520,10 +517,10 @@ class Firestore {
   }) async {
     logger.write('Upating owners...');
 
-    final pool = Pool(4);
-
-    await pool.forEach<PackageMaintainer, void>(maintainers, (pkg) async {
-      final log = logger.subLogger('  $pkg');
+    for (var pkg in maintainers) {
+      logger
+        ..write('  $pkg')
+        ..indent();
 
       // todo: log ownership changes
       final Document doc = Document(
@@ -542,8 +539,8 @@ class Firestore {
         updateMask_fieldPaths: mask.fieldPaths,
       );
 
-      log.close();
-    }).toList();
+      logger.outdent();
+    }
   }
 
   Future updateRepositoryInfo(RepositoryInfo repo) async {
@@ -623,65 +620,75 @@ class Firestore {
   }
 
   Future updateGoogle3Dependency(Google3Dependency dependency) async {
-    var existingInfo = await getGoogle3RepositoryInfo(
-      firestoreEntityEncode(dependency.orgAndName),
-    );
-    var commit = dependency.commitInfo!;
+    // var existingInfo = await getGoogle3RepositoryInfo(
+    //   firestoreEntityEncode(dependency.name),
+    // );
+    // var commit = dependency.commitInfo!;
 
-    String? unsyncedTimestamp;
-    if (dependency.unsyncedCommits.isNotEmpty) {
-      dependency.unsyncedCommits.sort();
-      var oldest = dependency.unsyncedCommits.last;
-      unsyncedTimestamp = oldest.committedDate.toIso8601String();
-    }
+    // String? unsyncedTimestamp;
+    // if (dependency.unsyncedCommits.isNotEmpty) {
+    //   dependency.unsyncedCommits.sort();
+    //   var oldest = dependency.unsyncedCommits.last;
+    //   unsyncedTimestamp = oldest.committedDate.toIso8601String();
+    // }
+
+    // final String name;
+    // final bool firstParty;
+    // final String commit;
+    // final DateTime lastUpdated;
+    // final int pendingCommits;
+    // final int latencySeconds;
 
     final Document doc = Document(
       fields: {
-        'orgAndName': valueStr(dependency.orgAndName),
-        'commit': valueStr(dependency.commit),
-        'repository': valueStr(dependency.repository),
-        'syncedCommitDate': Value(
-          timestampValue: commit.committedDate.toIso8601String(),
-        ),
-        'unsyncedCommits': valueInt(dependency.unsyncedCommits.length),
-        'unsyncedCommitDate': unsyncedTimestamp == null
+        'name': valueStr(dependency.name),
+        'firstParty': valueBool(dependency.firstParty),
+        'commit': valueStrNullable(dependency.commit),
+        'lastUpdated': dependency.lastUpdated == null
             ? valueNull()
-            : Value(timestampValue: unsyncedTimestamp),
+            : Value(
+                timestampValue:
+                    dependency.lastUpdated!.toUtc().toIso8601String(),
+              ),
+        'pendingCommits': valueInt(dependency.pendingCommits),
+        'latencySeconds': dependency.latencySeconds == null
+            ? valueNull()
+            : valueInt(dependency.latencySeconds!),
       },
     );
 
     // todo: handle error conditions
-    var updatedInfo = await documents.patch(
+    /*var updatedInfo =*/ await documents.patch(
       doc,
       getDocumentName(
-        'google3_deps',
-        firestoreEntityEncode(dependency.orgAndName),
+        'google3',
+        firestoreEntityEncode(dependency.name),
       ),
     );
 
-    const ignoreKeys = {
-      'syncedCommitDate',
-      'unsyncedCommits',
-      'unsyncedCommitDate',
-    };
+    // const ignoreKeys = {
+    //   'syncedCommitDate',
+    //   'unsyncedCommits',
+    //   'unsyncedCommitDate',
+    // };
 
-    // Record any interesting changes in the log.
-    if (existingInfo != null) {
-      var updatedFields = updatedInfo.fields!;
-      for (var field in existingInfo.keys) {
-        if (updatedFields.keys.contains(field) &&
-            !compareValues(existingInfo[field]!, updatedFields[field]!)) {
-          if (ignoreKeys.contains(field)) {
-            continue;
-          }
+    // // Record any interesting changes in the log.
+    // if (existingInfo != null) {
+    //   var updatedFields = updatedInfo.fields!;
+    //   for (var field in existingInfo.keys) {
+    //     if (updatedFields.keys.contains(field) &&
+    //         !compareValues(existingInfo[field]!, updatedFields[field]!)) {
+    //       if (ignoreKeys.contains(field)) {
+    //         continue;
+    //       }
 
-          log(
-            entity: 'Google3 dep: ${dependency.orgAndName}',
-            change: '$field => ${printValue(updatedFields[field]!)}',
-          );
-        }
-      }
-    }
+    //       log(
+    //         entity: 'Google3 dep: ${dependency.orgAndName}',
+    //         change: '$field => ${printValue(updatedFields[field]!)}',
+    //       );
+    //     }
+    //   }
+    // }
   }
 }
 

@@ -99,7 +99,6 @@ class SearchField extends StatelessWidget {
       width: 175,
       height: height,
       child: TextField(
-        cursorColor: Colors.grey,
         maxLines: 1,
         onChanged: onChanged,
         decoration: InputDecoration(
@@ -113,10 +112,9 @@ class SearchField extends StatelessWidget {
                   onPressed: () => onChanged!(''),
                 )
               : null,
-          fillColor: Colors.white,
+          fillColor: Colors.grey.shade100,
           filled: true,
           border: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.grey.shade500),
             borderRadius: BorderRadius.circular(6),
           ),
           hintText: hintText,

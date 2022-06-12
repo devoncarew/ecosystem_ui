@@ -1,3 +1,4 @@
 .env
-cron/logs.log
+cron/
 dashboard_ui/.firebase/hosting.YnVpbGQvd2Vi.cache
+dashboard_cli/latest.json

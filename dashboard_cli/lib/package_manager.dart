@@ -1,5 +1,4 @@
 import 'package:http/http.dart' as http;
-import 'package:pool/pool.dart';
 
 import 'src/firestore.dart';
 import 'src/github.dart';
@@ -11,9 +10,7 @@ import 'src/utils.dart';
 
 // todo: improve the performance of this script
 //   - make fewer calls
-//   - pool some processing
 //   - await several calls at once
-//   - print the run-time at the end
 
 class PackageManager {
   late final Pub pub;
@@ -77,10 +74,10 @@ class PackageManager {
 
     final allPackages = await firestore.queryPackagesForPublishers(publishers);
 
-    final pool = Pool(4);
-
-    await pool.forEach<String, void>(publishers, (publisher) async {
-      var log = logger.subLogger(publisher);
+    for (var publisher in publishers) {
+      logger
+        ..write(publisher)
+        ..indent();
 
       final packages =
           allPackages.where((p) => p.publisher == publisher).toList();
@@ -88,7 +85,7 @@ class PackageManager {
       // number of packages
       final unowned =
           packages.where((p) => p.maintainer?.isEmpty ?? true).length;
-      log.write('${packages.length} packages ($unowned unowned)');
+      logger.write('${packages.length} packages ($unowned unowned)');
       await firestore.logStat(
         category: 'package.count',
         stat: 'count',
@@ -109,7 +106,7 @@ class PackageManager {
           packages.map((p) => p.publishLatencyDays).whereType<int>().toList();
 
       int p50 = calulatePercentile(latencyDays, 0.5).round();
-      log.write('p50 publish latency: $p50 days');
+      logger.write('p50 publish latency: $p50 days');
       await firestore.logStat(
         category: 'package.latency',
         stat: 'p50',
@@ -119,7 +116,7 @@ class PackageManager {
       );
 
       int p90 = calulatePercentile(latencyDays, 0.9).round();
-      log.write('p90 publish latency: $p90 days');
+      logger.write('p90 publish latency: $p90 days');
       await firestore.logStat(
         category: 'package.latency',
         stat: 'p90',
@@ -128,8 +125,8 @@ class PackageManager {
         timestampUtc: timestampUtc,
       );
 
-      log.close();
-    }).toList();
+      logger.outdent();
+    }
 
     logger.write('');
     logger.close(printElapsedTime: true);
@@ -164,96 +161,15 @@ class PackageManager {
 
     final github = Github();
 
-    final pool = Pool(4);
+    for (var packageName in packages) {
+      logger
+        ..write('package:$packageName')
+        ..indent();
 
-    await pool.forEach<String, void>(packages, (packageName) async {
-      final log = logger.subLogger('package:$packageName');
+      await _updatePackage(packageName, logger, github, publisher);
 
-      var packageInfo = await pub.getPackageInfo(packageName);
-      var existingInfo = await firestore.getPackageInfo(packageName);
-
-      log.write(packageInfo.version);
-      if (packageInfo.repository != null) {
-        log.write(packageInfo.repository ?? '');
-      }
-
-      var repoInfo = packageInfo.repoInfo;
-      var url = repoInfo?.getDirectFileUrl('analysis_options.yaml');
-
-      // Probe for an analysisOptions.yaml file; this depends on the repository
-      // field being set correctly.
-      String? analysisOptions;
-      if (repoInfo != null && url != null) {
-        // todo: we should also probe up a directory or two if in a mono-repo
-        analysisOptions =
-            await _httpClient!.get(Uri.parse(url)).then((response) {
-          return response.statusCode == 404 ? null : response.body;
-        });
-      }
-
-      // These queries depend on the repository information being correct.
-      if (!packageInfo.isDiscontinued &&
-          packageInfo.repository != null &&
-          !packageInfo.repository!.endsWith('.git') &&
-          !packageInfo.repository!.endsWith('/')) {
-        var repoInfo = packageInfo.repoInfo!;
-
-        var commits = await github.queryCommitsAfter(
-          repo: RepositoryInfo(path: repoInfo.repoOrgAndName!),
-          afterTimestamp: packageInfo.published,
-          pathInRepo: repoInfo.monoRepoPath,
-        );
-
-        if (commits.isEmpty) {
-          packageInfo.unpublishedCommits = 0;
-          packageInfo.unpublishedCommitDate = null;
-        } else {
-          packageInfo.unpublishedCommits = commits.length;
-
-          // TODO: filter dependabot commits? commits into .github?
-          commits.sort();
-          var oldest = commits.last;
-          packageInfo.unpublishedCommitDate = oldest.committedDate;
-        }
-
-        log.write('unpublished commits: ${packageInfo.unpublishedCommits}');
-      }
-
-      var updatedInfo = await firestore.updatePackageInfo(
-        packageName,
-        publisher: publisher,
-        packageInfo: packageInfo,
-        analysisOptions: analysisOptions,
-      );
-
-      if (existingInfo == null) {
-        firestore.log(
-          entity: 'package:$packageName',
-          change: 'added (publisher $publisher)',
-        );
-      } else {
-        var updatedFields = updatedInfo.fields!;
-        for (var field in existingInfo.keys) {
-          // These fields are noisy.
-          if (field == 'analysisOptions' ||
-              field == 'publishedDate' ||
-              field == 'pubspec' ||
-              field == 'unpublishedCommitDate' ||
-              field == 'unpublishedCommits') {
-            continue;
-          }
-
-          if (updatedFields.keys.contains(field) &&
-              !compareValues(existingInfo[field]!, updatedFields[field]!)) {
-            final change = '$field => ${printValue(updatedFields[field]!)}';
-            log.write(change);
-            firestore.log(entity: 'package:$packageName', change: change);
-          }
-        }
-      }
-
-      log.close();
-    }).toList();
+      logger.outdent();
+    }
 
     await firestore.unsetPackagePublishers(
       publisher,
@@ -262,6 +178,95 @@ class PackageManager {
 
     github.close();
     logger.write('');
+  }
+
+  Future<void> _updatePackage(
+    String packageName,
+    Logger log,
+    Github github,
+    String publisher,
+  ) async {
+    var packageInfo = await pub.getPackageInfo(packageName);
+    var existingInfo = await firestore.getPackageInfo(packageName);
+
+    log.write(packageInfo.version);
+    if (packageInfo.repository != null) {
+      log.write(packageInfo.repository ?? '');
+    }
+
+    var repoInfo = packageInfo.repoInfo;
+    var url = repoInfo?.getDirectFileUrl('analysis_options.yaml');
+
+    // Probe for an analysisOptions.yaml file; this depends on the repository
+    // field being set correctly.
+    String? analysisOptions;
+    if (repoInfo != null && url != null) {
+      // todo: we should also probe up a directory or two if in a mono-repo
+      analysisOptions = await _httpClient!.get(Uri.parse(url)).then((response) {
+        return response.statusCode == 404 ? null : response.body;
+      });
+    }
+
+    // These queries depend on the repository information being correct.
+    if (!packageInfo.isDiscontinued &&
+        packageInfo.repository != null &&
+        !packageInfo.repository!.endsWith('.git') &&
+        !packageInfo.repository!.endsWith('/')) {
+      var repoInfo = packageInfo.repoInfo!;
+
+      var commits = await github.queryCommitsAfter(
+        repo: RepositoryInfo(path: repoInfo.repoOrgAndName!),
+        afterTimestamp: packageInfo.published,
+        pathInRepo: repoInfo.monoRepoPath,
+      );
+
+      if (commits.isEmpty) {
+        packageInfo.unpublishedCommits = 0;
+        packageInfo.unpublishedCommitDate = null;
+      } else {
+        packageInfo.unpublishedCommits = commits.length;
+
+        // TODO: filter dependabot commits? commits into .github?
+        commits.sort();
+        var oldest = commits.last;
+        packageInfo.unpublishedCommitDate = oldest.committedDate;
+      }
+
+      log.write('unpublished commits: ${packageInfo.unpublishedCommits}');
+    }
+
+    var updatedInfo = await firestore.updatePackageInfo(
+      packageName,
+      publisher: publisher,
+      packageInfo: packageInfo,
+      analysisOptions: analysisOptions,
+    );
+
+    if (existingInfo == null) {
+      firestore.log(
+        entity: 'package:$packageName',
+        change: 'added (publisher $publisher)',
+      );
+    } else {
+      var updatedFields = updatedInfo.fields!;
+      for (var field in existingInfo.keys) {
+        // These fields are noisy.
+        if (field == 'analysisOptions' ||
+            field == 'publishedDate' ||
+            field == 'pubspec' ||
+            field == 'unpublishedCommitDate' ||
+            field == 'unpublishedCommits') {
+          continue;
+        }
+
+        if (updatedFields.keys.contains(field) &&
+            !compareValues(existingInfo[field]!, updatedFields[field]!)) {
+          final change = '$field => ${printValue(updatedFields[field]!)}';
+          log.write(change);
+          firestore.log(entity: 'package:$packageName', change: change);
+        }
+      }
+    }
   }
 
   Future updateFromSdk() async {
@@ -275,28 +280,28 @@ class PackageManager {
     logger.write('');
 
     final Github github = Github();
-    final pool = Pool(4);
 
-    await pool.forEach<SdkDependency, void>(sdkDependencies,
-        (SdkDependency dep) async {
-      final repoLogger = logger.subLogger(dep.repository);
+    for (var dep in sdkDependencies) {
+      logger
+        ..write(dep.repository)
+        ..indent();
 
       // Get the info about the given sha.
       RepositoryInfo repo = RepositoryInfo(
           path: dep.repository.substring('https://github.com/'.length));
       dep.commitInfo =
           await github.getCommitInfoForSha(repo: repo, sha: dep.commit!);
-      repoLogger.write('${dep.commitInfo}');
+      logger.write('${dep.commitInfo}');
 
       // Find how many newer, unsynced commits there are.
       dep.unsyncedCommits = await github.queryCommitsAfter(
           repo: repo,
           afterTimestamp: dep.commitInfo!.committedDate.toIso8601String())
         ..sort();
-      repoLogger.write('unsynced commits: ${dep.unsyncedCommits.length}');
+      logger.write('unsynced commits: ${dep.unsyncedCommits.length}');
 
-      repoLogger.close();
-    }).toList();
+      logger.outdent();
+    }
 
     await firestore.updateSdkDependencies(sdkDependencies, logger: logger);
 
@@ -315,62 +320,49 @@ class PackageManager {
     final publishers = await firestore.queryPublishers();
 
     final allPackages = await firestore.queryPackagesForPublishers(publishers);
-    // Convert the list of packages to a list of repos.
-    final repositories = allPackages
-        .map((p) {
-          final repository = p.repository;
-          if (repository == null) {
-            return null;
-          }
-          final repo = RepoInfo(repository);
-          return repo.repoOrgAndName == null
-              ? null
-              : 'https://github.com/${repo.repoOrgAndName}';
-        })
-        .whereType<String>()
-        .toSet();
+    final packages = allPackages.map((p) => p.name);
 
     var google3Dependencies =
-        await google3.getSyncedPackageRepos(repositories: repositories);
+        await google3.getPackageSyncInfo(packages: packages.toSet());
 
     logger.write('${google3Dependencies.length} deps found.');
     logger.write('');
 
-    // TODO: for google3, this does not need to use the github API; it can
-    // instead use googlesource.
-    final Github github = Github();
-    final pool = Pool(4);
+    // // TODO: for google3, this does not need to use the github API; it can
+    // // instead use googlesource.
+    // final Github github = Github();
 
-    await pool.forEach<Google3Dependency, void>(
+    // for (var dep in google3Dependencies) {
+    //   logger
+    //     ..write(dep.repository)
+    //     ..indent();
+
+    //   // Get the info about the given sha.
+    //   RepositoryInfo repo = RepositoryInfo(
+    //       path: dep.repository.substring('https://github.com/'.length));
+    //   dep.commitInfo =
+    //       await github.getCommitInfoForSha(repo: repo, sha: dep.commit);
+    //   logger.write('${dep.commitInfo}');
+
+    //   // Find how many newer, unsynced commits there are.
+    //   dep.unsyncedCommits = await github.queryCommitsAfter(
+    //       repo: repo,
+    //       afterTimestamp: dep.commitInfo!.committedDate.toIso8601String())
+    //     ..sort();
+    //   logger.write('unsynced commits: ${dep.unsyncedCommits.length}');
+
+    //   logger.outdent();
+    // }
+
+    await firestore.updateGoogle3Dependencies(
       google3Dependencies,
-      (Google3Dependency dep) async {
-        final repoLogger = logger.subLogger(dep.repository);
-
-        // Get the info about the given sha.
-        RepositoryInfo repo = RepositoryInfo(
-            path: dep.repository.substring('https://github.com/'.length));
-        dep.commitInfo =
-            await github.getCommitInfoForSha(repo: repo, sha: dep.commit);
-        repoLogger.write('${dep.commitInfo}');
-
-        // Find how many newer, unsynced commits there are.
-        dep.unsyncedCommits = await github.queryCommitsAfter(
-            repo: repo,
-            afterTimestamp: dep.commitInfo!.committedDate.toIso8601String())
-          ..sort();
-        repoLogger.write('unsynced commits: ${dep.unsyncedCommits.length}');
-
-        repoLogger.close();
-      },
-    ).toList();
-
-    await firestore.updateGoogle3Dependencies(google3Dependencies,
-        logger: logger);
+      logger: logger,
+    );
 
     logger.write('');
     logger.close(printElapsedTime: true);
 
-    github.close();
+    // github.close();
   }
 
   Future updateMaintainersFromSheets() async {
@@ -382,10 +374,12 @@ class PackageManager {
     await sheets.connect();
 
     logger.write('');
-    final log = logger.subLogger('Getting maintainers data...');
+    logger
+      ..write('Getting maintainers data...')
+      ..indent();
     final List<PackageMaintainer> maintainers =
-        await sheets.getMaintainersData(log);
-    log.close();
+        await sheets.getMaintainersData(logger);
+    logger.outdent();
     logger.write('Read data about ${maintainers.length} packages.');
     logger.write('');
 
@@ -452,10 +446,10 @@ class PackageManager {
     logger.write('');
     logger.write('Updating repositories...');
 
-    final pool = Pool(4);
-
-    await pool.forEach<RepositoryInfo, void>(repositories, (repo) async {
-      final log = logger.subLogger(repo.path);
+    for (var repo in repositories) {
+      logger
+        ..write(repo.path)
+        ..indent();
 
       // Look for CI configuration.
       // TODO: look to reduce the number of places to look.
@@ -479,7 +473,7 @@ class PackageManager {
 
           repo.actionsConfig = lines.join('\n');
           repo.actionsFile = filePath;
-          log.write('found ${repo.actionsFile}');
+          logger.write('found ${repo.actionsFile}');
 
           break;
         }
@@ -492,13 +486,13 @@ class PackageManager {
         filePath: '.github/dependabot.yaml',
       );
       if (repo.dependabotConfig != null) {
-        log.write('found .github/dependabot.yaml');
+        logger.write('found .github/dependabot.yaml');
       }
 
       await firestore.updateRepositoryInfo(repo);
 
-      log.close();
-    }).toList();
+      logger.outdent();
+    }
 
     github.close();
 

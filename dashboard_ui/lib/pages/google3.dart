@@ -4,7 +4,6 @@ import '../model/data_model.dart';
 import '../ui/table.dart';
 import '../ui/widgets.dart';
 import '../utils/constants.dart';
-import '../utils/utils.dart';
 
 class Google3Sheet extends StatefulWidget {
   final DataModel dataModel;
@@ -29,37 +28,29 @@ class _Google3SheetState extends State<Google3Sheet>
       builder: (context, packages, _) {
         return ValueListenableBuilder<List<Google3Dep>>(
           valueListenable: widget.dataModel.googleDependencies,
-          builder: (context, google3Deps, _) {
-            final deps = _calculateDeps(google3Deps, packages);
+          builder: (context, deps, _) {
+            Map<String, PackageInfo?> packageNameMap = {};
+            for (var package in widget.dataModel.packages.value) {
+              packageNameMap[package.name] = package;
+            }
 
-            return VTable<Google3PackagesDep>(
+            return VTable<Google3Dep>(
               items: deps,
-              tableDescription: '${google3Deps.length} repos',
+              tableDescription: '${deps.length} packages',
               columns: [
                 VTableColumn(
-                  label: 'Repository',
+                  label: 'Package',
                   width: 175,
                   grow: 0.2,
-                  transformFunction: (dep) => dep.dep.repository,
-                  renderFunction: (BuildContext context, dep) {
-                    return Hyperlink(
-                      url: dep.dep.repository,
-                      displayText: trimPrefix(dep.dep.repository, 'https://'),
-                    );
-                  },
+                  transformFunction: (dep) => dep.name,
                 ),
                 VTableColumn(
-                  label: 'Packages',
-                  width: 175,
-                  grow: 0.2,
-                  transformFunction: (dep) =>
-                      dep.packages.map((p) => p.name).join(', '),
-                ),
-                VTableColumn(
-                  label: 'Publishers',
+                  label: 'Publisher',
                   width: 100,
                   grow: 0.2,
-                  transformFunction: (dep) => dep.publishers.join(', '),
+                  transformFunction: (dep) {
+                    return packageNameMap[dep.name]?.publisher ?? '';
+                  },
                 ),
                 VTableColumn(
                   label: 'Copybara',
@@ -74,16 +65,33 @@ class _Google3SheetState extends State<Google3Sheet>
                   // ],
                 ),
                 VTableColumn(
+                  label: 'SOR',
+                  width: 60,
+                  grow: 0.1,
+                  transformFunction: (dep) => dep.firstParty ? '1P' : '3P',
+                ),
+                VTableColumn(
                   label: 'Synced to Commit',
                   width: 75,
                   grow: 0.1,
                   alignment: Alignment.centerRight,
-                  transformFunction: (dep) =>
-                      dep.dep.commit.substring(0, commitLength),
+                  transformFunction: (dep) {
+                    if (dep.commit == null || dep.commit!.isEmpty) {
+                      return '';
+                    }
+                    return dep.commit!.substring(0, commitLength);
+                  },
                   renderFunction: (BuildContext context, dep) {
+                    var packageInfo = packageNameMap[dep.name];
+                    if (packageInfo == null) return null;
+
+                    if (dep.commit == null || dep.commit!.isEmpty) {
+                      return null;
+                    }
+
                     return Hyperlink(
-                      url: '${dep.dep.repository}/commit/${dep.dep.commit}',
-                      displayText: dep.dep.commit.substring(0, commitLength),
+                      url: '${packageInfo.repoUrl}/commit/${dep.commit}',
+                      displayText: dep.commit!.substring(0, commitLength),
                     );
                   },
                 ),
@@ -92,11 +100,11 @@ class _Google3SheetState extends State<Google3Sheet>
                   width: 100,
                   grow: 0.2,
                   alignment: Alignment.centerRight,
-                  transformFunction: (dep) => dep.dep.syncLatencyDescription,
+                  transformFunction: (dep) => dep.syncLatencyDescription,
                   compareFunction: (a, b) =>
-                      Google3Dep.compareUnsyncedDays(a.dep, b.dep),
+                      Google3Dep.compareUnsyncedDays(a, b),
                   validators: [
-                    (dep) => Google3Dep.validateSyncLatency(dep.dep),
+                    (dep) => Google3Dep.validateSyncLatency(dep),
                   ],
                 ),
               ],
@@ -121,29 +129,6 @@ class _Google3SheetState extends State<Google3Sheet>
     return packages;
   }
 
-  static List<Google3PackagesDep> _calculateDeps(
-    List<Google3Dep> deps,
-    List<PackageInfo> packages,
-  ) {
-    return deps.map((dep) {
-      return Google3PackagesDep(
-        dep: dep,
-        packages: _filterPackages(packages, dep.repository),
-      );
-    }).toList();
-  }
-
   @override
   bool get wantKeepAlive => true;
-}
-
-class Google3PackagesDep {
-  final Google3Dep dep;
-  final List<PackageInfo> packages;
-
-  Google3PackagesDep({required this.dep, required this.packages});
-
-  List<String> get publishers {
-    return packages.map((p) => p.publisher).toSet().toList();
-  }
 }

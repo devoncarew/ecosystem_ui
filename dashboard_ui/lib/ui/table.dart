@@ -389,7 +389,7 @@ class _ColumnHeader extends StatelessWidget {
   }
 }
 
-typedef RenderFunction<T> = Widget Function(BuildContext context, T object);
+typedef RenderFunction<T> = Widget? Function(BuildContext context, T object);
 typedef TransformFunction<T> = String Function(T object);
 typedef StyleFunction<T> = TextStyle? Function(T object);
 typedef CompareFunction<T> = int Function(T a, T b);
@@ -421,7 +421,8 @@ class VTableColumn<T> {
 
   Widget widgetFor(BuildContext context, T item) {
     if (renderFunction != null) {
-      return renderFunction!(context, item);
+      Widget? widget = renderFunction!(context, item);
+      if (widget != null) return widget;
     }
 
     final str = transformFunction != null ? transformFunction!(item) : '$item';
