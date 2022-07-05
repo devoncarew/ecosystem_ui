@@ -3,11 +3,6 @@ import 'dart:io';
 import 'package:dashboard_cli/package_manager.dart';
 import 'package:args/command_runner.dart';
 
-// todo: support sdk
-// todo: support google3
-// todo: support scanning repos
-// todo: support logging for changes
-
 void main(List<String> arguments) async {
   final runner = UpdateRunner();
 
@@ -29,7 +24,7 @@ class UpdateRunner extends CommandRunner<int> {
     addCommand(PackagesCommand());
     addCommand(SdkCommand());
     addCommand(Google3Command());
-    addCommand(RepositoriesCommand());
+    // addCommand(RepositoriesCommand());
     addCommand(SheetsCommand());
     addCommand(StatsCommand());
   }
@@ -92,29 +87,28 @@ class StatsCommand extends Command<int> {
   }
 }
 
-// todo: support updating a specific repo
-class RepositoriesCommand extends Command<int> {
-  @override
-  final String name = 'repositories';
+// class RepositoriesCommand extends Command<int> {
+//   @override
+//   final String name = 'repositories';
 
-  @override
-  List<String> get aliases => const ['repo', 'repos'];
+//   @override
+//   List<String> get aliases => const ['repo', 'repos'];
 
-  @override
-  final String description =
-      'Update repository information sourced from github.';
+//   @override
+//   final String description =
+//       'Update repository information sourced from github.';
 
-  RepositoriesCommand();
+//   RepositoriesCommand();
 
-  @override
-  Future<int> run() async {
-    PackageManager packageManager = PackageManager();
-    await packageManager.setup();
-    await packageManager.updateRepositories();
-    await packageManager.close();
-    return 0;
-  }
-}
+//   @override
+//   Future<int> run() async {
+//     PackageManager packageManager = PackageManager();
+//     await packageManager.setup();
+//     await packageManager.updateRepositories();
+//     await packageManager.close();
+//     return 0;
+//   }
+// }
 
 class SdkCommand extends Command<int> {
   @override

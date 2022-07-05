@@ -191,7 +191,7 @@ class PackageManager {
 
     log.write(packageInfo.version);
     if (packageInfo.repository != null) {
-      log.write(packageInfo.repository ?? '');
+      log.write(packageInfo.repository!);
     }
 
     var repoInfo = packageInfo.repoInfo;
@@ -201,7 +201,7 @@ class PackageManager {
     // field being set correctly.
     String? analysisOptions;
     if (repoInfo != null && url != null) {
-      // todo: we should also probe up a directory or two if in a mono-repo
+      // TODO: we should also probe up a directory or two if in a mono-repo
       analysisOptions = await _httpClient!.get(Uri.parse(url)).then((response) {
         return response.statusCode == 404 ? null : response.body;
       });
@@ -396,114 +396,114 @@ class PackageManager {
     logger.close(printElapsedTime: true);
   }
 
-  final RegExp repoRegex =
-      RegExp(r'https:\/\/github\.com\/([\w\d\-_]+)\/([\w\d\-_\.]+)([\/\S]*)');
+  // final RegExp repoRegex =
+  //     RegExp(r'https:\/\/github\.com\/([\w\d\-_]+)\/([\w\d\-_\.]+)([\/\S]*)');
 
-  Future updateRepositories() async {
-    final logger = Logger();
-    final publishers = await firestore.queryPublishers();
+  // Future updateRepositories() async {
+  //   final logger = Logger();
+  //   final publishers = await firestore.queryPublishers();
 
-    logger.write('Getting repos for ${publishers.join(', ')}.');
-    var repos =
-        await firestore.queryRepositoriesForPublishers(publishers.toSet());
-    logger.write('retrieved ${repos.length} repos');
+  //   logger.write('Getting repos for ${publishers.join(', ')}.');
+  //   var repos =
+  //       await firestore.queryRepositoriesForPublishers(publishers.toSet());
+  //   logger.write('retrieved ${repos.length} repos');
 
-    // ignore anything ending in '.git'
-    repos = repos.where((repo) {
-      if (repo.endsWith('.git')) {
-        logger.write('* ignoring $repo');
-      }
-      return !repo.endsWith('.git');
-    }).toList();
+  //   // ignore anything ending in '.git'
+  //   repos = repos.where((repo) {
+  //     if (repo.endsWith('.git')) {
+  //       logger.write('* ignoring $repo');
+  //     }
+  //     return !repo.endsWith('.git');
+  //   }).toList();
 
-    // Collapse sub-dir references (handle mono-repos).
-    repos = repos
-        .map((repo) {
-          var match = repoRegex.firstMatch(repo);
-          if (match == null) {
-            print('Error parsing $repo');
-            return null;
-          } else {
-            return '${match.group(1)}/${match.group(2)}';
-          }
-        })
-        .whereType<String>()
-        .toSet()
-        .toList()
-      ..sort();
+  //   // Collapse sub-dir references (handle mono-repos).
+  //   repos = repos
+  //       .map((repo) {
+  //         var match = repoRegex.firstMatch(repo);
+  //         if (match == null) {
+  //           print('Error parsing $repo');
+  //           return null;
+  //         } else {
+  //           return '${match.group(1)}/${match.group(2)}';
+  //         }
+  //       })
+  //       .whereType<String>()
+  //       .toSet()
+  //       .toList()
+  //     ..sort();
 
-    logger.write('');
-    logger.write('${repos.length} sanitized repos');
-    Map<String, int> counts = {};
-    for (var repo in repos) {
-      final key = repo.split('/').first;
-      counts[key] = counts.putIfAbsent(key, () => 0) + 1;
-    }
-    logger.write(counts.keys.map((key) => '  $key: ${counts[key]}').join('\n'));
+  //   logger.write('');
+  //   logger.write('${repos.length} sanitized repos');
+  //   Map<String, int> counts = {};
+  //   for (var repo in repos) {
+  //     final key = repo.split('/').first;
+  //     counts[key] = counts.putIfAbsent(key, () => 0) + 1;
+  //   }
+  //   logger.write(counts.keys.map((key) => '  $key: ${counts[key]}').join('\n'));
 
-    // Get commit information from github.
-    List<RepositoryInfo> repositories = repos.map((name) {
-      return RepositoryInfo(path: name);
-    }).toList();
+  //   // Get commit information from github.
+  //   List<RepositoryInfo> repositories = repos.map((name) {
+  //     return RepositoryInfo(path: name);
+  //   }).toList();
 
-    final Github github = Github();
+  //   final Github github = Github();
 
-    logger.write('');
-    logger.write('Updating repositories...');
+  //   logger.write('');
+  //   logger.write('Updating repositories...');
 
-    for (var repo in repositories) {
-      logger
-        ..write(repo.path)
-        ..indent();
+  //   for (var repo in repositories) {
+  //     logger
+  //       ..write(repo.path)
+  //       ..indent();
 
-      // Look for CI configuration.
-      // TODO: look to reduce the number of places to look.
-      for (var filePath in [
-        '.github/workflows/test-package.yml', // 61
-        '.github/workflows/dart.yml', // 15
-        '.github/workflows/ci.yml', // 9
-        '.github/workflows/build.yaml', // 8
-        // '.github/workflows/test.yaml', // 1
-      ]) {
-        var contents = await github.retrieveFile(
-          orgAndRepo: repo.path,
-          filePath: filePath,
-        );
+  //     // Look for CI configuration.
+  //     // TODO: look to reduce the number of places to look.
+  //     for (var filePath in [
+  //       '.github/workflows/test-package.yml', // 61
+  //       '.github/workflows/dart.yml', // 15
+  //       '.github/workflows/ci.yml', // 9
+  //       '.github/workflows/build.yaml', // 8
+  //       // '.github/workflows/test.yaml', // 1
+  //     ]) {
+  //       var contents = await github.retrieveFile(
+  //         orgAndRepo: repo.path,
+  //         filePath: filePath,
+  //       );
 
-        if (contents != null) {
-          var lines = contents.split('\n');
-          if (lines.length >= 100) {
-            lines = lines.take(99).toList()..add('...');
-          }
+  //       if (contents != null) {
+  //         var lines = contents.split('\n');
+  //         if (lines.length >= 100) {
+  //           lines = lines.take(99).toList()..add('...');
+  //         }
 
-          repo.actionsConfig = lines.join('\n');
-          repo.actionsFile = filePath;
-          logger.write('found ${repo.actionsFile}');
+  //         repo.actionsConfig = lines.join('\n');
+  //         repo.actionsFile = filePath;
+  //         logger.write('found ${repo.actionsFile}');
 
-          break;
-        }
-      }
+  //         break;
+  //       }
+  //     }
 
-      // todo: we should remove this filtering
-      // Look for dependabot configuration.
-      repo.dependabotConfig = await github.retrieveFile(
-        orgAndRepo: repo.path,
-        filePath: '.github/dependabot.yaml',
-      );
-      if (repo.dependabotConfig != null) {
-        logger.write('found .github/dependabot.yaml');
-      }
+  //     // todo: we should remove this filtering
+  //     // Look for dependabot configuration.
+  //     repo.dependabotConfig = await github.retrieveFile(
+  //       orgAndRepo: repo.path,
+  //       filePath: '.github/dependabot.yaml',
+  //     );
+  //     if (repo.dependabotConfig != null) {
+  //       logger.write('found .github/dependabot.yaml');
+  //     }
 
-      await firestore.updateRepositoryInfo(repo);
+  //     await firestore.updateRepositoryInfo(repo);
 
-      logger.outdent();
-    }
+  //     logger.outdent();
+  //   }
 
-    github.close();
+  //   github.close();
 
-    logger.write('');
-    logger.close(printElapsedTime: true);
-  }
+  //   logger.write('');
+  //   logger.close(printElapsedTime: true);
+  // }
 
   Future close() async {
     firestore.close();

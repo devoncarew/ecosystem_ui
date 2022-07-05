@@ -16,7 +16,7 @@ class VTable<T> extends StatefulWidget {
   final List<VTableColumn<T>> columns;
   final bool startsSorted;
   final bool supportsSelection;
-  final ItemTapHandler<T>? onItemTap;
+  final ItemTapHandler<T>? onDoubleTap;
   final OnSelectionChanged<T>? onSelectionChanged;
   final DetailProvider<T>? itemDetailProvider;
   final String? tableDescription;
@@ -28,7 +28,7 @@ class VTable<T> extends StatefulWidget {
     required this.columns,
     this.startsSorted = false,
     this.supportsSelection = false,
-    this.onItemTap,
+    this.onDoubleTap,
     this.onSelectionChanged,
     this.itemDetailProvider,
     this.tableDescription,
@@ -192,6 +192,7 @@ class _VTableState<T> extends State<VTable<T>> {
           color: selected ? Theme.of(context).hoverColor : null,
           child: InkWell(
             onTap: () => _select(item),
+            onDoubleTap: () => _doubleTap(item),
             child: DecoratedBox(
               decoration: rowSeparator,
               child: Row(
@@ -306,9 +307,11 @@ class _VTableState<T> extends State<VTable<T>> {
         }
       });
     }
+  }
 
-    if (widget.onItemTap != null) {
-      widget.onItemTap!(item);
+  void _doubleTap(T item) {
+    if (widget.onDoubleTap != null) {
+      widget.onDoubleTap!(item);
     }
   }
 }

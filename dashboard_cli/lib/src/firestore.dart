@@ -1,7 +1,6 @@
 import 'package:googleapis/firestore/v1.dart';
 import 'package:googleapis_auth/auth_io.dart';
 
-import 'github.dart';
 import 'google3.dart';
 import 'pub.dart';
 import 'sdk.dart';
@@ -377,18 +376,18 @@ class Firestore {
     await documents.createDocument(doc, documentsPath, 'stats');
   }
 
-  Future<Map<String, Value>?> getRepoInfo(String repoPath) async {
-    try {
-      var repo = RepositoryInfo(path: repoPath);
-      final repositoryPath =
-          getDocumentName('repositories', repo.firestoreEntityId);
-      var result = await documents.get(repositoryPath);
-      return result.fields;
-    } catch (e) {
-      print(e);
-      return null;
-    }
-  }
+  // Future<Map<String, Value>?> getRepoInfo(String repoPath) async {
+  //   try {
+  //     var repo = RepositoryInfo(path: repoPath);
+  //     final repositoryPath =
+  //         getDocumentName('repositories', repo.firestoreEntityId);
+  //     var result = await documents.get(repositoryPath);
+  //     return result.fields;
+  //   } catch (e) {
+  //     print(e);
+  //     return null;
+  //   }
+  // }
 
   void close() {
     _client.close();
@@ -544,23 +543,23 @@ class Firestore {
     }
   }
 
-  Future updateRepositoryInfo(RepositoryInfo repo) async {
-    final Document doc = Document(
-      fields: {
-        'org': valueStr(repo.org),
-        'name': valueStr(repo.name),
-        'actionsConfig': valueStrNullable(repo.actionsConfig),
-        'actionsFile': valueStrNullable(repo.actionsFile),
-        'dependabotConfig': valueStrNullable(repo.dependabotConfig),
-      },
-    );
+  // Future updateRepositoryInfo(RepositoryInfo repo) async {
+  //   final Document doc = Document(
+  //     fields: {
+  //       'org': valueStr(repo.org),
+  //       'name': valueStr(repo.name),
+  //       'actionsConfig': valueStrNullable(repo.actionsConfig),
+  //       'actionsFile': valueStrNullable(repo.actionsFile),
+  //       'dependabotConfig': valueStrNullable(repo.dependabotConfig),
+  //     },
+  //   );
 
-    final repositoryPath =
-        getDocumentName('repositories', repo.firestoreEntityId);
+  //   final repositoryPath =
+  //       getDocumentName('repositories', repo.firestoreEntityId);
 
-    // todo: handle error conditions
-    await documents.patch(doc, repositoryPath);
-  }
+  //   // todo: handle error conditions
+  //   await documents.patch(doc, repositoryPath);
+  // }
 
   Future updateSdkDependency(SdkDependency dependency) async {
     var existingInfo = await getSdkRepositoryInfo(dependency.name);

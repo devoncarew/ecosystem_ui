@@ -5,8 +5,6 @@ import 'dart:io';
 import 'package:graphql/client.dart';
 import 'package:http/http.dart' as http;
 
-import 'utils.dart';
-
 const String userLoginDependabot = 'dependabot[bot]';
 
 class Github {
@@ -284,9 +282,9 @@ class RepositoryInfo {
   /// This is a combined github org and repo name - i.e., `dart-lang/sdk`.
   final String path;
 
-  String? dependabotConfig;
-  String? actionsConfig;
-  String? actionsFile;
+  // String? dependabotConfig;
+  // String? actionsConfig;
+  // String? actionsFile;
 
   RepositoryInfo({required this.path});
 
@@ -294,7 +292,7 @@ class RepositoryInfo {
 
   String get name => path.substring(path.indexOf('/') + 1);
 
-  String get firestoreEntityId => firestoreEntityEncode(path);
+  // String get firestoreEntityId => firestoreEntityEncode(path);
 
   @override
   String toString() => path;

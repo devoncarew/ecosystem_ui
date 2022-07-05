@@ -21,7 +21,6 @@ class PackagesSheet extends StatefulWidget {
 
 class _PackagesSheetState extends State<PackagesSheet>
     with AutomaticKeepAliveClientMixin {
-  PackageInfo? selectedPackage;
   final Set<String> visiblePublishers = {};
   bool showUnlisted = false;
   bool showDiscontinued = false;
@@ -45,36 +44,32 @@ class _PackagesSheetState extends State<PackagesSheet>
       builder: (context, packages, _) {
         final filteredPackages = _filterPackages(packages);
 
-        return Column(
-          children: [
-            Expanded(
-              flex: 5,
-              child: createTable(
-                filteredPackages,
-                dataModel: dataModel,
-                allPackages: packages,
-              ),
-            ),
-            if (selectedPackage != null) const Divider(),
-            if (selectedPackage != null)
-              Expanded(
-                flex: 2,
-                child: PackageDetailsWidget(
-                  package: selectedPackage!,
-                ),
-              ),
-          ],
+        return createTable(
+          filteredPackages,
+          dataModel: dataModel,
+          allPackages: packages,
         );
       },
     );
   }
 
-  void _onSelectionChanged(PackageInfo? package) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      setState(() {
-        selectedPackage = package;
-      });
-    });
+  void _onDoubleClick(DataModel dataModel, PackageInfo package) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        // TODO: also show analysis options (AnalysisOptionsInfo)
+        // TODO: also show github actions (GitHubActionsInfo)
+        // TODO: also show dependabot (DependabotConfigInfo)
+        return LargeDialog(
+          title: 'package:${package.name}',
+          medium: true,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: PubspecInfoWidget(package: package),
+          ),
+        );
+      },
+    );
   }
 
   VTable createTable(
@@ -97,8 +92,8 @@ class _PackagesSheetState extends State<PackagesSheet>
       items: packages,
       startsSorted: true,
       supportsSelection: true,
-      onSelectionChanged: _onSelectionChanged,
-      // onItemTap: (item) => _handleItemTap(dataModel, item),
+      // onSelectionChanged: _onSelectionChanged,
+      onDoubleTap: (item) => _onDoubleClick(dataModel, item),
       tableDescription: description,
       actions: [
         SearchField(
@@ -351,87 +346,87 @@ class _PackagesSheetState extends State<PackagesSheet>
   bool get wantKeepAlive => true;
 }
 
-class PackageDetailsWidget extends StatefulWidget {
-  final PackageInfo package;
+// class PackageDetailsWidget extends StatefulWidget {
+//   final PackageInfo package;
 
-  const PackageDetailsWidget({
-    required this.package,
-    Key? key,
-  }) : super(key: key);
+//   const PackageDetailsWidget({
+//     required this.package,
+//     Key? key,
+//   }) : super(key: key);
 
-  @override
-  State<PackageDetailsWidget> createState() => _PackageDetailsWidgetState();
-}
+//   @override
+//   State<PackageDetailsWidget> createState() => _PackageDetailsWidgetState();
+// }
 
-class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
-    with SingleTickerProviderStateMixin {
-  late TabController tabController;
+// class _PackageDetailsWidgetState extends State<PackageDetailsWidget>
+//     with SingleTickerProviderStateMixin {
+//   late TabController tabController;
 
-  @override
-  void initState() {
-    super.initState();
+//   @override
+//   void initState() {
+//     super.initState();
 
-    tabController = TabController(length: 4, vsync: this);
-  }
+//     tabController = TabController(length: 4, vsync: this);
+//   }
 
-  @override
-  Widget build(BuildContext context) {
-    final dataModel = DataModel.of(context);
-    final RepositoryInfo? repo =
-        dataModel.getRepositoryForPackage(widget.package);
+//   @override
+//   Widget build(BuildContext context) {
+//     final dataModel = DataModel.of(context);
+//     final RepositoryInfo? repo =
+//         dataModel.getRepositoryForPackage(widget.package);
 
-    return Padding(
-      padding: const EdgeInsets.only(left: 8, bottom: 6, right: 8),
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: Column(
-          children: [
-            Container(
-              color: Theme.of(context).colorScheme.secondary,
-              child: TabBar(
-                indicatorColor: Theme.of(context).colorScheme.onSecondary,
-                controller: tabController,
-                tabs: const [
-                  Tab(text: 'Pubspec'),
-                  Tab(text: 'Analysis options'),
-                  Tab(text: 'GitHub Actions'),
-                  Tab(text: 'Dependabot'),
-                ],
-              ),
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: tabController,
-                children: [
-                  // Pubspec
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: PubspecInfoWidget(package: widget.package),
-                  ),
-                  // Analysis options
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: AnalysisOptionsInfo(package: widget.package),
-                  ),
-                  // GitHub Actions
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: GitHubActionsInfo(repo: repo),
-                  ),
-                  // Dependabot
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: DependabotConfigInfo(repo: repo),
-                  ),
-                ],
-              ),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-}
+//     return Padding(
+//       padding: const EdgeInsets.only(left: 8, bottom: 6, right: 8),
+//       child: Card(
+//         margin: EdgeInsets.zero,
+//         child: Column(
+//           children: [
+//             Container(
+//               color: Theme.of(context).colorScheme.secondary,
+//               child: TabBar(
+//                 indicatorColor: Theme.of(context).colorScheme.onSecondary,
+//                 controller: tabController,
+//                 tabs: const [
+//                   Tab(text: 'Pubspec'),
+//                   Tab(text: 'Analysis options'),
+//                   Tab(text: 'GitHub Actions'),
+//                   Tab(text: 'Dependabot'),
+//                 ],
+//               ),
+//             ),
+//             Expanded(
+//               child: TabBarView(
+//                 controller: tabController,
+//                 children: [
+//                   // Pubspec
+//                   Padding(
+//                     padding: const EdgeInsets.all(8.0),
+//                     child: PubspecInfoWidget(package: widget.package),
+//                   ),
+//                   // Analysis options
+//                   Padding(
+//                     padding: const EdgeInsets.all(8.0),
+//                     child: AnalysisOptionsInfo(package: widget.package),
+//                   ),
+//                   // GitHub Actions
+//                   Padding(
+//                     padding: const EdgeInsets.all(8.0),
+//                     child: GitHubActionsInfo(repo: repo),
+//                   ),
+//                   // Dependabot
+//                   Padding(
+//                     padding: const EdgeInsets.all(8.0),
+//                     child: DependabotConfigInfo(repo: repo),
+//                   ),
+//                 ],
+//               ),
+//             )
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }
 
 class PubspecInfoWidget extends StatelessWidget {
   final PackageInfo package;
@@ -526,137 +521,137 @@ class AnalysisOptionsInfo extends StatelessWidget {
   }
 }
 
-class GitHubActionsInfo extends StatelessWidget {
-  final RepositoryInfo? repo;
+// class GitHubActionsInfo extends StatelessWidget {
+//   final RepositoryInfo? repo;
 
-  const GitHubActionsInfo({
-    required this.repo,
-    Key? key,
-  }) : super(key: key);
+//   const GitHubActionsInfo({
+//     required this.repo,
+//     Key? key,
+//   }) : super(key: key);
 
-  @override
-  Widget build(BuildContext context) {
-    if (repo == null) {
-      return const Center(child: Text('No associated repository.'));
-    } else if (repo!.actionsConfig == null) {
-      return const Center(
-        child: Text('GitHub Actions configuration not found.'),
-      );
-    } else {
-      final r = repo!;
+//   @override
+//   Widget build(BuildContext context) {
+//     if (repo == null) {
+//       return const Center(child: Text('No associated repository.'));
+//     } else if (repo!.actionsConfig == null) {
+//       return const Center(
+//         child: Text('GitHub Actions configuration not found.'),
+//       );
+//     } else {
+//       final r = repo!;
 
-      return Stack(
-        fit: StackFit.passthrough,
-        children: [
-          SingleChildScrollView(
-            child: SelectableText(
-              r.actionsConfig!,
-              style: const TextStyle(fontFamily: 'RobotoMono'),
-            ),
-          ),
-          OverlayButtons(
-            infoText: r.actionsFile,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.launch),
-                iconSize: defaultIconSize,
-                splashRadius: defaultSplashRadius,
-                onPressed: () {
-                  url.launchUrl(
-                    Uri.parse(
-                      'https://github.com/${r.repoName}/blob/master/${r.actionsFile}',
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
-      );
-    }
-  }
-}
+//       return Stack(
+//         fit: StackFit.passthrough,
+//         children: [
+//           SingleChildScrollView(
+//             child: SelectableText(
+//               r.actionsConfig!,
+//               style: const TextStyle(fontFamily: 'RobotoMono'),
+//             ),
+//           ),
+//           OverlayButtons(
+//             infoText: r.actionsFile,
+//             children: [
+//               IconButton(
+//                 icon: const Icon(Icons.launch),
+//                 iconSize: defaultIconSize,
+//                 splashRadius: defaultSplashRadius,
+//                 onPressed: () {
+//                   url.launchUrl(
+//                     Uri.parse(
+//                       'https://github.com/${r.repoName}/blob/master/${r.actionsFile}',
+//                     ),
+//                   );
+//                 },
+//               ),
+//             ],
+//           ),
+//         ],
+//       );
+//     }
+//   }
+// }
 
-class DependabotConfigInfo extends StatelessWidget {
-  final RepositoryInfo? repo;
+// class DependabotConfigInfo extends StatelessWidget {
+//   final RepositoryInfo? repo;
 
-  const DependabotConfigInfo({
-    required this.repo,
-    Key? key,
-  }) : super(key: key);
+//   const DependabotConfigInfo({
+//     required this.repo,
+//     Key? key,
+//   }) : super(key: key);
 
-  @override
-  Widget build(BuildContext context) {
-    if (repo == null) {
-      return const Center(child: Text('No associated repository.'));
-    } else if (repo!.dependabotConfig == null) {
-      return Stack(
-        fit: StackFit.passthrough,
-        children: [
-          const Center(
-            child: Text('Dependabot configuration not found.'),
-          ),
-          OverlayButtons(
-            infoText: '.github/dependabot.yaml',
-            children: [
-              IconButton(
-                icon: const Icon(Icons.add_circle_rounded),
-                iconSize: defaultIconSize,
-                splashRadius: defaultSplashRadius,
-                onPressed: _createDependabotIssue,
-              ),
-            ],
-          ),
-        ],
-      );
-    } else {
-      final r = repo!;
+//   @override
+//   Widget build(BuildContext context) {
+//     if (repo == null) {
+//       return const Center(child: Text('No associated repository.'));
+//     } else if (repo!.dependabotConfig == null) {
+//       return Stack(
+//         fit: StackFit.passthrough,
+//         children: [
+//           const Center(
+//             child: Text('Dependabot configuration not found.'),
+//           ),
+//           OverlayButtons(
+//             infoText: '.github/dependabot.yaml',
+//             children: [
+//               IconButton(
+//                 icon: const Icon(Icons.add_circle_rounded),
+//                 iconSize: defaultIconSize,
+//                 splashRadius: defaultSplashRadius,
+//                 onPressed: _createDependabotIssue,
+//               ),
+//             ],
+//           ),
+//         ],
+//       );
+//     } else {
+//       final r = repo!;
 
-      return Stack(
-        fit: StackFit.passthrough,
-        children: [
-          SingleChildScrollView(
-            child: SelectableText(
-              repo!.dependabotConfig!,
-              style: const TextStyle(fontFamily: 'RobotoMono'),
-            ),
-          ),
-          OverlayButtons(
-            infoText: '.github/dependabot.yaml',
-            children: [
-              IconButton(
-                icon: const Icon(Icons.launch),
-                iconSize: defaultIconSize,
-                splashRadius: defaultSplashRadius,
-                onPressed: () {
-                  url.launchUrl(
-                    Uri.parse(
-                      'https://github.com/${r.repoName}/blob/master/.github/dependabot.yaml',
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
-      );
-    }
-  }
+//       return Stack(
+//         fit: StackFit.passthrough,
+//         children: [
+//           SingleChildScrollView(
+//             child: SelectableText(
+//               repo!.dependabotConfig!,
+//               style: const TextStyle(fontFamily: 'RobotoMono'),
+//             ),
+//           ),
+//           OverlayButtons(
+//             infoText: '.github/dependabot.yaml',
+//             children: [
+//               IconButton(
+//                 icon: const Icon(Icons.launch),
+//                 iconSize: defaultIconSize,
+//                 splashRadius: defaultSplashRadius,
+//                 onPressed: () {
+//                   url.launchUrl(
+//                     Uri.parse(
+//                       'https://github.com/${r.repoName}/blob/master/.github/dependabot.yaml',
+//                     ),
+//                   );
+//                 },
+//               ),
+//             ],
+//           ),
+//         ],
+//       );
+//     }
+//   }
 
-  void _createDependabotIssue() {
-    var title = 'Enable dependabot for this repo';
-    var body =
-        'Please enable dependabot for this repo (for an example configuration, see '
-        'https://github.com/dart-lang/usage/blob/master/.github/dependabot.yaml).';
+//   void _createDependabotIssue() {
+//     var title = 'Enable dependabot for this repo';
+//     var body =
+//         'Please enable dependabot for this repo (for an example configuration, see '
+//         'https://github.com/dart-lang/usage/blob/master/.github/dependabot.yaml).';
 
-    final uri = Uri(
-      host: 'github.com',
-      path: '${repo!.repoName}/issues/new',
-      queryParameters: {
-        'title': title,
-        'body': body,
-      },
-    );
-    url.launchUrl(uri);
-  }
-}
+//     final uri = Uri(
+//       host: 'github.com',
+//       path: '${repo!.repoName}/issues/new',
+//       queryParameters: {
+//         'title': title,
+//         'body': body,
+//       },
+//     );
+//     url.launchUrl(uri);
+//   }
+// }

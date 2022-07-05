@@ -36,7 +36,7 @@ class DataModel {
     () async {
       await _initPackagesData();
       await _initChangelog();
-      await _initRepositories();
+      // await _initRepositories();
       await _initSdkDeps();
       await _initGoogle3Deps();
     }();
@@ -148,9 +148,9 @@ class DataModel {
     });
   }
 
-  /// todo: doc
-  ValueListenable<List<RepositoryInfo>> get repositories => _repositories;
-  final ValueNotifier<List<RepositoryInfo>> _repositories = ValueNotifier([]);
+  // /// todo: doc
+  // ValueListenable<List<RepositoryInfo>> get repositories => _repositories;
+  // final ValueNotifier<List<RepositoryInfo>> _repositories = ValueNotifier([]);
 
   Future<List<Stat>> queryStats({
     required String category,
@@ -186,11 +186,11 @@ class DataModel {
     return stats;
   }
 
-  RepositoryInfo? getRepositoryForPackage(PackageInfo package) {
-    return repositories.value.firstWhereOrNull((repo) {
-      return repo.org == package.gitOrgName && repo.name == package.gitRepoName;
-    });
-  }
+  // RepositoryInfo? getRepositoryForPackage(PackageInfo package) {
+  //   return repositories.value.firstWhereOrNull((repo) {
+  //     return repo.org == package.gitOrgName && repo.name == package.gitRepoName;
+  //   });
+  // }
 
   SdkDep? getSdkDepForPackage(PackageInfo package) {
     return sdkDependencies.value.firstWhereOrNull((dep) {
@@ -204,18 +204,18 @@ class DataModel {
     });
   }
 
-  Future _initRepositories() async {
-    firestore
-        .collection('repositories')
-        .snapshots()
-        .listen((QuerySnapshot<SnapshotItems> snapshot) {
-      _strobeBusy();
-      List<RepositoryInfo> repos =
-          snapshot.docs.map((doc) => RepositoryInfo.from(doc)).toList();
+  // Future _initRepositories() async {
+  //   firestore
+  //       .collection('repositories')
+  //       .snapshots()
+  //       .listen((QuerySnapshot<SnapshotItems> snapshot) {
+  //     _strobeBusy();
+  //     List<RepositoryInfo> repos =
+  //         snapshot.docs.map((doc) => RepositoryInfo.from(doc)).toList();
 
-      _repositories.value = repos;
-    });
-  }
+  //     _repositories.value = repos;
+  //   });
+  // }
 
   Future _initPackagesData() async {
     firestore
@@ -766,39 +766,39 @@ class Commit implements Comparable<Commit> {
   }
 }
 
-class RepositoryInfo {
-  final String org;
-  final String name;
-  final String? dependabotConfig;
-  final String? actionsConfig;
-  final String? actionsFile;
+// class RepositoryInfo {
+//   final String org;
+//   final String name;
+//   final String? dependabotConfig;
+//   final String? actionsConfig;
+//   final String? actionsFile;
 
-  RepositoryInfo({
-    required this.org,
-    required this.name,
-    required this.dependabotConfig,
-    required this.actionsConfig,
-    required this.actionsFile,
-  });
+//   RepositoryInfo({
+//     required this.org,
+//     required this.name,
+//     required this.dependabotConfig,
+//     required this.actionsConfig,
+//     required this.actionsFile,
+//   });
 
-  String get repoName => '$org/$name';
+//   String get repoName => '$org/$name';
 
-  factory RepositoryInfo.from(QueryDocumentSnapshot<SnapshotItems> doc) {
-    final data = doc.data();
+//   factory RepositoryInfo.from(QueryDocumentSnapshot<SnapshotItems> doc) {
+//     final data = doc.data();
 
-    return RepositoryInfo(
-      org: doc.get('org'),
-      name: doc.get('name'),
-      dependabotConfig: data.containsKey('dependabotConfig')
-          ? doc.get('dependabotConfig')
-          : null,
-      actionsConfig:
-          data.containsKey('actionsConfig') ? doc.get('actionsConfig') : null,
-      actionsFile:
-          data.containsKey('actionsFile') ? doc.get('actionsFile') : null,
-    );
-  }
-}
+//     return RepositoryInfo(
+//       org: doc.get('org'),
+//       name: doc.get('name'),
+//       dependabotConfig: data.containsKey('dependabotConfig')
+//           ? doc.get('dependabotConfig')
+//           : null,
+//       actionsConfig:
+//           data.containsKey('actionsConfig') ? doc.get('actionsConfig') : null,
+//       actionsFile:
+//           data.containsKey('actionsFile') ? doc.get('actionsFile') : null,
+//     );
+//   }
+// }
 
 class SdkDep {
   final String name;
