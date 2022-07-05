@@ -22,8 +22,6 @@ import 'utils/constants.dart';
 
 // todo: add filtering to the google3 page
 
-// todo: add a google3 sync latency column to the package page
-
 void main() async {
   runApp(const PackagesApp());
 }

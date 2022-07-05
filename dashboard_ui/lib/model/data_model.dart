@@ -325,9 +325,9 @@ class PackageInfo {
   final String name;
   final String publisher;
   final String maintainer;
-  // todo: make repository nullable
-  final String repository;
+  final String? repository;
   final String? issueTracker;
+  // todo: issueCount
   final Version version;
   final bool discontinued;
   final bool unlisted;
@@ -393,29 +393,39 @@ class PackageInfo {
       RegExp(r'https:\/\/github\.com\/([\w\d\-_]+)\/([\w\d\-_\.]+)([\/\S]*)');
 
   bool get isMonoRepo {
-    var match = _repoRegex.firstMatch(repository);
+    if (repository == null) return false;
+
+    var match = _repoRegex.firstMatch(repository!);
     return match != null && match.group(3)!.isNotEmpty;
   }
 
   String? get repoUrl {
-    var match = _repoRegex.firstMatch(repository);
+    if (repository == null) return null;
+
+    var match = _repoRegex.firstMatch(repository!);
     return match == null
         ? null
         : 'https://github.com/${match.group(1)}/${match.group(2)}';
   }
 
   String? get gitOrgName {
-    var match = _repoRegex.firstMatch(repository);
+    if (repository == null) return null;
+
+    var match = _repoRegex.firstMatch(repository!);
     return match?.group(1);
   }
 
   String? get gitRepoName {
-    var match = _repoRegex.firstMatch(repository);
+    if (repository == null) return null;
+
+    var match = _repoRegex.firstMatch(repository!);
     return match?.group(2);
   }
 
   String? get repoPath {
-    var match = _repoRegex.firstMatch(repository);
+    if (repository == null) return null;
+
+    var match = _repoRegex.firstMatch(repository!);
     var path = match?.group(3);
     if (path == null) {
       return null;
@@ -426,6 +436,16 @@ class PackageInfo {
     } else {
       return path;
     }
+  }
+
+  String? get issuesUrl {
+    if (issueTracker != null) {
+      return issueTracker!;
+    }
+    if (repository != null) {
+      return '$repository/issues';
+    }
+    return null;
   }
 
   int? get unpublishedDays {
@@ -461,7 +481,7 @@ class PackageInfo {
 
     if (publisher.contains(filter) ||
         maintainer.contains(filter) ||
-        repository.contains(filter) ||
+        (repository != null && repository!.contains(filter)) ||
         version.toString().contains(filter)) {
       return true;
     }
@@ -574,22 +594,22 @@ class PackageInfo {
       return null;
     }
 
-    if (package.repository.isEmpty) {
+    if (package.repository == null) {
       return ValidationResult(
         'No repository url set',
         Severity.info,
       );
-    } else if (package.repository.endsWith('.git')) {
+    } else if (package.repository!.endsWith('.git')) {
       return ValidationResult(
         "Repository url ends with '.git'",
         Severity.info,
       );
-    } else if (package.repository.contains('/blob/')) {
+    } else if (package.repository!.contains('/blob/')) {
       return ValidationResult(
         "Repository url not well-formed (contains a 'blob' path)",
         Severity.info,
       );
-    } else if (!package.repository.startsWith('https://github.com/')) {
+    } else if (!package.repository!.startsWith('https://github.com/')) {
       return ValidationResult(
         "Repository url doesn't start with 'https://github.com/'",
         Severity.info,
@@ -847,8 +867,10 @@ class Google3Dep {
   final String name;
   final bool firstParty;
   final String? commit;
+  // We don't use this field.
   final Timestamp? lastUpdated;
   final int pendingCommits;
+  // TODO: Instead, here we want a date for the oldest unsynced commit
   final int? latencySeconds;
 
   Google3Dep({

@@ -7,8 +7,6 @@ import 'package:http/http.dart' as http;
 
 import 'utils.dart';
 
-// TODO: don't request the commit data - we're not using it
-
 const String userLoginDependabot = 'dependabot[bot]';
 
 class Github {

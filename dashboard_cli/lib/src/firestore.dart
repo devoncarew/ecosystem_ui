@@ -305,7 +305,7 @@ class Firestore {
         'name': valueStr(packageName),
         'publisher': valueStr(publisher),
         'version': valueStr(packageInfo.version),
-        'repository': valueStr(repository ?? ''),
+        'repository': valueStrNullable(repository),
         'issueTracker': valueStrNullable(packageInfo.issueTracker),
         'issueCount': valueIntNullable(packageInfo.issueCount),
         'discontinued': valueBool(packageInfo.isDiscontinued),

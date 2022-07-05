@@ -45,30 +45,6 @@ class _PackagesSheetState extends State<PackagesSheet>
       builder: (context, packages, _) {
         final filteredPackages = _filterPackages(packages);
 
-        // Experimenting with side content.
-        // return Row(
-        //   children: [
-        //     Expanded(
-        //       flex: 5,
-        //       child: createTable(
-        //         filteredPackages,
-        //         dataModel: dataModel,
-        //         allPackages: packages,
-        //       ),
-        //     ),
-        //     if (selectedPackage != null)
-        //       Expanded(
-        //         flex: 2,
-        //         child: SingleChildScrollView(
-        //           padding: const EdgeInsets.only(left: 8, right: 3),
-        //           child: VerticalDetailsWidget(
-        //             package: selectedPackage!,
-        //           ),
-        //         ),
-        //       ),
-        //   ],
-        // );
-
         return Column(
           children: [
             Expanded(
@@ -100,22 +76,6 @@ class _PackagesSheetState extends State<PackagesSheet>
       });
     });
   }
-
-  // void _handleItemTap(DataModel dataModel, PackageInfo package) {
-  //   showDialog(
-  //     context: context,
-  //     builder: (context) {
-  //       return Provider<DataModel>(
-  //         create: (context) => dataModel,
-  //         child: LargeDialog(
-  //           title: 'package:${package.name}',
-  //           medium: true,
-  //           child: PackageDetailsWidget(package: package),
-  //         ),
-  //       );
-  //     },
-  //   );
-  // }
 
   VTable createTable(
     List<PackageInfo> packages, {
@@ -242,15 +202,15 @@ class _PackagesSheetState extends State<PackagesSheet>
           label: 'Repository',
           width: 150,
           grow: 0.2,
-          transformFunction: (package) => package.repository,
+          transformFunction: (package) => package.repository ?? '',
           styleFunction: PackageInfo.getDisplayStyle,
           renderFunction: (BuildContext context, PackageInfo package) {
-            if (package.repository.isEmpty) {
+            if (package.repository == null) {
               return const SizedBox();
             } else {
               return Hyperlink(
-                url: package.repository,
-                displayText: trimPrefix(package.repository, 'https://'),
+                url: package.repository!,
+                displayText: trimPrefix(package.repository!, 'https://'),
                 style: PackageInfo.getDisplayStyle(package),
               );
             }
@@ -258,6 +218,26 @@ class _PackagesSheetState extends State<PackagesSheet>
           validators: [
             PackageInfo.validateRepositoryInfo,
           ],
+        ),
+        VTableColumn<PackageInfo>(
+          label: 'Issues',
+          width: 80,
+          alignment: Alignment.centerRight,
+          transformFunction: (PackageInfo package) {
+            return package.issuesUrl ?? '';
+          },
+          renderFunction: (BuildContext context, PackageInfo package) {
+            var url = package.issuesUrl;
+            if (url == null) {
+              return const SizedBox();
+            } else {
+              return Hyperlink(
+                url: url,
+                displayText: 'link',
+                style: PackageInfo.getDisplayStyle(package),
+              );
+            }
+          },
         ),
         VTableColumn(
           label: 'SDK Latency',

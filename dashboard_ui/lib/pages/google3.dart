@@ -42,7 +42,10 @@ class _Google3SheetState extends State<Google3Sheet>
                   label: 'Package',
                   width: 175,
                   grow: 0.2,
-                  transformFunction: (dep) => dep.name,
+                  transformFunction: (dep) {
+                    // TODO: show {dep.package}.discontinued
+                    return dep.name;
+                  },
                 ),
                 VTableColumn(
                   label: 'Publisher',
@@ -113,20 +116,6 @@ class _Google3SheetState extends State<Google3Sheet>
         );
       },
     );
-  }
-
-  static List<PackageInfo> _filterPackages(
-    List<PackageInfo> packages,
-    String repo,
-  ) {
-    packages = packages.where((p) => p.repoUrl == repo).toList();
-
-    // Remove the discontinued packages.
-    packages = packages.where((p) => !p.discontinued).toList();
-
-    packages.sort((a, b) => a.name.compareTo(b.name));
-
-    return packages;
   }
 
   @override
