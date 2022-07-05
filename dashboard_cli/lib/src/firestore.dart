@@ -307,6 +307,7 @@ class Firestore {
         'version': valueStr(packageInfo.version),
         'repository': valueStr(repository ?? ''),
         'issueTracker': valueStrNullable(packageInfo.issueTracker),
+        'issueCount': valueIntNullable(packageInfo.issueCount),
         'discontinued': valueBool(packageInfo.isDiscontinued),
         'unlisted': valueBool(packageInfo.isUnlisted),
         'pubspec': valueStr(packageInfo.encodedPubspec),
@@ -701,6 +702,8 @@ Value valueStrNullable(String? value) =>
     value == null ? valueNull() : Value(stringValue: value);
 Value valueBool(bool value) => Value(booleanValue: value);
 Value valueInt(int value) => Value(integerValue: value.toString());
+Value valueIntNullable(int? value) =>
+    value == null ? valueNull() : Value(integerValue: value.toString());
 Value valueNull() => Value(nullValue: 'NULL_VALUE');
 
 class FirestorePackageInfo {

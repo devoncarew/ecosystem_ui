@@ -118,6 +118,8 @@ class PackageInfo {
   int? unpublishedCommits;
   DateTime? unpublishedCommitDate;
 
+  int? issueCount;
+
   late final Map<String, dynamic> _latest = json['latest'];
   late final Map<String, dynamic> _pubspec = _latest['pubspec'];
 

@@ -235,6 +235,11 @@ class PackageManager {
       log.write('unpublished commits: ${packageInfo.unpublishedCommits}');
     }
 
+    if (!packageInfo.isDiscontinued && packageInfo.issueTracker != null) {
+      packageInfo.issueCount =
+          await github.queryIssueCount(packageInfo.issueTracker!);
+    }
+
     var updatedInfo = await firestore.updatePackageInfo(
       packageName,
       publisher: publisher,

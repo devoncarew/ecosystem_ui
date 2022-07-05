@@ -1,9 +1,13 @@
 import 'dart:io';
 
+//import 'package:dashboard_cli/src/pub.dart';
+//import 'package:gql/src/language/parser.dart';
 import 'package:graphql/client.dart';
 import 'package:http/http.dart' as http;
 
 import 'utils.dart';
+
+// TODO: don't request the commit data - we're not using it
 
 const String userLoginDependabot = 'dependabot[bot]';
 
@@ -199,6 +203,58 @@ class Github {
 // }
 
     return Commit.fromQuery(result.data!['repository']['object']);
+  }
+
+  Future<int?> queryIssueCount(String issuesUrl) async {
+    // todo:
+    return null;
+
+    // // We expect this url to be in a specific form:
+    // // https://github.com/flutter/flutter/issues?q=is%3Aissue+is%3Aopen+label%3A%22p%3A+camera%22
+
+    // const querySeparator = '/issues?q=';
+    // if (!issuesUrl.contains(querySeparator)) {
+    //   return null;
+    // }
+
+    // // todo: file an issue about the quote escaping for package:gcl
+    // final repo =
+    //     RepoInfo(issuesUrl.substring(0, issuesUrl.indexOf(querySeparator)));
+    // var queryParameter = Uri.parse(issuesUrl).queryParameters['q']!;
+    // queryParameter = queryParameter.replaceAll('"', r'\"');
+
+    // var r = parseString('{ search( query: "label:\\"p: animations\\" ") } ');
+    // print(r);
+    // for (var d in r.definitions) {
+    //   print(d);
+    // }
+
+    // final queryString = '''{
+    //   search(
+    //     query: "repo:${repo.repoOrgAndName} $queryParameter "
+    //     type: ISSUE
+    //   ) {
+    //     issueCount
+    //   }
+    // }''';
+
+    // // todo:
+    // print(queryString);
+
+    // final result = await query(QueryOptions(document: gql(queryString)));
+    // if (result.hasException) {
+    //   throw result.exception!;
+    // }
+
+    // // todo:
+    // print(result.data);
+
+    // // {
+    // //   "data": {
+    // //     "search": { "issueCount": 28 }
+    // //   }
+    // // }
+    // return result.data!['search']['issueCount'];
   }
 
   Iterable<Commit> _getCommitsFromResult(QueryResult result) {
