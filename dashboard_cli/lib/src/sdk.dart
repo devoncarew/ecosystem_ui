@@ -53,10 +53,7 @@ class Sdk {
     // See https://github.com/dart-lang/sdk/issues/48830 for some of the
     // hard-coded repo mappings here.
     const specialCases = {
-      'charcode': 'https://github.com/lrhn/charcode',
-      'http_retry': 'https://github.com/dart-archive/http_retry',
-      'platform': 'https://github.com/google/platform.dart',
-      'process': 'https://github.com/google/process.dart',
+      'sync_http': 'https://github.com/google/sync_http.dart',
       'protobuf': 'https://github.com/google/protobuf.dart',
       'web_components': 'https://github.com/dart-archive/web-components',
     };
