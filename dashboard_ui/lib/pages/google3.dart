@@ -55,23 +55,24 @@ class _Google3SheetState extends State<Google3Sheet>
                     return packageNameMap[dep.name]?.publisher ?? '';
                   },
                 ),
+                // VTableColumn(
+                //   label: 'Copybara',
+                //   width: 100,
+                //   grow: 0.2,
+                //   // todo:
+                //   transformFunction: (dep) => 'todo:',
+                //   // compareFunction: (a, b) =>
+                //   //     SdkDep.compareUnsyncedDays(a.sdkDep, b.sdkDep),
+                //   // validators: [
+                //   //   (dep) => SdkDep.validateSyncLatency(dep.sdkDep),
+                //   // ],
+                // ),
                 VTableColumn(
-                  label: 'Copybara',
-                  width: 100,
-                  grow: 0.2,
-                  // todo:
-                  transformFunction: (dep) => 'todo:',
-                  // compareFunction: (a, b) =>
-                  //     SdkDep.compareUnsyncedDays(a.sdkDep, b.sdkDep),
-                  // validators: [
-                  //   (dep) => SdkDep.validateSyncLatency(dep.sdkDep),
-                  // ],
-                ),
-                VTableColumn(
-                  label: 'SOR',
+                  label: 'Location',
                   width: 60,
                   grow: 0.1,
-                  transformFunction: (dep) => dep.firstParty ? '1P' : '3P',
+                  transformFunction: (dep) =>
+                      dep.firstParty ? 'Google3' : 'GitHub',
                 ),
                 VTableColumn(
                   label: 'Synced to Commit',
@@ -79,6 +80,9 @@ class _Google3SheetState extends State<Google3Sheet>
                   grow: 0.1,
                   alignment: Alignment.centerRight,
                   transformFunction: (dep) {
+                    if (dep.firstParty) {
+                      return 'N/A';
+                    }
                     if (dep.commit == null || dep.commit!.isEmpty) {
                       return '';
                     }

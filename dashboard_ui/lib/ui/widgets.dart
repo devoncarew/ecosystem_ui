@@ -156,7 +156,7 @@ class LargeDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
-      var width = constraints.maxWidth - 48 * (medium ? 4 : 2);
+      var width = constraints.maxWidth - 48 * (medium ? 8 : 2);
       var height = constraints.maxHeight - 48 * (medium ? 8 : 2);
 
       return AlertDialog(

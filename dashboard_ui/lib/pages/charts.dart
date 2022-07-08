@@ -13,6 +13,8 @@ import '../ui/theme.dart';
 final titleColor = Colors.grey.shade700;
 final borderColor = Colors.grey.shade500;
 
+// todo: fix clip issues
+
 enum ChartTypes {
   publishP50('package.latency'),
   publishP90('package.latency'),
@@ -78,7 +80,7 @@ class _ChartsPageState extends State<ChartsPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.only(bottom: 16),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -94,18 +96,7 @@ class _ChartsPageState extends State<ChartsPage> {
                       );
                     },
                   ),
-                  Expanded(
-                    child: ValueListenableBuilder<QueryResult>(
-                      valueListenable: queryEngine.queryResult,
-                      builder: (context, result, _) {
-                        return Text(
-                          result.group.label,
-                          style: titleStyle,
-                          textAlign: TextAlign.center,
-                        );
-                      },
-                    ),
-                  ),
+                  const Expanded(child: SizedBox(width: 16)),
                   ValueListenableBuilder<bool>(
                     valueListenable: queryEngine.busy,
                     builder: (BuildContext context, bool busy, _) {
@@ -138,6 +129,19 @@ class _ChartsPageState extends State<ChartsPage> {
                   ),
                 ],
               ),
+            ),
+            ValueListenableBuilder<QueryResult>(
+              valueListenable: queryEngine.queryResult,
+              builder: (context, result, _) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    result.group.label,
+                    style: titleStyle,
+                    textAlign: TextAlign.center,
+                  ),
+                );
+              },
             ),
             Expanded(
               child: ClipRect(
@@ -390,14 +394,13 @@ class TimeSeriesGroup {
   }
 
   void sort() {
-    // Sort the series in descending order of the largest last value.
-    series.sort((a, b) => b.lastValueOrZero - a.lastValueOrZero);
+    series.sort((a, b) => a.label.compareTo(b.label));
   }
 
   Rect getBounds() {
     return Rect.fromLTRB(
       _startDay,
-      series.isEmpty ? 100 : _nearestRoundNumber(_maxValue),
+      series.isEmpty ? 100 : _nearestRoundNumber(_maxValue * 1.3),
       _endDay,
       0,
     );
@@ -429,45 +432,48 @@ class _ChartLegendWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade700),
-      ),
-      padding: const EdgeInsets.only(left: 12, top: 12, right: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ...group.series.map((series) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 14,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color:
-                          colors[group.series.indexOf(series) % colors.length],
-                      border: Border.all(color: Colors.grey.shade700),
+    return Opacity(
+      opacity: 0.7,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey.shade700),
+        ),
+        padding: const EdgeInsets.only(left: 12, top: 12, right: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ...group.series.map((series) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: colors[
+                            group.series.indexOf(series) % colors.length],
+                        border: Border.all(color: Colors.grey.shade700),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    series.describe,
-                    style: TextStyle(
-                      color: borderColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                    const SizedBox(width: 8),
+                    Text(
+                      series.describe,
+                      style: TextStyle(
+                        color: borderColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        ],
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
+        ),
       ),
     );
   }
@@ -553,7 +559,7 @@ class QueryEngine {
             }
 
             // flutter.dev doesn't use this
-            unowned.remove('flutter.dev');
+            unowned['flutter.dev']!.clear();
 
             for (var entry in unowned.entries) {
               group.addSeries(TimeSeries('${entry.key} unowned', entry.value));
