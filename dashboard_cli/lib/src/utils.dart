@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart';
@@ -75,4 +76,48 @@ class Logger {
 
 String firestoreEntityEncode(String str) {
   return str.replaceAll('/', '%2F');
+}
+
+class Profiler {
+  final Map<String, int> _timesMs = {};
+  final Map<String, int> _invocations = {};
+
+  String? _task;
+  Stopwatch? _stopwatch;
+
+  void start(String task) {
+    _task = task;
+    _stopwatch = Stopwatch()..start();
+  }
+
+  void stop() {
+    _stopwatch!.stop();
+    _timesMs.putIfAbsent(_task!, () => 0);
+    _timesMs[_task!] = _timesMs[_task]! + _stopwatch!.elapsedMilliseconds;
+    _invocations.putIfAbsent(_task!, () => 0);
+    _invocations[_task!] = _invocations[_task]! + 1;
+  }
+
+  Future<T> run<T>(String task, Future<T> work) async {
+    try {
+      start(task);
+      return await work;
+    } finally {
+      stop();
+    }
+  }
+
+  String results() {
+    var buf = StringBuffer();
+
+    for (var task in _timesMs.keys) {
+      var ms = _timesMs[task]!;
+      var count = _invocations[task]!;
+
+      buf.writeln(
+          '${task.padLeft(14)}: ${(ms / 1000.0).toStringAsFixed(1)}s ($count calls)');
+    }
+
+    return buf.toString();
+  }
 }

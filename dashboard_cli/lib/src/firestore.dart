@@ -13,7 +13,9 @@ class Firestore {
   late AutoRefreshingAuthClient _client;
   late final FirestoreApi firestore;
 
-  Firestore();
+  Profiler profiler;
+
+  Firestore({required this.profiler});
 
   Future setup() async {
     // Set the GOOGLE_APPLICATION_CREDENTIALS env var to the path containing the
@@ -40,7 +42,7 @@ class Firestore {
 
   /// Return the publishers we should care about from the firebase datastore.
   Future<List<String>> queryPublishers() async {
-    ListDocumentsResponse response = await documents.list(
+    ListDocumentsResponse response = await documentsList(
       documentsPath,
       'publishers',
     );
@@ -232,7 +234,7 @@ class Firestore {
   Future<Map<String, Value>?> getPackageInfo(String packageName) async {
     try {
       final packagePath = getDocumentName('packages', packageName);
-      var result = await documents.get(packagePath);
+      var result = await documentsGet(packagePath);
       return result.fields;
     } on DetailedApiRequestError catch (e) {
       if (e.status == 404) {
@@ -250,7 +252,7 @@ class Firestore {
   Future<Map<String, Value>?> getSdkRepositoryInfo(String repoName) async {
     try {
       final packagePath = getDocumentName('sdk_deps', repoName);
-      var result = await documents.get(packagePath);
+      var result = await documentsGet(packagePath);
       return result.fields;
     } on DetailedApiRequestError catch (e) {
       if (e.status == 404) {
@@ -265,6 +267,9 @@ class Firestore {
     }
   }
 
+  Future<Document> documentsGet(String name) async {
+    return profiler.run('firebase.read', documents.get(name));
+  }
   // Future<Map<String, Value>?> getGoogle3RepositoryInfo(String repoName) async {
   //   try {
   //     final packagePath = getDocumentName('google3', repoName);
@@ -287,7 +292,7 @@ class Firestore {
     String packageName, {
     required String publisher,
     required PackageInfo packageInfo,
-    String? analysisOptions,
+    // String? analysisOptions,
   }) async {
     var repository = packageInfo.repository;
     if (repository == null) {
@@ -319,8 +324,8 @@ class Firestore {
             : Value(
                 timestampValue:
                     packageInfo.unpublishedCommitDate!.toIso8601String()),
-        if (analysisOptions != null)
-          'analysisOptions': valueStr(analysisOptions),
+        // if (analysisOptions != null)
+        //   'analysisOptions': valueStr(analysisOptions),
       },
     );
 
@@ -331,10 +336,10 @@ class Firestore {
     );
 
     // todo: handle error conditions
-    return await documents.patch(
+    return await documentsPatch(
       doc,
       getDocumentName('packages', packageName),
-      updateMask_fieldPaths: mask.fieldPaths,
+      updateMaskFieldPaths: mask.fieldPaths,
     );
   }
 
@@ -350,7 +355,8 @@ class Firestore {
     );
 
     // todo: handle error conditions
-    await documents.createDocument(doc, documentsPath, 'log');
+    await profiler.run(
+        'firebase.create', documents.createDocument(doc, documentsPath, 'log'));
   }
 
   Future logStat({
@@ -405,7 +411,7 @@ class Firestore {
   }
 
   Future<List<String>> getSdkDependencies() async {
-    ListDocumentsResponse response = await documents.list(
+    ListDocumentsResponse response = await documentsList(
       documentsPath,
       'sdk_deps',
       pageSize: 100,
@@ -413,6 +419,15 @@ class Firestore {
     return response.documents!.map((Document doc) {
       return doc.fields!['name']!.stringValue!;
     }).toList();
+  }
+
+  Future<ListDocumentsResponse> documentsList(
+    String parent,
+    String collectionId, {
+    int? pageSize,
+  }) {
+    return profiler.run('firebase.read',
+        documents.list(parent, collectionId, pageSize: pageSize));
   }
 
   Future<List<String>> getGoogle3Dependencies() async {
@@ -427,7 +442,7 @@ class Firestore {
   }
 
   Future<List<FirestoreSdkDep>> getSdkDeps() async {
-    ListDocumentsResponse response = await documents.list(
+    ListDocumentsResponse response = await documentsList(
       documentsPath,
       'sdk_deps',
       pageSize: 100,
@@ -590,7 +605,7 @@ class Firestore {
     );
 
     // todo: handle error conditions
-    var updatedInfo = await documents.patch(
+    var updatedInfo = await documentsPatch(
       doc,
       getDocumentName('sdk_deps', dependency.name),
     );
@@ -689,6 +704,21 @@ class Firestore {
     //     }
     //   }
     // }
+  }
+
+  Future<Document> documentsPatch(
+    Document request,
+    String name, {
+    List<String>? updateMaskFieldPaths,
+  }) {
+    return profiler.run(
+      'firebase.write',
+      documents.patch(
+        request,
+        name,
+        updateMask_fieldPaths: updateMaskFieldPaths,
+      ),
+    );
   }
 }
 

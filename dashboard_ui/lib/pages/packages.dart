@@ -448,7 +448,7 @@ class PubspecInfoWidget extends StatelessWidget {
           ),
         ),
         OverlayButtons(
-          infoText: 'Package data from publish ${package.publishedDateDisplay}',
+          infoText: 'Package data from ${package.publishedDateDisplay} publish',
           children: [
             IconButton(
               icon: const Icon(Icons.launch),

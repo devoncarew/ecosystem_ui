@@ -12,14 +12,18 @@ import 'src/utils.dart';
 //   - make fewer calls
 //   - await several calls at once
 
+// todo: add information about overall package popularity (rank; # deps)
+
 class PackageManager {
   late final Pub pub;
   late final Firestore firestore;
   http.Client? _httpClient;
 
+  Profiler profiler = Profiler();
+
   PackageManager() {
-    pub = Pub();
-    firestore = Firestore();
+    pub = Pub(profiler: profiler);
+    firestore = Firestore(profiler: profiler);
   }
 
   Future setup() async {
@@ -144,6 +148,7 @@ class PackageManager {
         await _updatePublisherPackages(publisher, logger: logger);
       }
     } finally {
+      logger.write(profiler.results());
       logger.close(printElapsedTime: true);
     }
   }
@@ -159,7 +164,7 @@ class PackageManager {
 
     final packages = await pub.packagesForPublisher(publisher);
 
-    final github = Github();
+    final github = Github(profiler: profiler);
 
     for (var packageName in packages) {
       logger
@@ -194,18 +199,17 @@ class PackageManager {
       log.write(packageInfo.repository!);
     }
 
-    var repoInfo = packageInfo.repoInfo;
-    var url = repoInfo?.getDirectFileUrl('analysis_options.yaml');
-
-    // Probe for an analysisOptions.yaml file; this depends on the repository
-    // field being set correctly.
-    String? analysisOptions;
-    if (repoInfo != null && url != null) {
-      // TODO: we should also probe up a directory or two if in a mono-repo
-      analysisOptions = await _httpClient!.get(Uri.parse(url)).then((response) {
-        return response.statusCode == 404 ? null : response.body;
-      });
-    }
+    // var repoInfo = packageInfo.repoInfo;
+    // var url = repoInfo?.getDirectFileUrl('analysis_options.yaml');
+    // // Probe for an analysisOptions.yaml file; this depends on the repository
+    // // field being set correctly.
+    // String? analysisOptions;
+    // if (repoInfo != null && url != null) {
+    //   // TODO: we should also probe up a directory or two if in a mono-repo
+    //   analysisOptions = await _httpClient!.get(Uri.parse(url)).then((response) {
+    //     return response.statusCode == 404 ? null : response.body;
+    //   });
+    // }
 
     // These queries depend on the repository information being correct.
     if (!packageInfo.isDiscontinued &&
@@ -244,7 +248,7 @@ class PackageManager {
       packageName,
       publisher: publisher,
       packageInfo: packageInfo,
-      analysisOptions: analysisOptions,
+      // analysisOptions: analysisOptions,
     );
 
     if (existingInfo == null) {
@@ -278,13 +282,13 @@ class PackageManager {
     final logger = Logger();
 
     logger.write('Retrieving SDK DEPS...');
-    final sdk = await Sdk.fromHttpGet();
+    final sdk = await profiler.run('sdk.readDeps', Sdk.fromHttpGet());
 
     List<SdkDependency> sdkDependencies = sdk.getDartPackages();
     logger.write('${sdkDependencies.length} deps found.');
     logger.write('');
 
-    final Github github = Github();
+    final Github github = Github(profiler: profiler);
 
     for (var dep in sdkDependencies) {
       logger
@@ -311,6 +315,7 @@ class PackageManager {
     await firestore.updateSdkDependencies(sdkDependencies, logger: logger);
 
     logger.write('');
+    logger.write(profiler.results());
     logger.close(printElapsedTime: true);
 
     github.close();

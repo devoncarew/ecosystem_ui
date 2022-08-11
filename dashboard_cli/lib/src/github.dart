@@ -5,12 +5,17 @@ import 'dart:io';
 import 'package:graphql/client.dart';
 import 'package:http/http.dart' as http;
 
+import 'utils.dart';
+
 const String userLoginDependabot = 'dependabot[bot]';
 
 class Github {
   late final GraphQLClient _client = _initGraphQLClient();
+  Profiler profiler;
 
   http.Client? _httpClient;
+
+  Github({required this.profiler});
 
   Future<QueryResult> query(QueryOptions options) {
     return _client.query(options);
@@ -61,7 +66,8 @@ class Github {
     }
   }
 }''';
-    final result = await query(QueryOptions(document: gql(queryString)));
+    final result = await profiler.run(
+        'github.query', query(QueryOptions(document: gql(queryString))));
     if (result.hasException) {
       throw result.exception!;
     }
@@ -156,7 +162,8 @@ class Github {
     }
 ''';
     // todo: use a parser function (options.parserFn)?
-    final result = await query(QueryOptions(document: gql(queryString)));
+    final result = await profiler.run(
+        'github.query', query(QueryOptions(document: gql(queryString))));
     if (result.hasException) {
       // print(queryString);
       throw result.exception!;

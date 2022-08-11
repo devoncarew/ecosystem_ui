@@ -1,13 +1,15 @@
 import 'dart:convert';
 
+import 'package:dashboard_cli/src/utils.dart';
 import 'package:http/http.dart';
-import 'package:http_retry/http_retry.dart';
+import 'package:http/retry.dart';
 
 /// Utilities to query pub.dev.
 class Pub {
   late final Client _client;
+  final Profiler profiler;
 
-  Pub() {
+  Pub({required this.profiler}) {
     _client = RetryClient(
       Client(),
       when: (response) => const [502, 503].contains(response.statusCode),
@@ -33,12 +35,14 @@ class Pub {
   }
 
   Future<PackageOptions> getPackageOptions(String pkgName) async {
-    final json =
-        await _getJson(Uri.https('pub.dev', 'api/packages/$pkgName/options'));
+    final json = await profiler.run('pub.query',
+        _getJson(Uri.https('pub.dev', 'api/packages/$pkgName/options')));
     return PackageOptions.from(json);
   }
 
   Stream<String> _packagesForSearch(String query) async* {
+    profiler.start('pub.query');
+
     final uri = Uri.parse('https://pub.dev/api/search');
 
     var page = 1;
@@ -62,6 +66,8 @@ class Pub {
         break;
       }
     }
+
+    profiler.stop();
   }
 
   Future<Map<String, dynamic>> _getJson(Uri uri) async {

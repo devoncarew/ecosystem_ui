@@ -76,6 +76,7 @@ class _SDKSheetState extends State<SDKSheet>
                       const stdPublishers = {
                         'dart.dev',
                         'google.dev',
+                        'labs.dart.dev',
                         'N/A',
                         'tools.dart.dev',
                       };

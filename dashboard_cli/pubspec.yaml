@@ -9,7 +9,6 @@ dependencies:
   args: any
   googleapis_auth: ^1.1.0
   googleapis: ^8.0.0
-  http_retry: any
   path: ^1.8.0
   graphql: ^5.1.1
 
