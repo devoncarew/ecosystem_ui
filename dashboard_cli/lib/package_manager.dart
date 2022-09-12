@@ -8,10 +8,6 @@ import 'src/sdk.dart';
 import 'src/sheets.dart';
 import 'src/utils.dart';
 
-// todo: improve the performance of this script
-//   - make fewer calls
-//   - await several calls at once
-
 // todo: add information about overall package popularity (rank; # deps)
 
 class PackageManager {
@@ -33,10 +29,9 @@ class PackageManager {
   Future updateStats() async {
     final logger = Logger();
 
-    // await firestore.convertOlderStats();
+    DateTime timestampUtc = DateTime.now().toUtc();
 
     // sdk stats
-    DateTime timestampUtc = DateTime.now().toUtc();
     logger.write('updating sdk stats...');
     final sdkDeps = await firestore.getSdkDeps();
     logger.write('${sdkDeps.length} sdk deps');
@@ -63,6 +58,39 @@ class PackageManager {
     logger.write('p90 sync latency: $p90 days');
     await firestore.logStat(
       category: 'sdk.latency',
+      stat: 'p90',
+      value: p90,
+      timestampUtc: timestampUtc,
+    );
+    logger.write('');
+
+    // google3 stats
+    logger.write('updating google3 stats...');
+    final google3Deps = await firestore.getGoogle3Deps();
+    logger.write('${google3Deps.length} google3 deps');
+    await firestore.logStat(
+      category: 'google3.deps',
+      stat: 'count',
+      value: google3Deps.length,
+      timestampUtc: timestampUtc,
+    );
+
+    // google3 sync latency
+    latencyDays = google3Deps.map((dep) => dep.syncLatencyDays).toList();
+
+    p50 = calulatePercentile(latencyDays, 0.5).round();
+    logger.write('p50 sync latency: $p50 days');
+    await firestore.logStat(
+      category: 'google3.latency',
+      stat: 'p50',
+      value: p50,
+      timestampUtc: timestampUtc,
+    );
+
+    p90 = calulatePercentile(latencyDays, 0.9).round();
+    logger.write('p90 sync latency: $p90 days');
+    await firestore.logStat(
+      category: 'google3.latency',
       stat: 'p90',
       value: p90,
       timestampUtc: timestampUtc,
@@ -337,32 +365,6 @@ class PackageManager {
 
     logger.write('${google3Dependencies.length} deps found.');
     logger.write('');
-
-    // // TODO: for google3, this does not need to use the github API; it can
-    // // instead use googlesource.
-    // final Github github = Github();
-
-    // for (var dep in google3Dependencies) {
-    //   logger
-    //     ..write(dep.repository)
-    //     ..indent();
-
-    //   // Get the info about the given sha.
-    //   RepositoryInfo repo = RepositoryInfo(
-    //       path: dep.repository.substring('https://github.com/'.length));
-    //   dep.commitInfo =
-    //       await github.getCommitInfoForSha(repo: repo, sha: dep.commit);
-    //   logger.write('${dep.commitInfo}');
-
-    //   // Find how many newer, unsynced commits there are.
-    //   dep.unsyncedCommits = await github.queryCommitsAfter(
-    //       repo: repo,
-    //       afterTimestamp: dep.commitInfo!.committedDate.toIso8601String())
-    //     ..sort();
-    //   logger.write('unsynced commits: ${dep.unsyncedCommits.length}');
-
-    //   logger.outdent();
-    // }
 
     await firestore.updateGoogle3Dependencies(
       google3Dependencies,

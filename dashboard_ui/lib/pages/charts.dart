@@ -16,12 +16,14 @@ final borderColor = Colors.grey.shade500;
 // todo: fix clip issues
 
 enum ChartTypes {
-  publishP50('package.latency'),
-  publishP90('package.latency'),
   packages('package.count'),
   unowned('package.count'),
+  sdkDeps('sdk.deps'),
   sdkLatency('sdk.latency'),
-  sdkDeps('sdk.deps');
+  google3Deps('google3.deps'),
+  google3Latency('google3.latency'),
+  publishP50('package.latency'),
+  publishP90('package.latency');
 
   final String category;
 
@@ -531,6 +533,27 @@ class QueryEngine {
             group.addSeries(
               TimeSeries(
                 'SDK P90 sync latency',
+                result.where((s) => s.stat == 'p90').toList(),
+                units: 'day',
+              ),
+            );
+            break;
+          case ChartTypes.google3Deps:
+            group = TimeSeriesGroup('Google3 Dependencies', duration);
+            group.addSeries(TimeSeries('Google3 synced count', result));
+            break;
+          case ChartTypes.google3Latency:
+            group = TimeSeriesGroup('Google3 Sync Latency (days)', duration);
+            group.addSeries(
+              TimeSeries(
+                'Google3 P50 sync latency',
+                result.where((s) => s.stat == 'p50').toList(),
+                units: 'day',
+              ),
+            );
+            group.addSeries(
+              TimeSeries(
+                'Google3 P90 sync latency',
                 result.where((s) => s.stat == 'p90').toList(),
                 units: 'day',
               ),

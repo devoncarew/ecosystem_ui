@@ -25,19 +25,18 @@ class Google3 {
           // "last_updated": "2022-06-02T04:22:31.000",
           // "pending_commits": 6,
           // "latency_seconds": 103895
+          // "unsynced_commit_date": "2022-06-02T04:22:31.000",
 
-          DateTime? lastUpdated;
-          if (map['last_updated'] != null) {
-            lastUpdated = DateTime.parse(map['last_updated']);
-          }
+          DateTime? latencyDate = map.containsKey('unsynced_commit_date')
+              ? DateTime.parse(map['unsynced_commit_date'])
+              : null;
 
           return Google3Dependency(
             name: map['name'] as String,
             firstParty: map['is_first_party'] as bool,
             commit: map['version'] as String?,
-            lastUpdated: lastUpdated,
             pendingCommits: (map['pending_commits'] as int?) ?? 0,
-            latencySeconds: map['latency_seconds'] as int?,
+            latencyDate: latencyDate,
           );
         })
         .whereType<Google3Dependency>()
@@ -49,18 +48,30 @@ class Google3Dependency {
   final String name;
   final bool firstParty;
   final String? commit;
-  final DateTime? lastUpdated;
   final int pendingCommits;
-  final int? latencySeconds;
+  final DateTime? latencyDate;
 
   Google3Dependency({
     required this.name,
     required this.firstParty,
     required this.commit,
-    required this.lastUpdated,
     required this.pendingCommits,
-    required this.latencySeconds,
+    required this.latencyDate,
   });
+
+  int get syncLatencyDays {
+    // Up to date.
+    if (latencyDate == null) {
+      return 0;
+    }
+
+    var date = latencyDate;
+    if (date == null) {
+      return 0;
+    } else {
+      return DateTime.now().toUtc().difference(date).inDays;
+    }
+  }
 
   @override
   String toString() => '$name 0x$commit';

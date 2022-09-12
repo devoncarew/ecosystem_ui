@@ -139,9 +139,9 @@ class DataModel {
           name: item.get('name'),
           firstParty: item.get('firstParty'),
           commit: item.get('commit'),
-          lastUpdated: item.get('lastUpdated'),
           pendingCommits: item.get('pendingCommits'),
-          latencySeconds: item.get('latencySeconds'),
+          // latencySeconds: item.get('latencySeconds'),
+          latencyDate: item.get('latencyDate'),
         );
       }).toList();
       _googleDependencies.value = result;
@@ -867,29 +867,24 @@ class Google3Dep {
   final String name;
   final bool firstParty;
   final String? commit;
-  // We don't use this field.
-  final Timestamp? lastUpdated;
   final int pendingCommits;
-  // TODO: Instead, here we want a date for the oldest unsynced commit
-  final int? latencySeconds;
+  final Timestamp? latencyDate;
 
   Google3Dep({
     required this.name,
     required this.firstParty,
     required this.commit,
-    required this.lastUpdated,
     required this.pendingCommits,
-    required this.latencySeconds,
+    required this.latencyDate,
   });
 
   int? get unsyncedDays {
-    const secondsInDays = 24 * 60 * 60;
-
-    if (latencySeconds == null) {
+    var date = latencyDate;
+    if (date == null) {
       return null;
     }
 
-    return latencySeconds! ~/ secondsInDays;
+    return DateTime.now().toUtc().difference(date.toDate()).inDays;
   }
 
   String get syncLatencyDescription {

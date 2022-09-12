@@ -18,11 +18,8 @@ class Firestore {
   Firestore({required this.profiler});
 
   Future setup() async {
-    // Set the GOOGLE_APPLICATION_CREDENTIALS env var to the path containing the
-    // cloud console service account key.
-
-    // print("env['GOOGLE_APPLICATION_CREDENTIALS']="
-    //     "${io.Platform.environment['GOOGLE_APPLICATION_CREDENTIALS']}");
+    // Note: for local development, set the GOOGLE_APPLICATION_CREDENTIALS env
+    // var to the path containing the cloud console service account key.
 
     _client = await clientViaApplicationDefaultCredentials(
       scopes: [FirestoreApi.datastoreScope],
@@ -85,122 +82,6 @@ class Firestore {
     } while (response.nextPageToken != null);
 
     return repositories.toList()..sort();
-  }
-
-  Future convertOlderStats() async {
-    final List<FirestorePackageInfo> packages = [];
-    ListDocumentsResponse? response;
-    do {
-      response = await documents.list(
-        documentsPath,
-        'stats',
-        pageToken: response?.nextPageToken,
-      );
-
-      // final Document doc = Document(
-      //   fields: {
-      //     'category': valueStr(category),
-      //     'stat': valueStr(stat),
-      //     'value': valueInt(value),
-      //     'timestamp': Value(timestampValue: timestampUtc.toIso8601String()),
-      //   },
-      // );
-
-      for (var doc in response.documents!) {
-        final fields = doc.fields!;
-
-        String field(String name) {
-          return fields[name]!.stringValue!;
-        }
-
-        DateTime? parseTimestamp(String? val) {
-          return val == null ? null : DateTime.parse(val);
-        }
-
-        String category = field('category');
-        String stat = field('stat');
-        int value = int.parse(fields['value']!.integerValue!);
-        DateTime timestamp =
-            parseTimestamp(fields['timestamp']!.timestampValue!)!;
-
-        print('$category,$stat,$value ==>');
-
-        // [publisher.unownedCount,dart.dev] => [package.count,unowned,]
-        // [publisher.packageCount,dart.dev] => [package.count,count,]
-        if (category == 'publisher.unownedCount') {
-          await logStat(
-            category: 'package.count',
-            stat: 'unowned',
-            detail: stat,
-            value: value,
-            timestampUtc: timestamp,
-          );
-        } else if (category == 'publisher.packageCount') {
-          await logStat(
-            category: 'package.count',
-            stat: 'count',
-            detail: stat,
-            value: value,
-            timestampUtc: timestamp,
-          );
-        }
-
-        // [publisher.publishLatency.p50,dart.dev] => [package.latency,p50]
-        // [publisher.publishLatency.p90,dart.dev] => [package.latency,p90]
-        else if (category == 'publisher.publishLatency.p50') {
-          await logStat(
-            category: 'package.latency',
-            stat: 'p50',
-            detail: stat,
-            value: value,
-            timestampUtc: timestamp,
-          );
-        } else if (category == 'publisher.publishLatency.p90') {
-          await logStat(
-            category: 'package.latency',
-            stat: 'p90',
-            detail: stat,
-            value: value,
-            timestampUtc: timestamp,
-          );
-        }
-
-        // [sdk,depsCount] => [sdk.deps,count]
-        else if (category == 'sdk' && stat == 'depsCount') {
-          await logStat(
-            category: 'sdk.deps',
-            stat: 'count',
-            value: value,
-            timestampUtc: timestamp,
-          );
-        }
-
-        // [sdk,syncLatency.p50] => [sdk.latency,p50]
-        // [sdk,syncLatency.p90] => [sdk.latency,p90]
-        else if (category == 'sdk' && stat == 'syncLatency.p50') {
-          await logStat(
-            category: 'sdk.latency',
-            stat: 'p50',
-            value: value,
-            timestampUtc: timestamp,
-          );
-        } else if (category == 'sdk' && stat == 'syncLatency.p90') {
-          await logStat(
-            category: 'sdk.latency',
-            stat: 'p90',
-            value: value,
-            timestampUtc: timestamp,
-          );
-        } else {
-          print('  not found');
-          continue;
-        }
-
-        await documents.delete(doc.name!);
-      }
-    } while (response.nextPageToken != null);
-
-    return packages;
   }
 
   Future<List<FirestorePackageInfo>> queryPackagesForPublishers(
@@ -356,7 +237,9 @@ class Firestore {
 
     // todo: handle error conditions
     await profiler.run(
-        'firebase.create', documents.createDocument(doc, documentsPath, 'log'));
+      'firebase.create',
+      documents.createDocument(doc, documentsPath, 'log'),
+    );
   }
 
   Future logStat({
@@ -430,7 +313,7 @@ class Firestore {
         documents.list(parent, collectionId, pageSize: pageSize));
   }
 
-  Future<List<String>> getGoogle3Dependencies() async {
+  Future<List<String>> getGoogle3DepNames() async {
     ListDocumentsResponse response = await documents.list(
       documentsPath,
       'google3',
@@ -438,6 +321,34 @@ class Firestore {
     );
     return response.documents!.map((Document doc) {
       return doc.fields!['name']!.stringValue!;
+    }).toList();
+  }
+
+  Future<List<Google3Dependency>> getGoogle3Deps() async {
+    int? parseInt(String? val) {
+      return val == null ? null : int.parse(val);
+    }
+
+    DateTime? parseTimestamp(String? val) {
+      return val == null ? null : DateTime.parse(val);
+    }
+
+    ListDocumentsResponse response = await documents.list(
+      documentsPath,
+      'google3',
+      pageSize: 300,
+    );
+
+    return response.documents!.map((Document doc) {
+      final fields = doc.fields!;
+
+      return Google3Dependency(
+        name: fields['name']!.stringValue!,
+        firstParty: fields['firstParty']!.booleanValue!,
+        commit: fields['commit']!.stringValue,
+        pendingCommits: parseInt(fields['pendingCommits']!.integerValue)!,
+        latencyDate: parseTimestamp(fields['latencyDate']?.timestampValue),
+      );
     }).toList();
   }
 
@@ -494,7 +405,7 @@ class Firestore {
     required Logger logger,
   }) async {
     // Read current deps
-    final List<String> currentDeps = await getGoogle3Dependencies();
+    final List<String> currentDeps = await getGoogle3DepNames();
 
     // Update commit info
     logger.write('');
@@ -558,24 +469,6 @@ class Firestore {
     }
   }
 
-  // Future updateRepositoryInfo(RepositoryInfo repo) async {
-  //   final Document doc = Document(
-  //     fields: {
-  //       'org': valueStr(repo.org),
-  //       'name': valueStr(repo.name),
-  //       'actionsConfig': valueStrNullable(repo.actionsConfig),
-  //       'actionsFile': valueStrNullable(repo.actionsFile),
-  //       'dependabotConfig': valueStrNullable(repo.dependabotConfig),
-  //     },
-  //   );
-
-  //   final repositoryPath =
-  //       getDocumentName('repositories', repo.firestoreEntityId);
-
-  //   // todo: handle error conditions
-  //   await documents.patch(doc, repositoryPath);
-  // }
-
   Future updateSdkDependency(SdkDependency dependency) async {
     var existingInfo = await getSdkRepositoryInfo(dependency.name);
     var commit = dependency.commitInfo!;
@@ -586,8 +479,6 @@ class Firestore {
       var oldest = dependency.unsyncedCommits.last;
       unsyncedTimestamp = oldest.committedDate.toIso8601String();
     }
-
-    // print('  unsynced=$unsyncedTimestamp');
 
     final Document doc = Document(
       fields: {
@@ -635,40 +526,18 @@ class Firestore {
   }
 
   Future updateGoogle3Dependency(Google3Dependency dependency) async {
-    // var existingInfo = await getGoogle3RepositoryInfo(
-    //   firestoreEntityEncode(dependency.name),
-    // );
-    // var commit = dependency.commitInfo!;
-
-    // String? unsyncedTimestamp;
-    // if (dependency.unsyncedCommits.isNotEmpty) {
-    //   dependency.unsyncedCommits.sort();
-    //   var oldest = dependency.unsyncedCommits.last;
-    //   unsyncedTimestamp = oldest.committedDate.toIso8601String();
-    // }
-
-    // final String name;
-    // final bool firstParty;
-    // final String commit;
-    // final DateTime lastUpdated;
-    // final int pendingCommits;
-    // final int latencySeconds;
-
     final Document doc = Document(
       fields: {
         'name': valueStr(dependency.name),
         'firstParty': valueBool(dependency.firstParty),
         'commit': valueStrNullable(dependency.commit),
-        'lastUpdated': dependency.lastUpdated == null
+        'pendingCommits': valueInt(dependency.pendingCommits),
+        'latencyDate': dependency.latencyDate == null
             ? valueNull()
             : Value(
                 timestampValue:
-                    dependency.lastUpdated!.toUtc().toIso8601String(),
+                    dependency.latencyDate!.toUtc().toIso8601String(),
               ),
-        'pendingCommits': valueInt(dependency.pendingCommits),
-        'latencySeconds': dependency.latencySeconds == null
-            ? valueNull()
-            : valueInt(dependency.latencySeconds!),
       },
     );
 
