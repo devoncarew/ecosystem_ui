@@ -74,7 +74,7 @@ class _ChartsPageState extends State<ChartsPage> {
   @override
   Widget build(BuildContext context) {
     final titleStyle =
-        Theme.of(context).textTheme.subtitle1!.copyWith(color: titleColor);
+        Theme.of(context).textTheme.titleMedium!.copyWith(color: titleColor);
 
     return Stack(
       children: <Widget>[

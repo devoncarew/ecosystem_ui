@@ -110,7 +110,7 @@ class _PackagesSheetState extends State<PackagesSheet>
           constraints: const BoxConstraints(maxHeight: toolbarHeight),
           child: ToggleButtons(
             borderRadius: BorderRadius.circular(6),
-            textStyle: Theme.of(context).textTheme.subtitle1,
+            textStyle: Theme.of(context).textTheme.titleMedium,
             isSelected: [
               ...widget.publishers.map((p) => visiblePublishers.contains(p)),
             ],

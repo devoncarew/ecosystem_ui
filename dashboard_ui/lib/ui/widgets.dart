@@ -161,7 +161,7 @@ class LargeDialog extends StatelessWidget {
 
       return AlertDialog(
         title: Text(title),
-        contentTextStyle: Theme.of(context).textTheme.bodyText2,
+        contentTextStyle: Theme.of(context).textTheme.bodyMedium,
         contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
         content: DecoratedBox(
           decoration: const BoxDecoration(
@@ -204,7 +204,7 @@ class ExclusiveToggleButtons<T extends Enum> extends StatelessWidget {
       constraints: const BoxConstraints(maxHeight: _toolbarHeight),
       child: ToggleButtons(
         borderRadius: BorderRadius.circular(6),
-        textStyle: Theme.of(context).textTheme.subtitle1,
+        textStyle: Theme.of(context).textTheme.titleMedium,
         isSelected: [
           ...values.map((e) => e == selection),
         ],
