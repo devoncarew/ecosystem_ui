@@ -8,10 +8,11 @@ environment:
 dependencies:
   args: any
   googleapis_auth: ^1.1.0
-  googleapis: ^8.0.0
+  googleapis: ^9.0.0
+  http: ^0.13.0
   path: ^1.8.0
   graphql: ^5.1.1
 
 dev_dependencies:
-  lints: ^1.0.0
+  lints: ^2.0.0
   test: ^1.16.0

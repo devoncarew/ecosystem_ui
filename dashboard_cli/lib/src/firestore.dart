@@ -151,23 +151,25 @@ class Firestore {
   Future<Document> documentsGet(String name) async {
     return profiler.run('firebase.read', documents.get(name));
   }
-  // Future<Map<String, Value>?> getGoogle3RepositoryInfo(String repoName) async {
-  //   try {
-  //     final packagePath = getDocumentName('google3', repoName);
-  //     var result = await documents.get(packagePath);
-  //     return result.fields;
-  //   } on DetailedApiRequestError catch (e) {
-  //     if (e.status == 404) {
-  //       // Ignore these - we know some documents won't yet exist.
-  //       return null;
-  //     }
-  //     print(e);
-  //     return null;
-  //   } catch (e) {
-  //     print(e);
-  //     return null;
-  //   }
-  // }
+
+  Future<Map<String, Value>?> getGoogle3DepInfo(String packageName) async {
+    try {
+      final docPath =
+          getDocumentName('google3', firestoreEntityEncode(packageName));
+      var result = await documents.get(docPath);
+      return result.fields;
+    } on DetailedApiRequestError catch (e) {
+      if (e.status == 404) {
+        // Ignore these - we know some documents won't yet exist.
+        return null;
+      }
+      print(e);
+      return null;
+    } catch (e) {
+      print(e);
+      return null;
+    }
+  }
 
   Future<Document> updatePackageInfo(
     String packageName, {
@@ -348,6 +350,7 @@ class Firestore {
         commit: fields['commit']!.stringValue,
         pendingCommits: parseInt(fields['pendingCommits']!.integerValue)!,
         latencyDate: parseTimestamp(fields['latencyDate']?.timestampValue),
+        error: fields['error']?.stringValue,
       );
     }).toList();
   }
@@ -526,6 +529,8 @@ class Firestore {
   }
 
   Future updateGoogle3Dependency(Google3Dependency dependency) async {
+    var existingInfo = await getGoogle3DepInfo(dependency.name);
+
     final Document doc = Document(
       fields: {
         'name': valueStr(dependency.name),
@@ -538,11 +543,12 @@ class Firestore {
                 timestampValue:
                     dependency.latencyDate!.toUtc().toIso8601String(),
               ),
+        if (dependency.error != null)
+          'error': valueStrNullable(dependency.error),
       },
     );
 
-    // todo: handle error conditions
-    /*var updatedInfo =*/ await documents.patch(
+    var updatedInfo = await documents.patch(
       doc,
       getDocumentName(
         'google3',
@@ -550,29 +556,19 @@ class Firestore {
       ),
     );
 
-    // const ignoreKeys = {
-    //   'syncedCommitDate',
-    //   'unsyncedCommits',
-    //   'unsyncedCommitDate',
-    // };
-
-    // // Record any interesting changes in the log.
-    // if (existingInfo != null) {
-    //   var updatedFields = updatedInfo.fields!;
-    //   for (var field in existingInfo.keys) {
-    //     if (updatedFields.keys.contains(field) &&
-    //         !compareValues(existingInfo[field]!, updatedFields[field]!)) {
-    //       if (ignoreKeys.contains(field)) {
-    //         continue;
-    //       }
-
-    //       log(
-    //         entity: 'Google3 dep: ${dependency.orgAndName}',
-    //         change: '$field => ${printValue(updatedFields[field]!)}',
-    //       );
-    //     }
-    //   }
-    // }
+    // Record interesting changes in the log.
+    if (existingInfo != null) {
+      var updatedFields = updatedInfo.fields!;
+      for (var field in ['commit']) {
+        if (updatedFields.keys.contains(field) &&
+            !compareValues(existingInfo[field]!, updatedFields[field]!)) {
+          log(
+            entity: 'Google3 dep: ${dependency.name}',
+            change: '$field => ${printValue(updatedFields[field]!)}',
+          );
+        }
+      }
+    }
   }
 
   Future<Document> documentsPatch(
