@@ -37,6 +37,8 @@ class Google3 {
             commit: map['version'] as String?,
             pendingCommits: (map['pending_commits'] as int?) ?? 0,
             latencyDate: latencyDate,
+            error:
+                map.containsKey('error') ? 'error retrieving git info' : null,
           );
         })
         .whereType<Google3Dependency>()
@@ -50,6 +52,7 @@ class Google3Dependency {
   final String? commit;
   final int pendingCommits;
   final DateTime? latencyDate;
+  final String? error;
 
   Google3Dependency({
     required this.name,
@@ -57,6 +60,7 @@ class Google3Dependency {
     required this.commit,
     required this.pendingCommits,
     required this.latencyDate,
+    required this.error,
   });
 
   int get syncLatencyDays {

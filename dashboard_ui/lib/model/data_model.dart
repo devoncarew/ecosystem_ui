@@ -140,8 +140,8 @@ class DataModel {
           firstParty: item.get('firstParty'),
           commit: item.get('commit'),
           pendingCommits: item.get('pendingCommits'),
-          // latencySeconds: item.get('latencySeconds'),
           latencyDate: item.get('latencyDate'),
+          error: item.data().containsKey('error') ? item.get('error') : null,
         );
       }).toList();
       _googleDependencies.value = result;
@@ -203,19 +203,6 @@ class DataModel {
       return dep.name == package.name;
     });
   }
-
-  // Future _initRepositories() async {
-  //   firestore
-  //       .collection('repositories')
-  //       .snapshots()
-  //       .listen((QuerySnapshot<SnapshotItems> snapshot) {
-  //     _strobeBusy();
-  //     List<RepositoryInfo> repos =
-  //         snapshot.docs.map((doc) => RepositoryInfo.from(doc)).toList();
-
-  //     _repositories.value = repos;
-  //   });
-  // }
 
   Future _initPackagesData() async {
     firestore
@@ -869,6 +856,7 @@ class Google3Dep {
   final String? commit;
   final int pendingCommits;
   final Timestamp? latencyDate;
+  final String? error;
 
   Google3Dep({
     required this.name,
@@ -876,6 +864,7 @@ class Google3Dep {
     required this.commit,
     required this.pendingCommits,
     required this.latencyDate,
+    required this.error,
   });
 
   int? get unsyncedDays {

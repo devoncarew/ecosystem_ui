@@ -43,9 +43,16 @@ class _Google3SheetState extends State<Google3Sheet>
                   width: 175,
                   grow: 0.2,
                   transformFunction: (dep) {
-                    // TODO: show {dep.package}.discontinued
                     return dep.name;
                   },
+                  validators: [
+                    (Google3Dep dep) {
+                      if (dep.error != null) {
+                        return ValidationResult.error(dep.error!);
+                      }
+                      return null;
+                    }
+                  ],
                 ),
                 VTableColumn(
                   label: 'Publisher',
