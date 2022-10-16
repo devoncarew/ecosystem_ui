@@ -207,6 +207,9 @@ class Firestore {
             : Value(
                 timestampValue:
                     packageInfo.unpublishedCommitDate!.toIso8601String()),
+        'points': valueIntNullable(packageInfo.metrics?.points),
+        'popularity': valueIntNullable(packageInfo.metrics?.popularity),
+        'likes': valueIntNullable(packageInfo.metrics?.likes),
         // if (analysisOptions != null)
         //   'analysisOptions': valueStr(analysisOptions),
       },

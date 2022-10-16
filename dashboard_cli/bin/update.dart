@@ -87,29 +87,6 @@ class StatsCommand extends Command<int> {
   }
 }
 
-// class RepositoriesCommand extends Command<int> {
-//   @override
-//   final String name = 'repositories';
-
-//   @override
-//   List<String> get aliases => const ['repo', 'repos'];
-
-//   @override
-//   final String description =
-//       'Update repository information sourced from github.';
-
-//   RepositoriesCommand();
-
-//   @override
-//   Future<int> run() async {
-//     PackageManager packageManager = PackageManager();
-//     await packageManager.setup();
-//     await packageManager.updateRepositories();
-//     await packageManager.close();
-//     return 0;
-//   }
-// }
-
 class SdkCommand extends Command<int> {
   @override
   final String name = 'sdk';

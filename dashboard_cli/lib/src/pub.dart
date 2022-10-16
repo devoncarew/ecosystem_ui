@@ -29,15 +29,27 @@ class Pub {
   }
 
   Future<PackageInfo> getPackageInfo(String pkgName) async {
-    final PackageOptions options = await getPackageOptions(pkgName);
-    final json = await _getJson(Uri.https('pub.dev', 'api/packages/$pkgName'));
-    return PackageInfo.from(json, options: options);
+    final options = getPackageOptions(pkgName);
+    final metrics = getPackageMetrics(pkgName);
+    final json = _getJson(Uri.https('pub.dev', 'api/packages/$pkgName'));
+
+    return PackageInfo.from(
+      await json,
+      options: await options,
+      metrics: await metrics,
+    );
   }
 
   Future<PackageOptions> getPackageOptions(String pkgName) async {
     final json = await profiler.run('pub.query',
         _getJson(Uri.https('pub.dev', 'api/packages/$pkgName/options')));
     return PackageOptions.from(json);
+  }
+
+  Future<PackageMetrics> getPackageMetrics(String pkgName) async {
+    final json = await profiler.run('pub.query',
+        _getJson(Uri.https('pub.dev', 'api/packages/$pkgName/metrics')));
+    return PackageMetrics.from(json);
   }
 
   Stream<String> _packagesForSearch(String query) async* {
@@ -110,9 +122,14 @@ class PackageInfo {
   // },
 
   final Map<String, dynamic> json;
-  final PackageOptions? options;
+  final PackageOptions options;
+  final PackageMetrics? metrics;
 
-  PackageInfo.from(this.json, {this.options});
+  PackageInfo.from(
+    this.json, {
+    required this.options,
+    this.metrics,
+  });
 
   String get name => json['name'];
   String get version => _latest['version'];
@@ -129,8 +146,8 @@ class PackageInfo {
   late final Map<String, dynamic> _latest = json['latest'];
   late final Map<String, dynamic> _pubspec = _latest['pubspec'];
 
-  bool get isDiscontinued => options?.isDiscontinued ?? false;
-  bool get isUnlisted => options?.isUnlisted ?? false;
+  bool get isDiscontinued => options.isDiscontinued;
+  bool get isUnlisted => options.isUnlisted;
 
   RepoInfo? get repoInfo {
     var url = repository ?? homepage;
@@ -215,4 +232,35 @@ class PackageOptions {
   bool get isDiscontinued => json['isDiscontinued'];
   String? get replacedBy => json['replacedBy'];
   bool get isUnlisted => json['isUnlisted'];
+}
+
+class PackageMetrics {
+  // https://pub.dev/api/packages/collection/metrics
+
+  final Map<String, dynamic> json;
+/* {
+  "score":{
+    "grantedPoints":130,
+    "maxPoints":140,
+    "likeCount":648,
+    "popularityScore":0.9984576670184269,
+*/
+
+  PackageMetrics.from(this.json);
+
+  Map get _score => json['score'];
+
+  int get points {
+    int grantedPoints = _score['grantedPoints'];
+    int maxPoints = _score['maxPoints'];
+
+    if (maxPoints == 0) {
+      return 0;
+    }
+
+    return grantedPoints * 100 ~/ maxPoints;
+  }
+
+  int get likes => _score['likeCount'];
+  int get popularity => ((_score['popularityScore'] as double) * 100).round();
 }

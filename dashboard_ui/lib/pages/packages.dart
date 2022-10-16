@@ -170,7 +170,7 @@ class _PackagesSheetState extends State<PackagesSheet>
       columns: [
         VTableColumn<PackageInfo>(
           label: 'Name',
-          width: 80,
+          width: 110,
           grow: 0.2,
           transformFunction: (package) => package.name,
           styleFunction: PackageInfo.getDisplayStyle,
@@ -318,6 +318,49 @@ class _PackagesSheetState extends State<PackagesSheet>
             return a.version.compareTo(b.version);
           },
           validators: [PackageInfo.validateVersion],
+        ),
+        VTableColumn<PackageInfo>(
+          label: 'Likes',
+          width: 60,
+          alignment: Alignment.centerRight,
+          transformFunction: (package) => package.likes.toString(),
+          compareFunction: (a, b) {
+            return a.likes.compareTo(b.likes);
+          },
+        ),
+        VTableColumn<PackageInfo>(
+          label: 'Score',
+          width: 60,
+          alignment: Alignment.centerRight,
+          transformFunction: (package) => package.score.toString(),
+          compareFunction: (a, b) {
+            return a.score.compareTo(b.score);
+          },
+          validators: [
+            (PackageInfo package) {
+              if (package.score < 85) {
+                return ValidationResult.warning('low package score');
+              }
+              return null;
+            }
+          ],
+        ),
+        VTableColumn<PackageInfo>(
+          label: 'Popularity',
+          width: 60,
+          alignment: Alignment.centerRight,
+          transformFunction: (package) => package.popularity.toString(),
+          compareFunction: (a, b) {
+            return a.popularity.compareTo(b.popularity);
+          },
+          validators: [
+            (PackageInfo package) {
+              if (package.popularity <= 40) {
+                return ValidationResult.warning('low package popularity');
+              }
+              return null;
+            }
+          ],
         ),
       ],
     );
