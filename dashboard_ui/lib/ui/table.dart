@@ -166,6 +166,7 @@ class _VTableState<T> extends State<VTable<T>> {
             onTap: () => trySort(column),
             child: _ColumnHeader(
               title: column.label,
+              icon: column.icon,
               width: colWidths[column],
               alignment: column.alignment,
               sortAscending: column == sortColumn ? sortAscending : null,
@@ -338,13 +339,15 @@ class DetailWidget extends StatelessWidget {
 
 class _ColumnHeader extends StatelessWidget {
   final String title;
-  final Alignment? alignment;
   final double? width;
+  final IconData? icon;
+  final Alignment? alignment;
   final bool? sortAscending;
 
   const _ColumnHeader({
     required this.title,
     required this.width,
+    this.icon,
     this.alignment,
     this.sortAscending,
     Key? key,
@@ -373,11 +376,19 @@ class _ColumnHeader extends StatelessWidget {
                 child: const Icon(Icons.keyboard_arrow_up),
               ),
             Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-                textAlign: swapSortIconSized ? TextAlign.end : null,
-              ),
+              child: icon != null
+                  ? Tooltip(
+                      message: title,
+                      child: Align(
+                        alignment: alignment ?? Alignment.centerLeft,
+                        child: Icon(icon),
+                      ),
+                    )
+                  : Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      textAlign: swapSortIconSized ? TextAlign.end : null,
+                    ),
             ),
             if (sortAscending != null && !swapSortIconSized)
               AnimatedRotation(
@@ -401,6 +412,7 @@ typedef ValidationFunction<T> = ValidationResult? Function(T object);
 class VTableColumn<T> {
   final String label;
   final int width;
+  final IconData? icon;
   final double grow;
   final Alignment? alignment;
 
@@ -413,6 +425,7 @@ class VTableColumn<T> {
   VTableColumn({
     required this.label,
     required this.width,
+    this.icon,
     this.alignment,
     this.grow = 0,
     this.transformFunction,

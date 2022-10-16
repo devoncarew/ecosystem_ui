@@ -57,9 +57,6 @@ class _PackagesSheetState extends State<PackagesSheet>
     showDialog(
       context: context,
       builder: (context) {
-        // TODO: also show analysis options (AnalysisOptionsInfo)
-        // TODO: also show github actions (GitHubActionsInfo)
-        // TODO: also show dependabot (DependabotConfigInfo)
         return LargeDialog(
           title: 'package:${package.name}',
           medium: true,
@@ -178,7 +175,7 @@ class _PackagesSheetState extends State<PackagesSheet>
         ),
         VTableColumn<PackageInfo>(
           label: 'Publisher',
-          width: 80,
+          width: 85,
           grow: 0.1,
           transformFunction: PackageInfo.getPublisherDisplayName,
           styleFunction: PackageInfo.getDisplayStyle,
@@ -321,6 +318,7 @@ class _PackagesSheetState extends State<PackagesSheet>
         ),
         VTableColumn<PackageInfo>(
           label: 'Likes',
+          icon: Icons.thumb_up_alt_outlined,
           width: 60,
           alignment: Alignment.centerRight,
           transformFunction: (package) => package.likes.toString(),
@@ -330,7 +328,8 @@ class _PackagesSheetState extends State<PackagesSheet>
         ),
         VTableColumn<PackageInfo>(
           label: 'Score',
-          width: 60,
+          width: 45,
+          icon: Icons.numbers,
           alignment: Alignment.centerRight,
           transformFunction: (package) => package.score.toString(),
           compareFunction: (a, b) {
@@ -347,7 +346,8 @@ class _PackagesSheetState extends State<PackagesSheet>
         ),
         VTableColumn<PackageInfo>(
           label: 'Popularity',
-          width: 60,
+          width: 45,
+          icon: Icons.show_chart,
           alignment: Alignment.centerRight,
           transformFunction: (package) => package.popularity.toString(),
           compareFunction: (a, b) {
