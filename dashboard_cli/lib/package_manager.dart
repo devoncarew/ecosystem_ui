@@ -289,6 +289,8 @@ class PackageManager {
       for (var field in existingInfo.keys) {
         // These fields are noisy.
         if (field == 'analysisOptions' ||
+            field == 'likes' ||
+            field == 'popularity' ||
             field == 'publishedDate' ||
             field == 'pubspec' ||
             field == 'unpublishedCommitDate' ||

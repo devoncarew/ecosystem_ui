@@ -323,6 +323,9 @@ class PackageInfo {
   final Timestamp publishedDate;
   final int? unpublishedCommits;
   final Timestamp? unpublishedCommitDate;
+  final int likes;
+  final int score;
+  final int popularity;
 
   Map<String, dynamic>? _parsedPubspec;
   String? _pubspecDisplay;
@@ -347,6 +350,9 @@ class PackageInfo {
           data['publishedDate'] ?? Timestamp.fromMillisecondsSinceEpoch(0),
       unpublishedCommits: data['unpublishedCommits'],
       unpublishedCommitDate: data['unpublishedCommitDate'],
+      likes: data['likes'] ?? 0,
+      score: data['points'] ?? 0,
+      popularity: data['popularity'] ?? 0,
     );
   }
 
@@ -364,6 +370,9 @@ class PackageInfo {
     required this.publishedDate,
     required this.unpublishedCommits,
     required this.unpublishedCommitDate,
+    required this.likes,
+    required this.score,
+    required this.popularity,
   });
 
   String? get sdkDep => (parsedPubspec['environment'] ?? const {})['sdk'];

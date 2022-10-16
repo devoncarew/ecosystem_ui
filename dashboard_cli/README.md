@@ -1,2 +1,11 @@
-A sample command-line application with an entrypoint in `bin/`, library code
-in `lib/`, and example unit test in `test/`.
+# dashboard_cli
+
+A Dart CLI tool used to update the Dart Ecosystem dashboard.
+
+## Deploying
+
+- `gcloud run deploy --source .`
+
+or perhaps:
+
+- `gcloud run deploy --source . dashboardcli`
