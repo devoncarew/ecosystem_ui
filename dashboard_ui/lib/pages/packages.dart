@@ -317,23 +317,13 @@ class _PackagesSheetState extends State<PackagesSheet>
           validators: [PackageInfo.validateVersion],
         ),
         VTableColumn<PackageInfo>(
-          label: 'Likes',
-          icon: Icons.thumb_up_alt_outlined,
-          width: 60,
-          alignment: Alignment.centerRight,
-          transformFunction: (package) => package.likes.toString(),
-          compareFunction: (a, b) {
-            return a.likes.compareTo(b.likes);
-          },
-        ),
-        VTableColumn<PackageInfo>(
           label: 'Score',
-          width: 45,
+          width: 50,
           icon: Icons.numbers,
           alignment: Alignment.centerRight,
           transformFunction: (package) => package.score.toString(),
           compareFunction: (a, b) {
-            return a.score.compareTo(b.score);
+            return b.score.compareTo(a.score);
           },
           validators: [
             (PackageInfo package) {
@@ -346,12 +336,12 @@ class _PackagesSheetState extends State<PackagesSheet>
         ),
         VTableColumn<PackageInfo>(
           label: 'Popularity',
-          width: 45,
+          width: 50,
           icon: Icons.show_chart,
           alignment: Alignment.centerRight,
           transformFunction: (package) => package.popularity.toString(),
           compareFunction: (a, b) {
-            return a.popularity.compareTo(b.popularity);
+            return b.popularity.compareTo(a.popularity);
           },
           validators: [
             (PackageInfo package) {
@@ -361,6 +351,16 @@ class _PackagesSheetState extends State<PackagesSheet>
               return null;
             }
           ],
+        ),
+        VTableColumn<PackageInfo>(
+          label: 'Likes',
+          icon: Icons.thumb_up,
+          width: 50,
+          alignment: Alignment.centerRight,
+          transformFunction: (package) => package.likes.toString(),
+          compareFunction: (a, b) {
+            return b.likes.compareTo(a.likes);
+          },
         ),
       ],
     );
