@@ -366,7 +366,6 @@ class PackageManager {
         await google3.getPackageSyncInfo(packages: packages.toSet());
 
     logger.write('${google3Dependencies.length} deps found.');
-    logger.write('');
 
     await firestore.updateGoogle3Dependencies(
       google3Dependencies,
