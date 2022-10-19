@@ -227,18 +227,6 @@ class PackageManager {
       log.write(packageInfo.repository!);
     }
 
-    // var repoInfo = packageInfo.repoInfo;
-    // var url = repoInfo?.getDirectFileUrl('analysis_options.yaml');
-    // // Probe for an analysisOptions.yaml file; this depends on the repository
-    // // field being set correctly.
-    // String? analysisOptions;
-    // if (repoInfo != null && url != null) {
-    //   // TODO: we should also probe up a directory or two if in a mono-repo
-    //   analysisOptions = await _httpClient!.get(Uri.parse(url)).then((response) {
-    //     return response.statusCode == 404 ? null : response.body;
-    //   });
-    // }
-
     // These queries depend on the repository information being correct.
     if (!packageInfo.isDiscontinued &&
         packageInfo.repository != null &&
@@ -300,7 +288,9 @@ class PackageManager {
 
         if (updatedFields.keys.contains(field) &&
             !compareValues(existingInfo[field]!, updatedFields[field]!)) {
-          final change = '$field => ${printValue(updatedFields[field]!)}';
+          final change = '$field: '
+              '${printValue(existingInfo[field]!)} => '
+              '${printValue(updatedFields[field]!)}';
           log.write(change);
           firestore.log(entity: 'package:$packageName', change: change);
         }

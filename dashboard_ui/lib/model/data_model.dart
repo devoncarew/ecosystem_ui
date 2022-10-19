@@ -148,10 +148,6 @@ class DataModel {
     });
   }
 
-  // /// todo: doc
-  // ValueListenable<List<RepositoryInfo>> get repositories => _repositories;
-  // final ValueNotifier<List<RepositoryInfo>> _repositories = ValueNotifier([]);
-
   Future<List<Stat>> queryStats({
     required String category,
     required Duration timePeriod,
@@ -185,12 +181,6 @@ class DataModel {
     // }
     return stats;
   }
-
-  // RepositoryInfo? getRepositoryForPackage(PackageInfo package) {
-  //   return repositories.value.firstWhereOrNull((repo) {
-  //     return repo.org == package.gitOrgName && repo.name == package.gitRepoName;
-  //   });
-  // }
 
   SdkDep? getSdkDepForPackage(PackageInfo package) {
     return sdkDependencies.value.firstWhereOrNull((dep) {

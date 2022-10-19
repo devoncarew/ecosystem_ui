@@ -13,8 +13,6 @@ import '../ui/theme.dart';
 final titleColor = Colors.grey.shade700;
 final borderColor = Colors.grey.shade500;
 
-// todo: fix clip issues
-
 enum ChartTypes {
   packages('package.count'),
   unowned('package.count'),
@@ -146,46 +144,44 @@ class _ChartsPageState extends State<ChartsPage> {
               },
             ),
             Expanded(
-              child: ClipRect(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ValueListenableBuilder<QueryResult>(
-                          valueListenable: queryEngine.queryResult,
-                          builder: (context, result, _) {
-                            return _TimeSeriesLineChart(
-                              group: result.group,
-                              zoom: zoom,
-                            );
-                          },
-                        ),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ValueListenableBuilder<QueryResult>(
+                        valueListenable: queryEngine.queryResult,
+                        builder: (context, result, _) {
+                          return _TimeSeriesLineChart(
+                            group: result.group,
+                            zoom: zoom,
+                          );
+                        },
                       ),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 6),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.zoom_in),
-                              splashRadius: defaultSplashRadius,
-                              onPressed: () {
-                                setState(() => zoom *= 2);
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.zoom_out),
-                              splashRadius: defaultSplashRadius,
-                              onPressed: zoom == 1
-                                  ? null
-                                  : () => setState(() => zoom ~/= 2),
-                            ),
-                          ],
-                        ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.zoom_in),
+                            splashRadius: defaultSplashRadius,
+                            onPressed: () {
+                              setState(() => zoom *= 2);
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.zoom_out),
+                            splashRadius: defaultSplashRadius,
+                            onPressed: zoom == 1
+                                ? null
+                                : () => setState(() => zoom ~/= 2),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -237,8 +233,10 @@ class _TimeSeriesLineChart extends StatelessWidget {
             lineBarsData: group.series.map(createBarData).toList(),
             minX: range.left,
             maxX: range.right,
-            maxY: range.top / zoom,
             minY: range.bottom,
+            maxY: range.top / zoom,
+            clipData:
+                FlClipData(top: true, left: true, right: true, bottom: false),
           ),
           swapAnimationDuration: kThemeAnimationDuration,
         ),

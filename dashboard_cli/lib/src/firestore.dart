@@ -566,7 +566,7 @@ class Firestore {
         if (updatedFields.keys.contains(field) &&
             !compareValues(existingInfo[field]!, updatedFields[field]!)) {
           log(
-            entity: 'Google3 dep: ${dependency.name}',
+            entity: 'Google3 dep package:${dependency.name}',
             change: '$field => ${printValue(updatedFields[field]!)}',
           );
         }
