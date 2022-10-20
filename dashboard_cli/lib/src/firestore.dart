@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:googleapis/firestore/v1.dart';
 import 'package:googleapis_auth/auth_io.dart';
 
@@ -417,11 +418,15 @@ class Firestore {
     logger.write('');
     logger.write('updating dep info...');
 
+    var sdkCommit = google3Dependencies
+        .firstWhereOrNull((dep) => dep.name == 'analyzer')
+        ?.commit;
+
     for (var dep in google3Dependencies) {
       logger
         ..write('  ${dep.name}')
         ..indent();
-      await updateGoogle3Dependency(dep);
+      await updateGoogle3Dependency(dep, sdkCommit: sdkCommit);
       logger.outdent();
     }
 
@@ -531,7 +536,10 @@ class Firestore {
     }
   }
 
-  Future updateGoogle3Dependency(Google3Dependency dependency) async {
+  Future updateGoogle3Dependency(
+    Google3Dependency dependency, {
+    String? sdkCommit,
+  }) async {
     var existingInfo = await getGoogle3DepInfo(dependency.name);
 
     final Document doc = Document(
@@ -563,6 +571,11 @@ class Firestore {
     if (existingInfo != null) {
       var updatedFields = updatedInfo.fields!;
       for (var field in ['commit']) {
+        // Don't both recording the <sdk>/pkg packages ==> google3.
+        if (field == 'commit' && dependency.commit == sdkCommit) {
+          continue;
+        }
+
         if (updatedFields.keys.contains(field) &&
             !compareValues(existingInfo[field]!, updatedFields[field]!)) {
           log(
