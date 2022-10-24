@@ -47,7 +47,7 @@ class _SDKSheetState extends State<SDKSheet>
                   width: 275,
                   grow: 0.2,
                   transformFunction: (dep) => dep.sdkDep.repository,
-                  renderFunction: (BuildContext context, dep) {
+                  renderFunction: (BuildContext context, dep, out) {
                     return Hyperlink(
                       url: dep.sdkDep.repository,
                       displayText:
@@ -98,11 +98,11 @@ class _SDKSheetState extends State<SDKSheet>
                   alignment: Alignment.centerRight,
                   transformFunction: (dep) =>
                       dep.sdkDep.commit.substring(0, commitLength),
-                  renderFunction: (BuildContext context, dep) {
+                  renderFunction: (BuildContext context, dep, out) {
                     return Hyperlink(
                       url:
                           '${dep.sdkDep.repository}/commit/${dep.sdkDep.commit}',
-                      displayText: dep.sdkDep.commit.substring(0, commitLength),
+                      displayText: out,
                     );
                   },
                 ),

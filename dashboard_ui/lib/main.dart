@@ -1,6 +1,7 @@
 // ignore_for_file: avoid_print
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dashboard_ui/pages/repositories.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -122,6 +123,7 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
             Tab(text: 'Packages'),
             Tab(text: 'SDK'),
             Tab(text: 'Google3'),
+            Tab(text: 'Package Repos'),
           ],
         ),
         // todo: build this is a separate method
@@ -193,13 +195,14 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
             PackagesSheet(publishers: publishers),
             SDKSheet(dataModel: widget.dataModel),
             Google3Sheet(dataModel: widget.dataModel),
+            RepositorySheet(dataModel: widget.dataModel),
           ],
         ),
       ),
     );
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: scaffold,
     );
   }

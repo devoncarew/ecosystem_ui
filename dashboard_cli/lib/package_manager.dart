@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 
 import 'src/firestore.dart';
@@ -7,8 +9,6 @@ import 'src/pub.dart';
 import 'src/sdk.dart';
 import 'src/sheets.dart';
 import 'src/utils.dart';
-
-// todo: add information about overall package popularity (rank; # deps)
 
 class PackageManager {
   late final Pub pub;
@@ -235,7 +235,7 @@ class PackageManager {
       var repoInfo = packageInfo.repoInfo!;
 
       var commits = await github.queryCommitsAfter(
-        repo: RepositoryInfo(path: repoInfo.repoOrgAndName!),
+        repo: Repository(path: repoInfo.repoOrgAndName!),
         afterTimestamp: packageInfo.published,
         pathInRepo: repoInfo.monoRepoPath,
       );
@@ -316,7 +316,7 @@ class PackageManager {
         ..indent();
 
       // Get the info about the given sha.
-      RepositoryInfo repo = RepositoryInfo(
+      Repository repo = Repository(
           path: dep.repository.substring('https://github.com/'.length));
       dep.commitInfo =
           await github.getCommitInfoForSha(repo: repo, sha: dep.commit!);
@@ -364,8 +364,6 @@ class PackageManager {
 
     logger.write('');
     logger.close(printElapsedTime: true);
-
-    // github.close();
   }
 
   Future updateMaintainersFromSheets() async {
@@ -394,118 +392,127 @@ class PackageManager {
     logger.close(printElapsedTime: true);
   }
 
-  // final RegExp repoRegex =
-  //     RegExp(r'https:\/\/github\.com\/([\w\d\-_]+)\/([\w\d\-_\.]+)([\/\S]*)');
+  Future updateRepositories() async {
+    final logger = Logger();
+    final publishers = await firestore.queryPublishers();
+    final existingRepositories = (await firestore.queryRespoitories()).toSet();
 
-  // Future updateRepositories() async {
-  //   final logger = Logger();
-  //   final publishers = await firestore.queryPublishers();
+    logger.write('Getting repos for ${publishers.join(', ')}.');
+    var packageRepositories =
+        await firestore.queryRepositoriesForPublishers(publishers.toSet());
+    logger.write('retrieved ${packageRepositories.length} repos');
 
-  //   logger.write('Getting repos for ${publishers.join(', ')}.');
-  //   var repos =
-  //       await firestore.queryRepositoriesForPublishers(publishers.toSet());
-  //   logger.write('retrieved ${repos.length} repos');
+    var repos = getUniqueRepoNames(packageRepositories);
+    logger.write('');
+    logger.write('${repos.length} unique repos');
 
-  //   // ignore anything ending in '.git'
-  //   repos = repos.where((repo) {
-  //     if (repo.endsWith('.git')) {
-  //       logger.write('* ignoring $repo');
-  //     }
-  //     return !repo.endsWith('.git');
-  //   }).toList();
+    var repositories = repos.map((name) => Repository(path: name));
 
-  //   // Collapse sub-dir references (handle mono-repos).
-  //   repos = repos
-  //       .map((repo) {
-  //         var match = repoRegex.firstMatch(repo);
-  //         if (match == null) {
-  //           print('Error parsing $repo');
-  //           return null;
-  //         } else {
-  //           return '${match.group(1)}/${match.group(2)}';
-  //         }
-  //       })
-  //       .whereType<String>()
-  //       .toSet()
-  //       .toList()
-  //     ..sort();
+    final Github github = Github(profiler: profiler);
 
-  //   logger.write('');
-  //   logger.write('${repos.length} sanitized repos');
-  //   Map<String, int> counts = {};
-  //   for (var repo in repos) {
-  //     final key = repo.split('/').first;
-  //     counts[key] = counts.putIfAbsent(key, () => 0) + 1;
-  //   }
-  //   logger.write(counts.keys.map((key) => '  $key: ${counts[key]}').join('\n'));
+    logger.write('');
+    logger.write('Updating repositories...');
 
-  //   // Get commit information from github.
-  //   List<RepositoryInfo> repositories = repos.map((name) {
-  //     return RepositoryInfo(path: name);
-  //   }).toList();
+    for (var repo in repositories) {
+      existingRepositories.remove(repo.path);
 
-  //   final Github github = Github();
+      logger
+        ..write(repo.path)
+        ..indent();
 
-  //   logger.write('');
-  //   logger.write('Updating repositories...');
+      // Look for dependabot configuration.
+      var dependabotFileExists = await github.testFileExists(
+        orgAndRepo: repo.path,
+        filePath: '.github/dependabot.yaml',
+      );
 
-  //   for (var repo in repositories) {
-  //     logger
-  //       ..write(repo.path)
-  //       ..indent();
+      // workflows
+      var workflowStr = await github.callRestApi(Uri.parse(
+        'https://api.github.com/repos/${repo.org}/${repo.name}/actions/workflows',
+      ));
+      var workflows = workflowStr == null
+          ? <GithubWorkflow>[]
+          : GithubWorkflow.parse(workflowStr)
+              .where((workflow) => workflow.active)
+              .toList();
+      var workflowsDesc =
+          workflows.isEmpty ? null : workflows.map((w) => w.path).join(',');
 
-  //     // Look for CI configuration.
-  //     // TODO: look to reduce the number of places to look.
-  //     for (var filePath in [
-  //       '.github/workflows/test-package.yml', // 61
-  //       '.github/workflows/dart.yml', // 15
-  //       '.github/workflows/ci.yml', // 9
-  //       '.github/workflows/build.yaml', // 8
-  //       // '.github/workflows/test.yaml', // 1
-  //     ]) {
-  //       var contents = await github.retrieveFile(
-  //         orgAndRepo: repo.path,
-  //         filePath: filePath,
-  //       );
+      // issues and PRs
+      var repoMetadata = await github.queryRepoIssuesPrs(repo);
+      var untriagedIssues = await github.queryUntriagedIssues(repo);
 
-  //       if (contents != null) {
-  //         var lines = contents.split('\n');
-  //         if (lines.length >= 100) {
-  //           lines = lines.take(99).toList()..add('...');
-  //         }
+      await firestore.updateRepositoryInfo(
+        FirestoreRepositoryInfo(
+          org: repo.org,
+          name: repo.name,
+          workflows: workflowsDesc,
+          hasDependabot: dependabotFileExists,
+          issueCount: untriagedIssues,
+          prCount: repoMetadata.openPRs,
+          defaultBranchName: repoMetadata.defaultBranchName,
+        ),
+      );
 
-  //         repo.actionsConfig = lines.join('\n');
-  //         repo.actionsFile = filePath;
-  //         logger.write('found ${repo.actionsFile}');
+      logger.outdent();
+    }
 
-  //         break;
-  //       }
-  //     }
+    // remove orphaned repos
+    for (var repoPath in existingRepositories) {
+      logger.write('removing $repoPath');
+      await firestore.removeRepo(repoPath);
+    }
 
-  //     // todo: we should remove this filtering
-  //     // Look for dependabot configuration.
-  //     repo.dependabotConfig = await github.retrieveFile(
-  //       orgAndRepo: repo.path,
-  //       filePath: '.github/dependabot.yaml',
-  //     );
-  //     if (repo.dependabotConfig != null) {
-  //       logger.write('found .github/dependabot.yaml');
-  //     }
+    logger.write('');
+    logger.write(profiler.results());
+    logger.close(printElapsedTime: true);
 
-  //     await firestore.updateRepositoryInfo(repo);
-
-  //     logger.outdent();
-  //   }
-
-  //   github.close();
-
-  //   logger.write('');
-  //   logger.close(printElapsedTime: true);
-  // }
+    github.close();
+  }
 
   Future close() async {
     firestore.close();
     pub.close();
     _httpClient?.close();
   }
+}
+
+final RegExp _repoRegex =
+    RegExp(r'https:\/\/github\.com\/([\w\d\-_]+)\/([\w\d\-_\.]+)([\/\S]*)');
+
+List<String> getUniqueRepoNames(List<String> packageRepositories) {
+  // ignore anything ending in '.git'
+  var repos =
+      packageRepositories.where((repo) => !repo.endsWith('.git')).toList();
+
+  // Collapse sub-dir references (handle mono-repos).
+  repos = repos
+      .map((repo) {
+        var match = _repoRegex.firstMatch(repo);
+        return match == null ? null : '${match.group(1)}/${match.group(2)}';
+      })
+      .whereType<String>()
+      .toSet()
+      .toList()
+    ..sort();
+
+  return repos;
+}
+
+class GithubWorkflow {
+  static List<GithubWorkflow> parse(String str) {
+    var json = jsonDecode(str) as Map;
+    var flows = json['workflows'] as List;
+    return flows.map((data) => GithubWorkflow.from(data)).toList();
+  }
+
+  final Map data;
+
+  GithubWorkflow.from(this.data);
+
+  int get id => data['id'];
+  String get name => data['name'];
+  String get path => data['path'];
+  String get state => data['state'];
+  bool get active => state == 'active';
 }

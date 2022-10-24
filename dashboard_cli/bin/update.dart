@@ -24,7 +24,7 @@ class UpdateRunner extends CommandRunner<int> {
     addCommand(PackagesCommand());
     addCommand(SdkCommand());
     addCommand(Google3Command());
-    // addCommand(RepositoriesCommand());
+    addCommand(RepositoriesCommand());
     addCommand(SheetsCommand());
     addCommand(StatsCommand());
   }
@@ -82,6 +82,24 @@ class StatsCommand extends Command<int> {
     PackageManager packageManager = PackageManager();
     await packageManager.setup();
     await packageManager.updateStats();
+    await packageManager.close();
+    return 0;
+  }
+}
+
+class RepositoriesCommand extends Command<int> {
+  @override
+  final String name = 'repos';
+
+  @override
+  final String description =
+      'Update information about the package repositories.';
+
+  @override
+  Future<int> run() async {
+    PackageManager packageManager = PackageManager();
+    await packageManager.setup();
+    await packageManager.updateRepositories();
     await packageManager.close();
     return 0;
   }

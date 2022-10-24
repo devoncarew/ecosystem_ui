@@ -36,7 +36,7 @@ class DataModel {
     () async {
       await _initPackagesData();
       await _initChangelog();
-      // await _initRepositories();
+      await _initRepositories();
       await _initSdkDeps();
       await _initGoogle3Deps();
     }();
@@ -75,6 +75,9 @@ class DataModel {
 
   ValueListenable<List<PackageInfo>> get packages => _packages;
   final ValueNotifier<List<PackageInfo>> _packages = ValueNotifier([]);
+
+  ValueListenable<List<RepositoryInfo>> get repositories => _repositories;
+  final ValueNotifier<List<RepositoryInfo>> _repositories = ValueNotifier([]);
 
   /// todo: doc
   ValueListenable<List<LogItem>> get changeLogItems => _changeLogItems;
@@ -121,6 +124,17 @@ class DataModel {
         );
       }).toList();
       _sdkDependencies.value = result;
+    });
+  }
+
+  Future _initRepositories() async {
+    FirebaseFirestore.instance
+        .collection('repositories')
+        .snapshots()
+        .listen((QuerySnapshot<SnapshotItems> snapshot) {
+      _strobeBusy();
+      var result = snapshot.docs.map(RepositoryInfo.from).toList();
+      _repositories.value = result;
     });
   }
 
@@ -192,6 +206,15 @@ class DataModel {
     return googleDependencies.value.firstWhereOrNull((dep) {
       return dep.name == package.name;
     });
+  }
+
+  List<PackageInfo> getPackagesForRepository(String repoUrl) {
+    var result = packages.value.where((package) {
+      return package.repository != null &&
+          package.repository!.startsWith(repoUrl);
+    }).toList();
+    result.sort((a, b) => a.name.compareTo(b.name));
+    return result;
   }
 
   Future _initPackagesData() async {
@@ -752,39 +775,59 @@ class Commit implements Comparable<Commit> {
   }
 }
 
-// class RepositoryInfo {
-//   final String org;
-//   final String name;
-//   final String? dependabotConfig;
-//   final String? actionsConfig;
-//   final String? actionsFile;
+class RepositoryInfo {
+  final String org;
+  final String name;
+  final List<String> workflows;
+  final bool hasDependabot;
+  final int issueCount;
+  final int prCount;
+  final String defaultBranchName;
 
-//   RepositoryInfo({
-//     required this.org,
-//     required this.name,
-//     required this.dependabotConfig,
-//     required this.actionsConfig,
-//     required this.actionsFile,
-//   });
+  RepositoryInfo({
+    required this.org,
+    required this.name,
+    required this.workflows,
+    required this.hasDependabot,
+    required this.issueCount,
+    required this.prCount,
+    required this.defaultBranchName,
+  });
 
-//   String get repoName => '$org/$name';
+  String get repoName => '$org/$name';
 
-//   factory RepositoryInfo.from(QueryDocumentSnapshot<SnapshotItems> doc) {
-//     final data = doc.data();
+  String get url => 'https://github.com/$org/$name';
 
-//     return RepositoryInfo(
-//       org: doc.get('org'),
-//       name: doc.get('name'),
-//       dependabotConfig: data.containsKey('dependabotConfig')
-//           ? doc.get('dependabotConfig')
-//           : null,
-//       actionsConfig:
-//           data.containsKey('actionsConfig') ? doc.get('actionsConfig') : null,
-//       actionsFile:
-//           data.containsKey('actionsFile') ? doc.get('actionsFile') : null,
-//     );
-//   }
-// }
+  factory RepositoryInfo.from(QueryDocumentSnapshot<SnapshotItems> doc) {
+    final data = doc.data();
+
+    var workflows = <String>[];
+    if (data.containsKey('workflows') && doc.get('workflows') != null) {
+      workflows = (doc.get('workflows') as String).split(',');
+    }
+
+    return RepositoryInfo(
+      org: doc.get('org'),
+      name: doc.get('name'),
+      workflows: workflows,
+      hasDependabot: doc.get('hasDependabot'),
+      issueCount: doc.get('issueCount'),
+      prCount: doc.get('prCount'),
+      defaultBranchName: doc.get('defaultBranchName'),
+    );
+  }
+
+  @override
+  String toString() => repoName;
+
+  @override
+  int get hashCode => repoName.hashCode;
+
+  @override
+  bool operator ==(Object other) {
+    return other is RepositoryInfo && other.repoName == repoName;
+  }
+}
 
 class SdkDep {
   final String name;

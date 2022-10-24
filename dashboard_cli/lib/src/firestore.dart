@@ -50,6 +50,19 @@ class Firestore {
     }).toList();
   }
 
+  Future<List<String>> queryRespoitories() async {
+    ListDocumentsResponse response = await documentsList(
+      documentsPath,
+      'repositories',
+    );
+    return response.documents!.map((Document doc) {
+      // Return the last segment of the document name.
+      var name = doc.name!.split('/').last;
+      name = name.replaceAll('%2F', '/');
+      return name;
+    }).toList();
+  }
+
   /// Return all the pubspec reported repositories for the packages for the
   /// given set of publishers.
   ///
@@ -230,6 +243,31 @@ class Firestore {
     );
   }
 
+  Future<Document> updateRepositoryInfo(FirestoreRepositoryInfo repo) async {
+    final Document doc = Document(
+      fields: {
+        'name': valueStr(repo.name),
+        'org': valueStr(repo.org),
+        'workflows': valueStrNullable(repo.workflows),
+        'hasDependabot': valueBool(repo.hasDependabot),
+        'issueCount': valueInt(repo.issueCount),
+        'prCount': valueInt(repo.prCount),
+        'defaultBranchName': valueStr(repo.defaultBranchName),
+      },
+    );
+
+    return await documentsPatch(
+      doc,
+      getDocumentName('repositories', repo.orgAndName.replaceAll('/', '%2F')),
+    );
+  }
+
+  Future removeRepo(String repoPath) async {
+    await documents.delete(
+      getDocumentName('repositories', repoPath.replaceAll('/', '%2F')),
+    );
+  }
+
   Future log({required String entity, required String change}) async {
     final Document doc = Document(
       fields: {
@@ -270,19 +308,6 @@ class Firestore {
     // todo: handle error conditions
     await documents.createDocument(doc, documentsPath, 'stats');
   }
-
-  // Future<Map<String, Value>?> getRepoInfo(String repoPath) async {
-  //   try {
-  //     var repo = RepositoryInfo(path: repoPath);
-  //     final repositoryPath =
-  //         getDocumentName('repositories', repo.firestoreEntityId);
-  //     var result = await documents.get(repositoryPath);
-  //     return result.fields;
-  //   } catch (e) {
-  //     print(e);
-  //     return null;
-  //   }
-  // }
 
   void close() {
     _client.close();
@@ -682,6 +707,28 @@ class FirestorePackageInfo {
 
     return DateTime.now().toUtc().difference(date).inDays;
   }
+}
+
+class FirestoreRepositoryInfo {
+  final String org;
+  final String name;
+  final String? workflows;
+  final bool hasDependabot;
+  final int issueCount;
+  final int prCount;
+  final String defaultBranchName;
+
+  FirestoreRepositoryInfo({
+    required this.org,
+    required this.name,
+    required this.workflows,
+    required this.hasDependabot,
+    required this.issueCount,
+    required this.prCount,
+    required this.defaultBranchName,
+  });
+
+  String get orgAndName => '$org/$name';
 }
 
 class FirestoreSdkDep {

@@ -196,16 +196,15 @@ class _PackagesSheetState extends State<PackagesSheet>
           grow: 0.2,
           transformFunction: (package) => package.repository ?? '',
           styleFunction: PackageInfo.getDisplayStyle,
-          renderFunction: (BuildContext context, PackageInfo package) {
-            if (package.repository == null) {
-              return const SizedBox();
-            } else {
-              return Hyperlink(
-                url: package.repository!,
-                displayText: trimPrefix(package.repository!, 'https://'),
-                style: PackageInfo.getDisplayStyle(package),
-              );
-            }
+          renderFunction:
+              (BuildContext context, PackageInfo package, String out) {
+            if (package.repository == null) return null;
+
+            return Hyperlink(
+              url: package.repository!,
+              displayText: trimPrefix(package.repository!, 'https://'),
+              style: PackageInfo.getDisplayStyle(package),
+            );
           },
           validators: [
             PackageInfo.validateRepositoryInfo,
@@ -215,20 +214,17 @@ class _PackagesSheetState extends State<PackagesSheet>
           label: 'Issues',
           width: 80,
           alignment: Alignment.centerRight,
-          transformFunction: (PackageInfo package) {
-            return package.issuesUrl ?? '';
-          },
-          renderFunction: (BuildContext context, PackageInfo package) {
+          transformFunction: (PackageInfo package) => package.issuesUrl ?? '',
+          renderFunction:
+              (BuildContext context, PackageInfo package, String out) {
             var url = package.issuesUrl;
-            if (url == null) {
-              return const SizedBox();
-            } else {
-              return Hyperlink(
-                url: url,
-                displayText: 'link',
-                style: PackageInfo.getDisplayStyle(package),
-              );
-            }
+            if (url == null) return null;
+
+            return Hyperlink(
+              url: url,
+              displayText: 'link',
+              style: PackageInfo.getDisplayStyle(package),
+            );
           },
         ),
         VTableColumn(

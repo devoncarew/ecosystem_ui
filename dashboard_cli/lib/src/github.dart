@@ -1,6 +1,5 @@
 import 'dart:io';
 
-//import 'package:dashboard_cli/src/pub.dart';
 //import 'package:gql/src/language/parser.dart';
 import 'package:graphql/client.dart';
 import 'package:http/http.dart' as http;
@@ -21,12 +20,16 @@ class Github {
     return _client.query(options);
   }
 
+  http.Client get httpClient => (_httpClient ??= http.Client());
+
   void close() {
     _httpClient?.close();
   }
 
+  String? get _githubAuthToken => Platform.environment['GITHUB_TOKEN'];
+
   GraphQLClient _initGraphQLClient() {
-    final token = Platform.environment['GITHUB_TOKEN'];
+    final token = _githubAuthToken;
     if (token == null) {
       throw 'This tool expects a github access token in the GITHUB_TOKEN '
           'environment variable.';
@@ -42,7 +45,7 @@ class Github {
   }
 
   Future<Commit> getCommitInfoForSha({
-    required RepositoryInfo repo,
+    required Repository repo,
     required String sha,
   }) async {
     final queryString = '''{
@@ -118,7 +121,7 @@ class Github {
 
   // todo: support paging?
   Future<List<Commit>> queryCommitsAfter({
-    required RepositoryInfo repo,
+    required Repository repo,
     required String afterTimestamp,
     bool filterNonContentCommits = true,
     String? pathInRepo,
@@ -208,6 +211,62 @@ class Github {
     return Commit.fromQuery(result.data!['repository']['object']);
   }
 
+  Future<RepoMetadata> queryRepoIssuesPrs(Repository repo) async {
+    final queryString = '''
+query {
+  repository(owner: "${repo.org}", name: "${repo.name}") {
+    open: issues(states: OPEN) {
+      totalCount
+    },
+    pullRequests: pullRequests(states: OPEN) {
+      totalCount
+    },
+    defaultBranchRef {
+      name
+    }
+  }
+}
+''';
+
+    final result = await query(QueryOptions(document: gql(queryString)));
+    if (result.hasException) {
+      throw result.exception!;
+    }
+
+    final Map repositoryData = result.data!['repository'];
+    var issueCount = repositoryData['open']['totalCount'];
+    var prCount = repositoryData['pullRequests']['totalCount'];
+    var defaultBranchName = repositoryData['defaultBranchRef']['name'];
+
+    return RepoMetadata(
+      openIssues: issueCount,
+      openPRs: prCount,
+      defaultBranchName: defaultBranchName,
+    );
+  }
+
+  Future<int> queryUntriagedIssues(Repository repo) async {
+    final queryString = '''
+{
+  search(type: ISSUE,
+    query: "repo:${repo.org}/${repo.name} state:open no:label"
+  ) {
+    issueCount
+  }
+}
+''';
+
+    final result = await query(QueryOptions(document: gql(queryString)));
+    if (result.hasException) {
+      throw result.exception!;
+    }
+
+    final Map search = result.data!['search'];
+    var issueCount = search['issueCount'];
+
+    return issueCount;
+  }
+
   Future<int?> queryIssueCount(String issuesUrl) async {
     // todo:
     return null;
@@ -260,6 +319,18 @@ class Github {
     // return result.data!['search']['issueCount'];
   }
 
+  Future<String?> callRestApi(Uri uri) async {
+    var token = _githubAuthToken!;
+
+    // TODO: Use 'Bearer $token'?
+    return httpClient.get(uri, headers: {
+      'Authorization': 'token $token',
+      'Accept': 'application/vnd.github+json',
+    }).then((response) {
+      return response.statusCode == 404 ? null : response.body;
+    });
+  }
+
   Iterable<Commit> _getCommitsFromResult(QueryResult result) {
     Map history =
         result.data!['repository']['defaultBranchRef']['target']['history'];
@@ -277,32 +348,48 @@ class Github {
     required String orgAndRepo,
     required String filePath,
   }) {
-    _httpClient ??= http.Client();
     var url = 'https://raw.githubusercontent.com/$orgAndRepo/master/$filePath';
-    return _httpClient!.get(Uri.parse(url)).then((response) {
+    return httpClient.get(Uri.parse(url)).then((response) {
       return response.statusCode == 404 ? null : response.body;
     });
   }
+
+  /// Returns whether the file exists at the given repo and path.
+  Future<bool> testFileExists({
+    required String orgAndRepo,
+    required String filePath,
+  }) {
+    var url = 'https://raw.githubusercontent.com/$orgAndRepo/master/$filePath';
+    return httpClient
+        .head(Uri.parse(url))
+        .then((response) => response.statusCode != 404);
+  }
 }
 
-class RepositoryInfo {
+class Repository {
   /// This is a combined github org and repo name - i.e., `dart-lang/sdk`.
   final String path;
 
-  // String? dependabotConfig;
-  // String? actionsConfig;
-  // String? actionsFile;
-
-  RepositoryInfo({required this.path});
+  Repository({required this.path});
 
   String get org => path.substring(0, path.indexOf('/'));
 
   String get name => path.substring(path.indexOf('/') + 1);
 
-  // String get firestoreEntityId => firestoreEntityEncode(path);
-
   @override
   String toString() => path;
+}
+
+class RepoMetadata {
+  final int openIssues;
+  final int openPRs;
+  final String defaultBranchName;
+
+  RepoMetadata({
+    required this.openIssues,
+    required this.openPRs,
+    required this.defaultBranchName,
+  });
 }
 
 class Commit implements Comparable<Commit> {

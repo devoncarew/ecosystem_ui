@@ -95,7 +95,7 @@ class _Google3SheetState extends State<Google3Sheet>
                     }
                     return dep.commit!.substring(0, commitLength);
                   },
-                  renderFunction: (BuildContext context, dep) {
+                  renderFunction: (BuildContext context, dep, out) {
                     var packageInfo = packageNameMap[dep.name];
                     if (packageInfo == null) return null;
 
