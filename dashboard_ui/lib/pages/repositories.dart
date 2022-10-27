@@ -27,8 +27,9 @@ class _RepositorySheetState extends State<RepositorySheet>
       builder: (context, packages, _) {
         return ValueListenableBuilder<List<RepositoryInfo>>(
           valueListenable: widget.dataModel.repositories,
-          builder: (context, repositories, _) {
-            return VTable<RepositoryInfo>(
+          builder: (context, repos, _) {
+            var repositories = tableRepos(widget.dataModel, repos);
+            return VTable<TableRepoInfo>(
               items: repositories,
               tableDescription: '${repositories.length} repos',
               columns: [
@@ -64,17 +65,9 @@ class _RepositorySheetState extends State<RepositorySheet>
                   width: 50,
                   grow: 0.0,
                   alignment: Alignment.centerRight,
-                  transformFunction: (repo) {
-                    var packages =
-                        widget.dataModel.getPackagesForRepository(repo.url);
-                    return packages.length.toString();
-                  },
+                  transformFunction: (repo) => repo.packages.length.toString(),
                   compareFunction: (a, b) {
-                    var packagesA =
-                        widget.dataModel.getPackagesForRepository(a.url);
-                    var packagesB =
-                        widget.dataModel.getPackagesForRepository(b.url);
-                    return packagesB.length - packagesA.length;
+                    return b.packages.length - a.packages.length;
                   },
                 ),
                 VTableColumn(
@@ -82,25 +75,14 @@ class _RepositorySheetState extends State<RepositorySheet>
                   width: 250,
                   grow: 0.2,
                   transformFunction: (repo) {
-                    var packages =
-                        widget.dataModel.getPackagesForRepository(repo.url);
-                    return packages.map((p) => p.name).join(', ');
+                    return repo.packages.map((p) => p.name).join(', ');
                   },
                 ),
                 VTableColumn(
                   label: 'Publishers',
                   width: 60,
                   grow: 0.2,
-                  transformFunction: (repo) {
-                    var packages =
-                        widget.dataModel.getPackagesForRepository(repo.url);
-                    var publishers = packages
-                        .map((package) => package.publisher)
-                        .toSet()
-                        .toList();
-                    publishers.sort();
-                    return publishers.join(', ');
-                  },
+                  transformFunction: (repo) => repo.publishers.join(', '),
                 ),
                 VTableColumn(
                   label: 'Issues',
@@ -147,7 +129,7 @@ class _RepositorySheetState extends State<RepositorySheet>
                     );
                   },
                   validators: [
-                    (RepositoryInfo repo) {
+                    (repo) {
                       if (repo.workflows.isEmpty) {
                         return ValidationResult.error('no CI configured');
                       }
@@ -157,7 +139,6 @@ class _RepositorySheetState extends State<RepositorySheet>
                 ),
                 VTableColumn(
                   label: 'Dependabot',
-                  // icon: Icons.developer_board,
                   width: 130,
                   grow: 0.0,
                   transformFunction: (repo) =>
@@ -171,10 +152,14 @@ class _RepositorySheetState extends State<RepositorySheet>
                     );
                   },
                   validators: [
-                    (RepositoryInfo repo) {
+                    (repo) {
                       if (!repo.hasDependabot) {
-                        return ValidationResult.warning(
-                            'dependabot not configured');
+                        const message = 'dependabot not configured';
+                        final isDartDev = repo.publishers.contains('dart.dev');
+
+                        return isDartDev
+                            ? ValidationResult.warning(message)
+                            : ValidationResult.info(message);
                       }
                       return null;
                     }
@@ -190,4 +175,40 @@ class _RepositorySheetState extends State<RepositorySheet>
 
   @override
   bool get wantKeepAlive => true;
+
+  List<TableRepoInfo> tableRepos(
+    DataModel model,
+    List<RepositoryInfo> repositories,
+  ) {
+    return repositories.map((repo) {
+      return TableRepoInfo(repo, model.getPackagesForRepository(repo.url));
+    }).toList();
+  }
+}
+
+class TableRepoInfo {
+  final RepositoryInfo repo;
+  final List<PackageInfo> packages;
+
+  TableRepoInfo(this.repo, this.packages);
+
+  String get name => repo.name;
+  String get org => repo.org;
+  String get url => repo.url;
+  String get repoName => repo.repoName;
+
+  int get issueCount => repo.issueCount;
+  int get prCount => repo.prCount;
+
+  String get defaultBranchName => repo.defaultBranchName;
+  List<String> get workflows => repo.workflows;
+  bool get hasDependabot => repo.hasDependabot;
+
+  List<String> get publishers {
+    return packages
+        .map((PackageInfo package) => package.publisher)
+        .toSet()
+        .toList()
+      ..sort();
+  }
 }

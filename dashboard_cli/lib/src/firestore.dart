@@ -206,6 +206,7 @@ class Firestore {
         'name': valueStr(packageName),
         'publisher': valueStr(publisher),
         'version': valueStr(packageInfo.version),
+        'githubVersion': valueStrNullable(packageInfo.githubVersion),
         'repository': valueStrNullable(repository),
         'issueTracker': valueStrNullable(packageInfo.issueTracker),
         'issueCount': valueIntNullable(packageInfo.issueCount),
@@ -224,8 +225,6 @@ class Firestore {
         'points': valueIntNullable(packageInfo.metrics?.points),
         'popularity': valueIntNullable(packageInfo.metrics?.popularity),
         'likes': valueIntNullable(packageInfo.metrics?.likes),
-        // if (analysisOptions != null)
-        //   'analysisOptions': valueStr(analysisOptions),
       },
     );
 
@@ -379,6 +378,9 @@ class Firestore {
         commit: fields['commit']!.stringValue,
         pendingCommits: parseInt(fields['pendingCommits']!.integerValue)!,
         latencyDate: parseTimestamp(fields['latencyDate']?.timestampValue),
+        hasCopybaraConfig: fields['hasCopybaraConfig']!.booleanValue ?? false,
+        usesCopybaraService:
+            fields['usesCopybaraService']!.booleanValue ?? false,
         error: fields['error']?.stringValue,
       );
     }).toList();
@@ -419,7 +421,7 @@ class Firestore {
       ..removeAll(currentDeps);
     for (var dep in newDeps) {
       logger.write('  adding $dep');
-      await log(entity: 'SDK dep', change: 'added $dep');
+      await log(entity: '[sdk]', change: 'added $dep');
     }
 
     // Remove any repos which are no longer deps.
@@ -428,7 +430,7 @@ class Firestore {
     for (var dep in oldDeps) {
       logger.write('  removing $dep');
       await documents.delete(getDocumentName('sdk_deps', dep));
-      await log(entity: 'SDK dep', change: 'removing $dep');
+      await log(entity: '[sdk]', change: 'removing $dep');
     }
   }
 
@@ -553,7 +555,7 @@ class Firestore {
           }
 
           log(
-            entity: 'SDK dep package:${dependency.name}',
+            entity: '[sdk] package:${dependency.name}',
             change: '$field => ${printValue(updatedFields[field]!)}',
           );
         }
@@ -579,6 +581,8 @@ class Firestore {
                 timestampValue:
                     dependency.latencyDate!.toUtc().toIso8601String(),
               ),
+        'hasCopybaraConfig': valueBool(dependency.hasCopybaraConfig),
+        'usesCopybaraService': valueBool(dependency.usesCopybaraService),
         if (dependency.error != null)
           'error': valueStrNullable(dependency.error),
       },
@@ -604,7 +608,7 @@ class Firestore {
         if (updatedFields.keys.contains(field) &&
             !compareValues(existingInfo[field]!, updatedFields[field]!)) {
           log(
-            entity: 'Google3 dep package:${dependency.name}',
+            entity: '[google3] package:${dependency.name}',
             change: '$field => ${printValue(updatedFields[field]!)}',
           );
         }

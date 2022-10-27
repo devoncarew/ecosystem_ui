@@ -487,6 +487,7 @@ class VTableColumn<T> {
 
 enum Severity {
   info,
+  note,
   warning,
   error,
 }
@@ -503,6 +504,9 @@ class ValidationResult {
   factory ValidationResult.warning(String message) =>
       ValidationResult(message, Severity.warning);
 
+  factory ValidationResult.note(String message) =>
+      ValidationResult(message, Severity.note);
+
   factory ValidationResult.info(String message) =>
       ValidationResult(message, Severity.info);
 
@@ -510,6 +514,8 @@ class ValidationResult {
     switch (severity) {
       case Severity.info:
         return Icons.info;
+      case Severity.note:
+        return Icons.note;
       case Severity.warning:
         return Icons.warning;
       case Severity.error:
@@ -521,6 +527,8 @@ class ValidationResult {
     switch (severity) {
       case Severity.info:
         return Colors.grey.shade400.withAlpha(127);
+      case Severity.note:
+        return Colors.blue.shade200.withAlpha(127);
       case Severity.warning:
         return Colors.yellow.shade200.withAlpha(127);
       case Severity.error:

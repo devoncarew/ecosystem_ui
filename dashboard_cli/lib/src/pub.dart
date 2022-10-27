@@ -142,6 +142,7 @@ class PackageInfo {
   DateTime? unpublishedCommitDate;
 
   int? issueCount;
+  String? githubVersion;
 
   late final Map<String, dynamic> _latest = json['latest'];
   late final Map<String, dynamic> _pubspec = _latest['pubspec'];
@@ -199,26 +200,6 @@ class RepoInfo {
     }
 
     return path.split('/').skip(2).join('/');
-  }
-
-  String? getDirectFileUrl(String file) {
-    var match = _repoRegex.firstMatch(repository);
-    if (match == null) {
-      return null;
-    }
-
-    var org = match.group(1)!;
-    var name = match.group(2)!;
-    var path = match.group(3);
-
-    if (path == null || path.isEmpty) {
-      // TODO: This won't handle repos that use 'main' as the default branch.
-      return 'https://raw.githubusercontent.com/$org/$name/master/$file';
-    } else {
-      path = path.replaceAll('/tree/master/', 'master');
-      path = path.replaceAll('/tree/main/', 'main');
-      return 'https://raw.githubusercontent.com/$org/$name/$path/$file';
-    }
   }
 }
 

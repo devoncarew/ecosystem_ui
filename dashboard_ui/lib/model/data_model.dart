@@ -149,13 +149,21 @@ class DataModel {
         .listen((QuerySnapshot<SnapshotItems> snapshot) {
       _strobeBusy();
       var result = snapshot.docs.map((item) {
+        final data = item.data();
+
         return Google3Dep(
           name: item.get('name'),
           firstParty: item.get('firstParty'),
           commit: item.get('commit'),
           pendingCommits: item.get('pendingCommits'),
           latencyDate: item.get('latencyDate'),
-          error: item.data().containsKey('error') ? item.get('error') : null,
+          hasCopybaraConfig: data.containsKey('hasCopybaraConfig')
+              ? item.get('hasCopybaraConfig')
+              : false,
+          usesCopybaraService: data.containsKey('usesCopybaraService')
+              ? item.get('usesCopybaraService')
+              : false,
+          error: data.containsKey('error') ? item.get('error') : null,
         );
       }).toList();
       _googleDependencies.value = result;
@@ -329,10 +337,10 @@ class PackageInfo {
   final String? issueTracker;
   // todo: issueCount
   final Version version;
+  final Version? githubVersion;
   final bool discontinued;
   final bool unlisted;
   final String pubspec;
-  final String? analysisOptions;
   final Timestamp publishedDate;
   final int? unpublishedCommits;
   final Timestamp? unpublishedCommitDate;
@@ -346,6 +354,10 @@ class PackageInfo {
   factory PackageInfo.from(QueryDocumentSnapshot<SnapshotItems> snapshot) {
     var data = snapshot.data();
     var maintainer = data.containsKey('maintainer') ? data['maintainer'] : '';
+    var githubVersion = data.containsKey('githubVersion')
+        ? (data['githubVersion'] as String?)
+        : null;
+
     return PackageInfo(
       name: data['name'],
       publisher: data['publisher'],
@@ -354,11 +366,11 @@ class PackageInfo {
       issueTracker:
           data.containsKey('issueTracker') ? data['issueTracker'] : null,
       version: Version.parse(data['version']),
+      githubVersion:
+          githubVersion == null ? null : Version.parse(githubVersion),
       discontinued: data['discontinued'],
       unlisted: data['unlisted'],
       pubspec: data['pubspec'],
-      analysisOptions:
-          data.containsKey('analysisOptions') ? data['analysisOptions'] : null,
       publishedDate:
           data['publishedDate'] ?? Timestamp.fromMillisecondsSinceEpoch(0),
       unpublishedCommits: data['unpublishedCommits'],
@@ -376,10 +388,10 @@ class PackageInfo {
     required this.repository,
     required this.issueTracker,
     required this.version,
+    required this.githubVersion,
     required this.discontinued,
     required this.unlisted,
     required this.pubspec,
-    required this.analysisOptions,
     required this.publishedDate,
     required this.unpublishedCommits,
     required this.unpublishedCommitDate,
@@ -495,8 +507,7 @@ class PackageInfo {
       return true;
     }
 
-    if (pubspecDisplay.contains(filter) ||
-        (analysisOptions?.contains(filter) ?? false)) {
+    if (pubspecDisplay.contains(filter)) {
       return true;
     }
 
@@ -550,6 +561,22 @@ class PackageInfo {
         );
       }
     }
+    return null;
+  }
+
+  static ValidationResult? needsPublishValidator(PackageInfo package) {
+    var githubVersion = package.githubVersion;
+    if (package.discontinued || githubVersion == null) {
+      return null;
+    }
+
+    if (package.version < githubVersion && !githubVersion.isPreRelease) {
+      return ValidationResult.note(
+        "unpublished version (github '$githubVersion' is newer than pub.dev "
+        "'${package.version}')",
+      );
+    }
+
     return null;
   }
 
@@ -898,6 +925,8 @@ class Google3Dep {
   final String? commit;
   final int pendingCommits;
   final Timestamp? latencyDate;
+  final bool hasCopybaraConfig;
+  final bool usesCopybaraService;
   final String? error;
 
   Google3Dep({
@@ -906,6 +935,8 @@ class Google3Dep {
     required this.commit,
     required this.pendingCommits,
     required this.latencyDate,
+    required this.hasCopybaraConfig,
+    required this.usesCopybaraService,
     required this.error,
   });
 
@@ -949,6 +980,27 @@ class Google3Dep {
       );
     }
 
+    return null;
+  }
+
+  static ValidationResult? copybaraConfigServiceValidator(
+      Google3Dep dep, String? publisher) {
+    if (!dep.hasCopybaraConfig) {
+      const message = 'Copybara not configured';
+      var dartDev = publisher == 'dart.dev';
+
+      return dartDev
+          ? ValidationResult.error(message)
+          : ValidationResult.warning(message);
+    }
+    return null;
+  }
+
+  static ValidationResult? copybaraServiceValidator(
+      Google3Dep dep, String? publisher) {
+    if (publisher == 'dart.dev' && !dep.usesCopybaraService) {
+      return ValidationResult.warning('Copybara as a service not set up');
+    }
     return null;
   }
 

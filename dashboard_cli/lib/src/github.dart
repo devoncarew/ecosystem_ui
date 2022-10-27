@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 //import 'package:gql/src/language/parser.dart';
@@ -345,24 +346,24 @@ query {
   /// Attempt to return the contents of the github repo file at the given url.
   /// Returns `null` if no such file exists.
   Future<String?> retrieveFile({
-    required String orgAndRepo,
+    required Repository repo,
     required String filePath,
-  }) {
-    var url = 'https://raw.githubusercontent.com/$orgAndRepo/master/$filePath';
-    return httpClient.get(Uri.parse(url)).then((response) {
-      return response.statusCode == 404 ? null : response.body;
-    });
-  }
+  }) async {
+    var url = 'https://api.github.com/repos/${repo.org}/${repo.name}/'
+        'contents/$filePath';
+    var content = await callRestApi(Uri.parse(url));
+    if (content == null) {
+      return null;
+    }
 
-  /// Returns whether the file exists at the given repo and path.
-  Future<bool> testFileExists({
-    required String orgAndRepo,
-    required String filePath,
-  }) {
-    var url = 'https://raw.githubusercontent.com/$orgAndRepo/master/$filePath';
-    return httpClient
-        .head(Uri.parse(url))
-        .then((response) => response.statusCode != 404);
+    // {
+    //   "path": "pubspec.yaml",
+    //   "content": "bmFtZTogc3RyaW5 ... GVzdDogXjEuMTYuMAo=\n",
+    //   "encoding": "base64",
+    // }
+    var json = jsonDecode(content) as Map;
+    var fileContent = (json['content'] as String).replaceAll('\n', '');
+    return utf8.decode(base64Decode(fileContent));
   }
 }
 

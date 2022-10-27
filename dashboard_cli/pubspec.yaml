@@ -10,9 +10,10 @@ dependencies:
   collection: any
   googleapis_auth: ^1.1.0
   googleapis: ^9.0.0
+  graphql: ^5.1.1
   http: ^0.13.0
   path: ^1.8.0
-  graphql: ^5.1.1
+  yaml: ^3.1.0
 
 dev_dependencies:
   lints: ^2.0.0

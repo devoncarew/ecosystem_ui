@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:yaml/yaml.dart' as yaml;
 
 import 'src/firestore.dart';
 import 'src/github.dart';
@@ -185,7 +186,6 @@ class PackageManager {
     String publisher, {
     required Logger logger,
   }) async {
-    // TODO: consider batching these write (documents.batchWrite()).
     logger.write('Updating pub.dev info for $publisher packages...');
 
     _httpClient ??= http.Client();
@@ -253,6 +253,21 @@ class PackageManager {
       }
 
       log.write('unpublished commits: ${packageInfo.unpublishedCommits}');
+
+      // Get the pubspec contents from github.
+      final monoRepoPath = repoInfo.monoRepoPath;
+      final pubspecPath =
+          monoRepoPath == null ? 'pubspec.yaml' : '$monoRepoPath/pubspec.yaml';
+
+      var pubspecContents = await github.retrieveFile(
+        repo: Repository(path: repoInfo.repoOrgAndName!),
+        filePath: pubspecPath,
+      );
+
+      if (pubspecContents != null) {
+        var pubspecYaml = yaml.loadYaml(pubspecContents) as Map;
+        packageInfo.githubVersion = pubspecYaml['version'];
+      }
     }
 
     if (!packageInfo.isDiscontinued && packageInfo.issueTracker != null) {
@@ -276,7 +291,7 @@ class PackageManager {
       var updatedFields = updatedInfo.fields!;
       for (var field in existingInfo.keys) {
         // These fields are noisy.
-        if (field == 'analysisOptions' ||
+        if (field == 'githubVersion' ||
             field == 'likes' ||
             field == 'popularity' ||
             field == 'publishedDate' ||
@@ -421,8 +436,8 @@ class PackageManager {
         ..indent();
 
       // Look for dependabot configuration.
-      var dependabotFileExists = await github.testFileExists(
-        orgAndRepo: repo.path,
+      var dependabotFile = await github.retrieveFile(
+        repo: repo,
         filePath: '.github/dependabot.yaml',
       );
 
@@ -447,7 +462,7 @@ class PackageManager {
           org: repo.org,
           name: repo.name,
           workflows: workflowsDesc,
-          hasDependabot: dependabotFileExists,
+          hasDependabot: dependabotFile != null,
           issueCount: untriagedIssues,
           prCount: repoMetadata.openPRs,
           defaultBranchName: repoMetadata.defaultBranchName,
@@ -514,5 +529,7 @@ class GithubWorkflow {
   String get name => data['name'];
   String get path => data['path'];
   String get state => data['state'];
+
+  // This can be "active", "disabled_inactivity", ...
   bool get active => state == 'active';
 }

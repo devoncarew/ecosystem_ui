@@ -26,6 +26,8 @@ class Google3 {
           // "pending_commits": 6,
           // "latency_seconds": 103895
           // "unsynced_commit_date": "2022-06-02T04:22:31.000",
+          // "has_copybara_config": true
+          // "uses_copybara_service": true
 
           DateTime? latencyDate = map.containsKey('unsynced_commit_date')
               ? DateTime.parse(map['unsynced_commit_date'])
@@ -37,6 +39,8 @@ class Google3 {
             commit: map['version'] as String?,
             pendingCommits: (map['pending_commits'] as int?) ?? 0,
             latencyDate: latencyDate,
+            hasCopybaraConfig: map['has_copybara_config'] ?? false,
+            usesCopybaraService: map['uses_copybara_service'] ?? false,
             error:
                 map.containsKey('error') ? 'error retrieving git info' : null,
           );
@@ -52,6 +56,8 @@ class Google3Dependency {
   final String? commit;
   final int pendingCommits;
   final DateTime? latencyDate;
+  final bool hasCopybaraConfig;
+  final bool usesCopybaraService;
   final String? error;
 
   Google3Dependency({
@@ -60,6 +66,8 @@ class Google3Dependency {
     required this.commit,
     required this.pendingCommits,
     required this.latencyDate,
+    required this.hasCopybaraConfig,
+    required this.usesCopybaraService,
     required this.error,
   });
 
