@@ -83,8 +83,6 @@ class _PackagesSheetState extends State<PackagesSheet>
           '${allFromPublisher.length - packages.length} not shown)';
     }
 
-    const toolbarHeight = 32.0;
-
     return VTable<PackageInfo>(
       items: packages,
       startsSorted: true,
