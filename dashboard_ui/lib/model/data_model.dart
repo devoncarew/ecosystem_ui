@@ -958,6 +958,25 @@ class Google3Dep {
     return '$pendingCommits commits, $unsyncedDays days';
   }
 
+  bool matchesFilter(String filter, PackageInfo? package) {
+    if (name.contains(filter)) {
+      return true;
+    }
+
+    if (package != null) {
+      if (package.publisher.contains(filter)) {
+        return true;
+      }
+    }
+
+    var location = firstParty ? 'google3' : 'github';
+    if (location.contains(filter)) {
+      return true;
+    }
+
+    return false;
+  }
+
   static int compareUnsyncedDays(Google3Dep a, Google3Dep b) {
     var dayDiff = (a.unsyncedDays ?? 0) - (b.unsyncedDays ?? 0);
     if (dayDiff == 0) {
