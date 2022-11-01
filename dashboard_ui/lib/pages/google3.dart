@@ -101,6 +101,26 @@ class _Google3SheetState extends State<Google3Sheet>
           transformFunction: (dep) => dep.firstParty ? 'Google3' : 'GitHub',
         ),
         VTableColumn(
+          label: 'SDK Sync',
+          width: 80,
+          grow: 0.0,
+          alignment: Alignment.center,
+          transformFunction: (dep) => dep.sdkSyncDescription,
+        ),
+        VTableColumn(
+          label: 'Copybara',
+          width: 90,
+          grow: 0.0,
+          alignment: Alignment.center,
+          transformFunction: (dep) => dep.copybaraDescription,
+          validators: [
+            (dep) {
+              var publisher = packageNameMap[dep.name]?.publisher;
+              return Google3Dep.copybaraValidator(dep, publisher);
+            },
+          ],
+        ),
+        VTableColumn(
           label: 'Synced to Commit',
           width: 75,
           grow: 0.1,
@@ -127,26 +147,6 @@ class _Google3SheetState extends State<Google3Sheet>
               displayText: dep.commit!.substring(0, commitLength),
             );
           },
-        ),
-        VTableColumn(
-          label: 'Copybara',
-          width: 90,
-          grow: 0.0,
-          alignment: Alignment.center,
-          transformFunction: (dep) => dep.copybaraDescription,
-          validators: [
-            (dep) {
-              var publisher = packageNameMap[dep.name]?.publisher;
-              return Google3Dep.copybaraValidator(dep, publisher);
-            },
-          ],
-        ),
-        VTableColumn(
-          label: 'SDK Sync',
-          width: 80,
-          grow: 0.0,
-          alignment: Alignment.center,
-          transformFunction: (dep) => dep.sdkSyncDescription,
         ),
         VTableColumn(
           label: 'Google3 Sync Latency',

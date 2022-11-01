@@ -966,23 +966,27 @@ class Google3Dep {
     return '$pendingCommits commits, $unsyncedDays days';
   }
 
-  String get copybaraDescription {
-    if (hasCopybaraConfig && usesCopybaraService) {
-      return 'has config & service';
-    } else if (hasCopybaraConfig) {
-      return 'has config';
-    } else if (usesCopybaraService) {
-      return 'service';
-    } else {
-      return '';
-    }
-  }
-
   String get sdkSyncDescription {
     if (sdkPackage) {
       return 'pkg';
     } else if (bundledPackage) {
       return 'bundled';
+    } else {
+      return '';
+    }
+  }
+
+  String get copybaraDescription {
+    if (sdkPackage) {
+      return 'n/a';
+    }
+
+    if (hasCopybaraConfig && usesCopybaraService) {
+      return 'has config and service';
+    } else if (hasCopybaraConfig) {
+      return 'has config';
+    } else if (usesCopybaraService) {
+      return 'has service';
     } else {
       return '';
     }
