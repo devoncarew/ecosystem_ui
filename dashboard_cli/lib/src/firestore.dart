@@ -609,6 +609,10 @@ class Firestore {
               ),
         'hasCopybaraConfig': valueBool(dependency.hasCopybaraConfig),
         'usesCopybaraService': valueBool(dependency.usesCopybaraService),
+        if (dependency.sdkPackage != null)
+          'sdkPackage': valueBool(dependency.sdkPackage!),
+        if (dependency.bundledPackage != null)
+          'bundledPackage': valueBool(dependency.bundledPackage!),
         if (dependency.error != null)
           'error': valueStrNullable(dependency.error),
       },

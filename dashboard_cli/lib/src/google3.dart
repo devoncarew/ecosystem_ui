@@ -41,6 +41,8 @@ class Google3 {
             latencyDate: latencyDate,
             hasCopybaraConfig: map['has_copybara_config'] ?? false,
             usesCopybaraService: map['uses_copybara_service'] ?? false,
+            sdkPackage: map['sdk_package'],
+            bundledPackage: map['bundled_package'],
             error:
                 map.containsKey('error') ? 'error retrieving git info' : null,
           );
@@ -58,6 +60,8 @@ class Google3Dependency {
   final DateTime? latencyDate;
   final bool hasCopybaraConfig;
   final bool usesCopybaraService;
+  final bool? sdkPackage;
+  final bool? bundledPackage;
   final String? error;
 
   Google3Dependency({
@@ -68,6 +72,8 @@ class Google3Dependency {
     required this.latencyDate,
     required this.hasCopybaraConfig,
     required this.usesCopybaraService,
+    required this.sdkPackage,
+    required this.bundledPackage,
     required this.error,
   });
 

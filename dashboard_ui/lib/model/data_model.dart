@@ -163,10 +163,8 @@ class DataModel {
           usesCopybaraService: data.containsKey('usesCopybaraService')
               ? item.get('usesCopybaraService')
               : false,
-          // todo: update once this key exists
           sdkPackage:
               data.containsKey('sdkPackage') ? item.get('sdkPackage') : false,
-          // todo: update once this key exists
           bundledPackage: data.containsKey('bundledPackage')
               ? item.get('bundledPackage')
               : false,
@@ -968,6 +966,28 @@ class Google3Dep {
     return '$pendingCommits commits, $unsyncedDays days';
   }
 
+  String get copybaraDescription {
+    if (hasCopybaraConfig && usesCopybaraService) {
+      return 'has config & service';
+    } else if (hasCopybaraConfig) {
+      return 'has config';
+    } else if (usesCopybaraService) {
+      return 'service';
+    } else {
+      return '';
+    }
+  }
+
+  String get sdkSyncDescription {
+    if (sdkPackage) {
+      return 'pkg';
+    } else if (bundledPackage) {
+      return 'bundled';
+    } else {
+      return '';
+    }
+  }
+
   bool matchesFilter(String filter, PackageInfo? package) {
     if (name.contains(filter)) {
       return true;
@@ -1012,7 +1032,7 @@ class Google3Dep {
     return null;
   }
 
-  static ValidationResult? copybaraConfigValidator(
+  static ValidationResult? copybaraValidator(
       Google3Dep dep, String? publisher) {
     if (dep.sdkPackage || dep.bundledPackage) return null;
 
@@ -1025,12 +1045,6 @@ class Google3Dep {
           : ValidationResult.warning(message);
     }
 
-    return null;
-  }
-
-  static ValidationResult? copybaraServiceValidator(
-      Google3Dep dep, String? publisher) {
-    if (dep.sdkPackage || dep.bundledPackage) return null;
     if (dep.firstParty) return null;
 
     if (publisher == 'dart.dev' && !dep.usesCopybaraService) {
