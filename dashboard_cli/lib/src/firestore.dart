@@ -407,6 +407,8 @@ class Firestore {
         hasCopybaraConfig: fields['hasCopybaraConfig']!.booleanValue ?? false,
         usesCopybaraService:
             fields['usesCopybaraService']!.booleanValue ?? false,
+        sdkPackage: fields['sdk_package']?.booleanValue,
+        bundledPackage: fields['unbundled_package']?.booleanValue,
         error: fields['error']?.stringValue,
       );
     }).toList();
