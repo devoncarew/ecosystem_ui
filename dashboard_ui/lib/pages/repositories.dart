@@ -22,6 +22,8 @@ class _RepositorySheetState extends State<RepositorySheet>
   Widget build(BuildContext context) {
     super.build(context);
 
+    // todo: add a filter field
+
     return ValueListenableBuilder<List<PackageInfo>>(
       valueListenable: widget.dataModel.packages,
       builder: (context, packages, _) {
@@ -32,6 +34,7 @@ class _RepositorySheetState extends State<RepositorySheet>
             return VTable<TableRepoInfo>(
               items: repositories,
               tableDescription: '${repositories.length} repos',
+              startsSorted: true,
               columns: [
                 VTableColumn(
                   label: 'Repository',
@@ -61,6 +64,14 @@ class _RepositorySheetState extends State<RepositorySheet>
                   ],
                 ),
                 VTableColumn(
+                  label: 'Packages',
+                  width: 250,
+                  grow: 0.2,
+                  transformFunction: (repo) {
+                    return repo.packages.map((p) => p.name).join(', ');
+                  },
+                ),
+                VTableColumn(
                   label: '#',
                   width: 50,
                   grow: 0.0,
@@ -68,14 +79,6 @@ class _RepositorySheetState extends State<RepositorySheet>
                   transformFunction: (repo) => repo.packages.length.toString(),
                   compareFunction: (a, b) {
                     return b.packages.length - a.packages.length;
-                  },
-                ),
-                VTableColumn(
-                  label: 'Packages',
-                  width: 250,
-                  grow: 0.2,
-                  transformFunction: (repo) {
-                    return repo.packages.map((p) => p.name).join(', ');
                   },
                 ),
                 VTableColumn(

@@ -242,6 +242,32 @@ class Firestore {
     );
   }
 
+  Future<List<FirestoreRepositoryInfo>> getFirestoreRepositoryInfo() async {
+    int? parseInt(String? val) {
+      return val == null ? null : int.parse(val);
+    }
+
+    ListDocumentsResponse response = await documents.list(
+      documentsPath,
+      'repositories',
+      pageSize: 300,
+    );
+
+    return response.documents!.map((Document doc) {
+      final fields = doc.fields!;
+
+      return FirestoreRepositoryInfo(
+        org: fields['org']!.stringValue!,
+        name: fields['name']!.stringValue!,
+        workflows: fields['workflows']!.stringValue,
+        hasDependabot: fields['hasDependabot']!.booleanValue!,
+        issueCount: parseInt(fields['issueCount']!.integerValue)!,
+        prCount: parseInt(fields['prCount']!.integerValue)!,
+        defaultBranchName: fields['defaultBranchName']!.stringValue!,
+      );
+    }).toList();
+  }
+
   Future<Document> updateRepositoryInfo(FirestoreRepositoryInfo repo) async {
     final Document doc = Document(
       fields: {
@@ -710,6 +736,10 @@ class FirestorePackageInfo {
     }
 
     return DateTime.now().toUtc().difference(date).inDays;
+  }
+
+  String? get repoOrgAndName {
+    return repository == null ? null : RepoInfo(repository!).repoOrgAndName;
   }
 }
 

@@ -104,8 +104,44 @@ class PackageManager {
     timestampUtc = DateTime.now().toUtc();
 
     final publishers = await firestore.queryPublishers();
+    // Ensure that the two main dart publihshers are sorted first.
+    for (var pub in ['dart.dev', 'tools.dart.dev'].reversed) {
+      if (publishers.contains(pub)) {
+        publishers.remove(pub);
+        publishers.insert(0, pub);
+      }
+    }
 
     final allPackages = await firestore.queryPackagesForPublishers(publishers);
+
+    final repositories = await firestore.getFirestoreRepositoryInfo();
+    final repoMap = Map<String, _RepoStats>.fromIterable(
+      repositories,
+      key: (r) => (r as FirestoreRepositoryInfo).orgAndName,
+      value: (r) {
+        final repo = r as FirestoreRepositoryInfo;
+        return _RepoStats(
+          orgAndName: repo.orgAndName,
+          issues: repo.issueCount,
+          prs: repo.prCount,
+        );
+      },
+    );
+
+    // Figure out the publishers associated with each repo.
+    for (var package in allPackages) {
+      if (package.publisher == null) {
+        continue;
+      }
+
+      final orgAndName = package.repoOrgAndName;
+      final repo = orgAndName == null ? null : repoMap[orgAndName];
+      if (repo != null) {
+        repo.publishers.add(package.publisher!);
+      }
+    }
+
+    final repos = repoMap.values.toList();
 
     for (var publisher in publishers) {
       logger
@@ -155,6 +191,31 @@ class PackageManager {
         stat: 'p90',
         detail: publisher,
         value: p90,
+        timestampUtc: timestampUtc,
+      );
+
+      // publisher SLO - issue and PR stats
+      final publisherRepos =
+          repos.where((repo) => repo.publishers.contains(publisher)).toList();
+      repos.removeWhere((repo) => repo.publishers.contains(publisher));
+
+      final issues = publisherRepos.fold(0, (int count, r) => count + r.issues);
+      logger.write('untriaged issues: $issues');
+      await firestore.logStat(
+        category: 'slo.issues',
+        stat: 'count',
+        detail: publisher,
+        value: issues,
+        timestampUtc: timestampUtc,
+      );
+
+      final prs = publisherRepos.fold(0, (int count, r) => count + r.prs);
+      logger.write('open prs: $prs');
+      await firestore.logStat(
+        category: 'slo.prs',
+        stat: 'count',
+        detail: publisher,
+        value: prs,
         timestampUtc: timestampUtc,
       );
 
@@ -532,4 +593,23 @@ class GithubWorkflow {
 
   // This can be "active", "disabled_inactivity", ...
   bool get active => state == 'active';
+}
+
+class _RepoStats {
+  final String orgAndName;
+  final int issues;
+  final int prs;
+
+  final Set<String> publishers = {};
+
+  _RepoStats({
+    required this.orgAndName,
+    required this.issues,
+    required this.prs,
+  });
+
+  @override
+  String toString() {
+    return '$orgAndName: $issues, $prs, $publishers';
+  }
 }

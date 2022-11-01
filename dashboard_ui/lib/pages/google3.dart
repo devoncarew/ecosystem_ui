@@ -52,6 +52,7 @@ class _Google3SheetState extends State<Google3Sheet>
     return VTable<Google3Dep>(
       items: deps,
       tableDescription: '${deps.length} packages',
+      startsSorted: true,
       actions: [
         SearchField(
           hintText: 'Filter',
@@ -128,6 +129,58 @@ class _Google3SheetState extends State<Google3Sheet>
           },
         ),
         VTableColumn(
+          label: 'Copybara Configured',
+          width: 90,
+          grow: 0.0,
+          alignment: Alignment.center,
+          transformFunction: (dep) => dep.hasCopybaraConfig ? 'yes' : 'no',
+          renderFunction: (context, dep, out) => dep.hasCopybaraConfig
+              ? const Icon(Icons.check_circle)
+              : const SizedBox(),
+          validators: [
+            (dep) {
+              var publisher = packageNameMap[dep.name]?.publisher;
+              return Google3Dep.copybaraConfigValidator(dep, publisher);
+            },
+          ],
+        ),
+        VTableColumn(
+          label: 'Copybara as a Service',
+          width: 92,
+          grow: 0.0,
+          alignment: Alignment.center,
+          transformFunction: (dep) => dep.usesCopybaraService ? 'yes' : 'no',
+          renderFunction: (context, dep, out) => dep.usesCopybaraService
+              ? const Icon(Icons.autorenew)
+              : const SizedBox(),
+          validators: [
+            (dep) {
+              var publisher = packageNameMap[dep.name]?.publisher;
+              return Google3Dep.copybaraServiceValidator(dep, publisher);
+            },
+          ],
+        ),
+        VTableColumn(
+          label: 'SDK Package',
+          width: 80,
+          grow: 0.0,
+          alignment: Alignment.center,
+          transformFunction: (dep) => dep.usesCopybaraService ? 'yes' : 'no',
+          renderFunction: (context, dep, out) => dep.sdkPackage
+              ? const Icon(Icons.check_circle)
+              : const SizedBox(),
+        ),
+        VTableColumn(
+          label: 'SDK Bundled',
+          width: 80,
+          grow: 0.0,
+          alignment: Alignment.center,
+          transformFunction: (dep) => dep.usesCopybaraService ? 'yes' : 'no',
+          renderFunction: (context, dep, out) => dep.bundledPackage
+              ? const Icon(Icons.autorenew)
+              : const SizedBox(),
+        ),
+        VTableColumn(
           label: 'Google3 Sync Latency',
           width: 100,
           grow: 0.2,
@@ -136,46 +189,6 @@ class _Google3SheetState extends State<Google3Sheet>
           compareFunction: (a, b) => Google3Dep.compareUnsyncedDays(a, b),
           validators: [
             (dep) => Google3Dep.validateSyncLatency(dep),
-          ],
-        ),
-        VTableColumn(
-          label: 'Copybara Config',
-          width: 80,
-          grow: 0.0,
-          alignment: Alignment.center,
-          transformFunction: (dep) => dep.hasCopybaraConfig ? 'yes' : 'no',
-          renderFunction: (context, dep, out) {
-            if (dep.hasCopybaraConfig) {
-              return const Icon(Icons.pets);
-            } else {
-              return const SizedBox();
-            }
-          },
-          validators: [
-            (dep) {
-              var publisher = packageNameMap[dep.name]?.publisher;
-              return Google3Dep.copybaraConfigServiceValidator(dep, publisher);
-            },
-          ],
-        ),
-        VTableColumn(
-          label: 'Copybara Service',
-          width: 80,
-          grow: 0.0,
-          alignment: Alignment.center,
-          transformFunction: (dep) => dep.usesCopybaraService ? 'yes' : 'no',
-          renderFunction: (context, dep, out) {
-            if (dep.usesCopybaraService) {
-              return const Icon(Icons.autorenew);
-            } else {
-              return const SizedBox();
-            }
-          },
-          validators: [
-            (dep) {
-              var publisher = packageNameMap[dep.name]?.publisher;
-              return Google3Dep.copybaraServiceValidator(dep, publisher);
-            },
           ],
         ),
       ],

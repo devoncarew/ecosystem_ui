@@ -163,6 +163,13 @@ class DataModel {
           usesCopybaraService: data.containsKey('usesCopybaraService')
               ? item.get('usesCopybaraService')
               : false,
+          // todo: update once this key exists
+          sdkPackage:
+              data.containsKey('sdkPackage') ? item.get('sdkPackage') : false,
+          // todo: update once this key exists
+          bundledPackage: data.containsKey('bundledPackage')
+              ? item.get('bundledPackage')
+              : false,
           error: data.containsKey('error') ? item.get('error') : null,
         );
       }).toList();
@@ -218,8 +225,7 @@ class DataModel {
 
   List<PackageInfo> getPackagesForRepository(String repoUrl) {
     var result = packages.value.where((package) {
-      return package.repository != null &&
-          package.repository!.startsWith(repoUrl);
+      return package.repoUrl != null && package.repoUrl! == repoUrl;
     }).toList();
     result.sort((a, b) => a.name.compareTo(b.name));
     return result;
@@ -927,6 +933,8 @@ class Google3Dep {
   final Timestamp? latencyDate;
   final bool hasCopybaraConfig;
   final bool usesCopybaraService;
+  final bool sdkPackage;
+  final bool bundledPackage;
   final String? error;
 
   Google3Dep({
@@ -937,6 +945,8 @@ class Google3Dep {
     required this.latencyDate,
     required this.hasCopybaraConfig,
     required this.usesCopybaraService,
+    required this.sdkPackage,
+    required this.bundledPackage,
     required this.error,
   });
 
@@ -1002,8 +1012,10 @@ class Google3Dep {
     return null;
   }
 
-  static ValidationResult? copybaraConfigServiceValidator(
+  static ValidationResult? copybaraConfigValidator(
       Google3Dep dep, String? publisher) {
+    if (dep.sdkPackage || dep.bundledPackage) return null;
+
     if (!dep.hasCopybaraConfig) {
       const message = 'Copybara not configured';
       var dartDev = publisher == 'dart.dev';
@@ -1012,14 +1024,19 @@ class Google3Dep {
           ? ValidationResult.error(message)
           : ValidationResult.warning(message);
     }
+
     return null;
   }
 
   static ValidationResult? copybaraServiceValidator(
       Google3Dep dep, String? publisher) {
+    if (dep.sdkPackage || dep.bundledPackage) return null;
+    if (dep.firstParty) return null;
+
     if (publisher == 'dart.dev' && !dep.usesCopybaraService) {
       return ValidationResult.warning('Copybara as a service not set up');
     }
+
     return null;
   }
 

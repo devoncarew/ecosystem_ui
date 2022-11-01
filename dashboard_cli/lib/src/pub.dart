@@ -46,10 +46,19 @@ class Pub {
     return PackageOptions.from(json);
   }
 
-  Future<PackageMetrics> getPackageMetrics(String pkgName) async {
-    final json = await profiler.run('pub.query',
-        _getJson(Uri.https('pub.dev', 'api/packages/$pkgName/metrics')));
-    return PackageMetrics.from(json);
+  Future<PackageMetrics?> getPackageMetrics(String pkgName) async {
+    // Pub will occasionally 404 here; if we see that we return `null` for the
+    // metrics.
+    final uri = Uri.https('pub.dev', 'api/packages/$pkgName/metrics');
+    profiler.start('pub.query');
+    final result = await _client.get(uri);
+    profiler.stop();
+    if (result.statusCode == 200) {
+      final json = jsonDecode(result.body) as Map<String, dynamic>;
+      return PackageMetrics.from(json);
+    } else {
+      return null;
+    }
   }
 
   Stream<String> _packagesForSearch(String query) async* {

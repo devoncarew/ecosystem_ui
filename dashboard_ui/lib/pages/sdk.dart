@@ -35,6 +35,7 @@ class _SDKSheetState extends State<SDKSheet>
             return VTable<PackageRepoDep>(
               items: deps,
               tableDescription: '${sdkDeps.length} repos',
+              startsSorted: true,
               actions: const [
                 Hyperlink(
                   displayText: 'DEPS',

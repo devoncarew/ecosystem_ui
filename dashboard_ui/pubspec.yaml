@@ -7,9 +7,9 @@ environment:
   sdk: ">=2.17.0 <3.0.0"
 
 dependencies:
-  cloud_firestore: ^3.1.10
+  cloud_firestore: ^4.0.3
   collection: any
-  firebase_core: ^1.13.1
+  firebase_core: ^2.1.1
   flutter:
     sdk: flutter
   fl_chart: any

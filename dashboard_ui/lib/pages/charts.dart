@@ -15,10 +15,12 @@ final borderColor = Colors.grey.shade500;
 
 enum ChartTypes {
   packages('package.count'),
-  unowned('package.count'),
-  sdkDeps('sdk.deps'),
+  // unowned('package.count'),
+  sloIssues('slo.issues'),
+  sloPrs('slo.prs'),
+  // sdkDeps('sdk.deps'),
   sdkLatency('sdk.latency'),
-  google3Deps('google3.deps'),
+  // google3Deps('google3.deps'),
   google3Latency('google3.latency'),
   publishP50('package.latency'),
   publishP90('package.latency');
@@ -515,10 +517,10 @@ class QueryEngine {
         late TimeSeriesGroup group;
 
         switch (chartType!) {
-          case ChartTypes.sdkDeps:
-            group = TimeSeriesGroup('SDK Dependencies', duration);
-            group.addSeries(TimeSeries('SDK dependency count', result));
-            break;
+          // case ChartTypes.sdkDeps:
+          //   group = TimeSeriesGroup('SDK Dependencies', duration);
+          //   group.addSeries(TimeSeries('SDK dependency count', result));
+          //   break;
           case ChartTypes.sdkLatency:
             group = TimeSeriesGroup('SDK Sync Latency (days)', duration);
             group.addSeries(
@@ -536,10 +538,44 @@ class QueryEngine {
               ),
             );
             break;
-          case ChartTypes.google3Deps:
-            group = TimeSeriesGroup('Google3 Dependencies', duration);
-            group.addSeries(TimeSeries('Google3 synced count', result));
+          case ChartTypes.sloIssues:
+            group = TimeSeriesGroup('Issue Counts', duration);
+
+            var counts = <String, List<Stat>>{};
+            for (var stat in result.where((stat) => stat.stat == 'count')) {
+              counts.putIfAbsent(stat.detail!, () => []).add(stat);
+            }
+
+            // remove for flutter.dev
+            counts.remove('flutter.dev');
+
+            for (var entry in counts.entries) {
+              group.addSeries(TimeSeries('${entry.key} issues', entry.value));
+            }
+            group.sort();
+
             break;
+          case ChartTypes.sloPrs:
+            group = TimeSeriesGroup('PR Counts', duration);
+
+            var counts = <String, List<Stat>>{};
+            for (var stat in result.where((stat) => stat.stat == 'count')) {
+              counts.putIfAbsent(stat.detail!, () => []).add(stat);
+            }
+
+            // remove for flutter.dev
+            counts.remove('flutter.dev');
+
+            for (var entry in counts.entries) {
+              group.addSeries(TimeSeries('${entry.key} PRs', entry.value));
+            }
+            group.sort();
+
+            break;
+          // case ChartTypes.google3Deps:
+          //   group = TimeSeriesGroup('Google3 Dependencies', duration);
+          //   group.addSeries(TimeSeries('Google3 synced count', result));
+          //   break;
           case ChartTypes.google3Latency:
             group = TimeSeriesGroup('Google3 Sync Latency (days)', duration);
             group.addSeries(
@@ -571,23 +607,23 @@ class QueryEngine {
             group.sort();
 
             break;
-          case ChartTypes.unowned:
-            group = TimeSeriesGroup('Unowned Package Counts', duration);
+          // case ChartTypes.unowned:
+          //   group = TimeSeriesGroup('Unowned Package Counts', duration);
 
-            var unowned = <String, List<Stat>>{};
-            for (var stat in result.where((stat) => stat.stat == 'unowned')) {
-              unowned.putIfAbsent(stat.detail!, () => []).add(stat);
-            }
+          //   var unowned = <String, List<Stat>>{};
+          //   for (var stat in result.where((stat) => stat.stat == 'unowned')) {
+          //     unowned.putIfAbsent(stat.detail!, () => []).add(stat);
+          //   }
 
-            // flutter.dev doesn't use this
-            unowned['flutter.dev']!.clear();
+          //   // flutter.dev doesn't use this
+          //   unowned['flutter.dev']!.clear();
 
-            for (var entry in unowned.entries) {
-              group.addSeries(TimeSeries('${entry.key} unowned', entry.value));
-            }
-            group.sort();
+          //   for (var entry in unowned.entries) {
+          //     group.addSeries(TimeSeries('${entry.key} unowned', entry.value));
+          //   }
+          //   group.sort();
 
-            break;
+          //   break;
           case ChartTypes.publishP50:
             group = TimeSeriesGroup('Publish Latency P50 (days)', duration);
 
