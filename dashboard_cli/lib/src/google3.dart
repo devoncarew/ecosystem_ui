@@ -42,7 +42,7 @@ class Google3 {
             hasCopybaraConfig: map['has_copybara_config'] ?? false,
             usesCopybaraService: map['uses_copybara_service'] ?? false,
             sdkPackage: map['sdk_package'],
-            bundledPackage: map['bundled_package'],
+            bundledPackage: map['unbundled_package'],
             error:
                 map.containsKey('error') ? 'error retrieving git info' : null,
           );
