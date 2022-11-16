@@ -144,19 +144,21 @@ class _RepositorySheetState extends State<RepositorySheet>
                   label: 'Dependabot',
                   width: 130,
                   grow: 0.0,
-                  transformFunction: (repo) =>
-                      repo.hasDependabot ? 'dependabot.yaml' : '',
+                  transformFunction: (repo) {
+                    if (repo.dependabotFile == null) return '';
+                    return repo.dependabotFile!.split('/').last;
+                  },
                   renderFunction: (BuildContext context, repo, out) {
-                    if (!repo.hasDependabot) return null;
+                    if (repo.dependabotFile == null) return null;
                     return Hyperlink(
-                      url: '${repo.url}/blob/${repo.defaultBranchName}'
-                          '/.github/dependabot.yaml',
+                      url:
+                          '${repo.url}/blob/${repo.defaultBranchName}/${repo.dependabotFile}',
                       displayText: out,
                     );
                   },
                   validators: [
                     (repo) {
-                      if (!repo.hasDependabot) {
+                      if (repo.dependabotFile == null) {
                         const message = 'dependabot not configured';
                         final isDartDev = repo.publishers.contains('dart.dev');
 
@@ -205,7 +207,7 @@ class TableRepoInfo {
 
   String get defaultBranchName => repo.defaultBranchName;
   List<String> get workflows => repo.workflows;
-  bool get hasDependabot => repo.hasDependabot;
+  String? get dependabotFile => repo.dependabotFile;
 
   List<String> get publishers {
     return packages

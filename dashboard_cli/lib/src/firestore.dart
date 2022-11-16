@@ -260,7 +260,7 @@ class Firestore {
         org: fields['org']!.stringValue!,
         name: fields['name']!.stringValue!,
         workflows: fields['workflows']!.stringValue,
-        hasDependabot: fields['hasDependabot']!.booleanValue!,
+        dependabotFile: fields['dependabotFile']?.stringValue,
         issueCount: parseInt(fields['issueCount']!.integerValue)!,
         prCount: parseInt(fields['prCount']!.integerValue)!,
         defaultBranchName: fields['defaultBranchName']!.stringValue!,
@@ -274,7 +274,7 @@ class Firestore {
         'name': valueStr(repo.name),
         'org': valueStr(repo.org),
         'workflows': valueStrNullable(repo.workflows),
-        'hasDependabot': valueBool(repo.hasDependabot),
+        'dependabotFile': valueStrNullable(repo.dependabotFile),
         'issueCount': valueInt(repo.issueCount),
         'prCount': valueInt(repo.prCount),
         'defaultBranchName': valueStr(repo.defaultBranchName),
@@ -576,15 +576,19 @@ class Firestore {
     if (existingInfo != null) {
       var updatedFields = updatedInfo.fields!;
       for (var field in existingInfo.keys) {
+        var existingValue = existingInfo[field]!;
+
         if (updatedFields.keys.contains(field) &&
-            !compareValues(existingInfo[field]!, updatedFields[field]!)) {
+            !existingValue.equalsValue(updatedFields[field]!)) {
           if (ignoreKeys.contains(field)) {
             continue;
           }
 
+          var updatedValue = updatedFields[field]!;
+
           log(
             entity: '[sdk] package:${dependency.name}',
-            change: '$field => ${printValue(updatedFields[field]!)}',
+            change: '$field => ${updatedValue.printValue}',
           );
         }
       }
@@ -637,11 +641,14 @@ class Firestore {
           continue;
         }
 
+        var existingValue = existingInfo[field]!;
+        var updatedValue = updatedFields[field]!;
+
         if (updatedFields.keys.contains(field) &&
-            !compareValues(existingInfo[field]!, updatedFields[field]!)) {
+            !existingValue.equalsValue(updatedValue)) {
           log(
             entity: '[google3] package:${dependency.name}',
-            change: '$field => ${printValue(updatedFields[field]!)}',
+            change: '$field => ${updatedValue.printValue}',
           );
         }
       }
@@ -753,7 +760,7 @@ class FirestoreRepositoryInfo {
   final String org;
   final String name;
   final String? workflows;
-  final bool hasDependabot;
+  final String? dependabotFile;
   final int issueCount;
   final int prCount;
   final String defaultBranchName;
@@ -762,7 +769,7 @@ class FirestoreRepositoryInfo {
     required this.org,
     required this.name,
     required this.workflows,
-    required this.hasDependabot,
+    required this.dependabotFile,
     required this.issueCount,
     required this.prCount,
     required this.defaultBranchName,

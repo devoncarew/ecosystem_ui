@@ -109,7 +109,7 @@ class _Google3SheetState extends State<Google3Sheet>
         ),
         VTableColumn(
           label: 'Copybara',
-          width: 90,
+          width: 115,
           grow: 0.0,
           alignment: Alignment.center,
           transformFunction: (dep) => dep.copybaraDescription,

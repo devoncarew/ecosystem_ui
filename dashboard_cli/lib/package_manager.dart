@@ -340,7 +340,6 @@ class PackageManager {
       packageName,
       publisher: publisher,
       packageInfo: packageInfo,
-      // analysisOptions: analysisOptions,
     );
 
     if (existingInfo == null) {
@@ -362,13 +361,20 @@ class PackageManager {
           continue;
         }
 
+        var existingValue = existingInfo[field]!;
+        var updatedValue = updatedFields[field]!;
+
         if (updatedFields.keys.contains(field) &&
-            !compareValues(existingInfo[field]!, updatedFields[field]!)) {
-          final change = '$field: '
-              '${printValue(existingInfo[field]!)} => '
-              '${printValue(updatedFields[field]!)}';
-          log.write(change);
-          firestore.log(entity: 'package:$packageName', change: change);
+            !existingValue.equalsValue(updatedValue)) {
+          // Special case the pub 'points' field; pub.dev can return null after
+          // a package has been recently published.
+          if (!(field == 'points' && updatedValue.isNullValue)) {
+            final change = '$field: '
+                '${existingValue.printValue} => '
+                '${updatedValue.printValue}';
+            log.write(change);
+            firestore.log(entity: 'package:$packageName', change: change);
+          }
         }
       }
     }
@@ -497,10 +503,19 @@ class PackageManager {
         ..indent();
 
       // Look for dependabot configuration.
-      var dependabotFile = await github.retrieveFile(
-        repo: repo,
-        filePath: '.github/dependabot.yaml',
-      );
+      String? dependabotFile = '.github/dependabot.yml';
+      var dependabotContents =
+          await github.retrieveFile(repo: repo, filePath: dependabotFile);
+      // ignore: prefer_conditional_assignment
+      if (dependabotContents == null) {
+        // Look for the backup file name.
+        dependabotFile = '.github/dependabot.yaml';
+        dependabotContents =
+            await github.retrieveFile(repo: repo, filePath: dependabotFile);
+      }
+      if (dependabotContents == null) {
+        dependabotFile = null;
+      }
 
       // workflows
       var workflowStr = await github.callRestApi(Uri.parse(
@@ -523,7 +538,7 @@ class PackageManager {
           org: repo.org,
           name: repo.name,
           workflows: workflowsDesc,
-          hasDependabot: dependabotFile != null,
+          dependabotFile: dependabotFile,
           issueCount: untriagedIssues,
           prCount: repoMetadata.openPRs,
           defaultBranchName: repoMetadata.defaultBranchName,

@@ -15,20 +15,24 @@ Future<String> httpGet(Uri uri) async {
   }
 }
 
-// todo: make these extension methods
-bool compareValues(Value a, Value b) {
-  var aStr = jsonEncode(a.toJson());
-  var bStr = jsonEncode(b.toJson());
-  return aStr.compareTo(bStr) == 0;
-}
+extension ValueExt on Value {
+  bool get isNullValue => nullValue != null;
 
-String printValue(Value value) {
-  Object? o = value.stringValue ??
-      value.booleanValue ??
-      value.integerValue ??
-      value.timestampValue ??
-      value.nullValue;
-  return o.toString();
+  String get printValue {
+    var value = this;
+    Object? o = value.stringValue ??
+        value.booleanValue ??
+        value.integerValue ??
+        value.timestampValue ??
+        value.nullValue;
+    return o.toString();
+  }
+
+  bool equalsValue(Value b) {
+    var aStr = jsonEncode(toJson());
+    var bStr = jsonEncode(b.toJson());
+    return aStr.compareTo(bStr) == 0;
+  }
 }
 
 double calulatePercentile(List<int> values, double percent) {

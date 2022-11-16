@@ -41,8 +41,6 @@ class PackagesCommand extends Command<int> {
   final String description = 'Update information sourced from pub.dev.';
 
   PackagesCommand() {
-    // todo: argsparser - allow for just updating specific publishers, packages,
-    // ...
     argParser.addMultiOption(
       'publisher',
       valueHelp: 'publisher',

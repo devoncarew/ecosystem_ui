@@ -1,10 +1,9 @@
-// ignore_for_file: avoid_print
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dashboard_ui/pages/repositories.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_strategy/url_strategy.dart';
 
 import 'firebase_options.dart';
 import 'model/data_model.dart';
@@ -21,9 +20,11 @@ import 'utils/constants.dart';
 
 // todo: add filtering to the sdk page
 
-// todo: add filtering to the google3 page
+// todo: implement a router, and named routes to different areas of the app
 
 void main() async {
+  setPathUrlStrategy();
+
   runApp(const PackagesApp());
 }
 
@@ -69,15 +70,27 @@ class _PackagesAppState extends State<PackagesApp> {
 
   @override
   Widget build(BuildContext context) {
-    final child = firestore == null
-        ? const LoadingScreen()
-        : MultiProvider(
-            providers: [
-              Provider<FirebaseFirestore>(create: (_) => firestore!),
-              Provider<DataModel>(create: (_) => dataModel!)
-            ],
-            child: ScaffoldContainer(dataModel: dataModel!),
-          );
+    Widget child;
+
+    if (firestore == null) {
+      child = const LoadingScreen();
+    } else {
+      child = MultiProvider(
+        providers: [
+          Provider<FirebaseFirestore>(create: (_) => firestore!),
+          Provider<DataModel>(create: (_) => dataModel!)
+        ],
+        child: ValueListenableBuilder<List<String>>(
+          valueListenable: dataModel!.publishers,
+          builder: (context, publishers, _) {
+            return ScaffoldContainer(
+              dataModel: dataModel!,
+              publishers: publishers,
+            );
+          },
+        ),
+      );
+    }
 
     return MaterialApp(
       title: appName,
@@ -90,9 +103,11 @@ class _PackagesAppState extends State<PackagesApp> {
 
 class ScaffoldContainer extends StatefulWidget {
   final DataModel dataModel;
+  final List<String> publishers;
 
   const ScaffoldContainer({
     required this.dataModel,
+    required this.publishers,
     Key? key,
   }) : super(key: key);
 
@@ -101,23 +116,11 @@ class ScaffoldContainer extends StatefulWidget {
 }
 
 class _ScaffoldContainerState extends State<ScaffoldContainer> {
-  // todo: move to stateless?
-
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<String>>(
-      valueListenable: widget.dataModel.publishers,
-      builder: (context, publishers, _) {
-        return _build(context, publishers);
-      },
-    );
-  }
-
-  Widget _build(BuildContext context, List<String> publishers) {
     final scaffold = Scaffold(
       appBar: AppBar(
         title: const Text(appName),
-        // todo: use leading for the search + busy indicator?
         bottom: const TabBar(
           tabs: [
             Tab(text: 'Packages'),
@@ -126,73 +129,15 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
             Tab(text: 'Package Repos'),
           ],
         ),
-        // todo: build this is a separate method
         actions: [
-          Row(
-            children: [
-              // todo: search box
-              const SizedBox(width: 8),
-              ValueListenableBuilder<bool>(
-                valueListenable: widget.dataModel.busy,
-                builder: (BuildContext context, bool busy, _) {
-                  return Center(
-                    child: SizedBox(
-                      width: defaultIconSize - 6,
-                      height: defaultIconSize - 6,
-                      child: busy
-                          ? const CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            )
-                          : null,
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 16),
-              IconButton(
-                icon: const Icon(Icons.table_chart),
-                tooltip: 'Recent Changes',
-                splashRadius: defaultSplashRadius,
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) {
-                      return LargeDialog(
-                        title: 'Recent Changes',
-                        child: ChangelogView(dataModel: widget.dataModel),
-                      );
-                    },
-                  );
-                },
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.area_chart_sharp),
-                tooltip: 'Charts',
-                splashRadius: defaultSplashRadius,
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) {
-                      return LargeDialog(
-                        title: 'Charts',
-                        child: ChartsPage(dataModel: widget.dataModel),
-                      );
-                    },
-                  );
-                },
-              ),
-              const SizedBox(width: 16),
-            ],
-          ),
+          _buildActionBar(context),
         ],
       ),
       body: Padding(
         padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
         child: TabBarView(
           children: [
-            PackagesSheet(publishers: publishers),
+            PackagesSheet(publishers: widget.publishers),
             SDKSheet(dataModel: widget.dataModel),
             Google3Sheet(dataModel: widget.dataModel),
             RepositorySheet(dataModel: widget.dataModel),
@@ -204,6 +149,66 @@ class _ScaffoldContainerState extends State<ScaffoldContainer> {
     return DefaultTabController(
       length: 4,
       child: scaffold,
+    );
+  }
+
+  Widget _buildActionBar(BuildContext context) {
+    return Row(
+      children: [
+        const SizedBox(width: 8),
+        ValueListenableBuilder<bool>(
+          valueListenable: widget.dataModel.busy,
+          builder: (BuildContext context, bool busy, _) {
+            return Center(
+              child: SizedBox(
+                width: defaultIconSize - 6,
+                height: defaultIconSize - 6,
+                child: busy
+                    ? const CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      )
+                    : null,
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 16),
+        IconButton(
+          icon: const Icon(Icons.table_chart),
+          tooltip: 'Recent Changes',
+          splashRadius: defaultSplashRadius,
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (context) {
+                return LargeDialog(
+                  title: 'Recent Changes',
+                  child: ChangelogView(dataModel: widget.dataModel),
+                );
+              },
+            );
+          },
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          icon: const Icon(Icons.area_chart_sharp),
+          tooltip: 'Charts',
+          splashRadius: defaultSplashRadius,
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (context) {
+                return LargeDialog(
+                  title: 'Charts',
+                  child: ChartsPage(dataModel: widget.dataModel),
+                );
+              },
+            );
+          },
+        ),
+        const SizedBox(width: 16),
+      ],
     );
   }
 }

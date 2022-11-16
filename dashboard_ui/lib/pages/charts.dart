@@ -1,5 +1,3 @@
-// ignore_for_file: avoid_print
-
 import 'dart:math' as math;
 
 import 'package:dashboard_ui/ui/widgets.dart';
@@ -375,12 +373,13 @@ class TimeSeries {
 class TimeSeriesGroup {
   final String label;
   final Duration duration;
+  final double? minDisplayValue;
   List<TimeSeries> series = [];
   double _maxValue = 0;
   late double _startDay;
   late double _endDay;
 
-  TimeSeriesGroup(this.label, this.duration) {
+  TimeSeriesGroup(this.label, this.duration, {this.minDisplayValue}) {
     final now = DateTime.now();
     _endDay = dateToDay(now);
     _startDay = dateToDay(now.subtract(duration));
@@ -400,12 +399,18 @@ class TimeSeriesGroup {
   }
 
   Rect getBounds() {
-    return Rect.fromLTRB(
-      _startDay,
-      series.isEmpty ? 100 : _nearestRoundNumber(_maxValue * 1.3),
-      _endDay,
-      0,
-    );
+    double top;
+
+    if (series.isEmpty) {
+      top = minDisplayValue ?? 100;
+    } else {
+      top = _nearestRoundNumber(_maxValue * 1.3);
+      if (minDisplayValue != null && minDisplayValue! > top) {
+        top = minDisplayValue!;
+      }
+    }
+
+    return Rect.fromLTRB(_startDay, top, _endDay, 0);
   }
 
   static double _nearestRoundNumber(double value) {
@@ -522,7 +527,11 @@ class QueryEngine {
           //   group.addSeries(TimeSeries('SDK dependency count', result));
           //   break;
           case ChartTypes.sdkLatency:
-            group = TimeSeriesGroup('SDK Sync Latency (days)', duration);
+            group = TimeSeriesGroup(
+              'SDK Sync Latency (days)',
+              duration,
+              minDisplayValue: 12,
+            );
             group.addSeries(
               TimeSeries(
                 'SDK P50 sync latency',
@@ -680,8 +689,8 @@ class QueryEngine {
       ValueNotifier(ChartTypes.publishP50);
 
   ValueListenable<TimeRanges> get timeRange => _timeRange;
-  // TODO: switch this to 'quarter' once we've accumulated more data
-  final ValueNotifier<TimeRanges> _timeRange = ValueNotifier(TimeRanges.month);
+  final ValueNotifier<TimeRanges> _timeRange =
+      ValueNotifier(TimeRanges.quarter);
 
   ValueListenable<QueryResult> get queryResult => _queryResult;
   final ValueNotifier<QueryResult> _queryResult =

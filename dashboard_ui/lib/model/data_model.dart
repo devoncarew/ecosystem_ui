@@ -99,7 +99,6 @@ class DataModel {
         }
       }
 
-      // todo: sort order
       _publishers.value = publishers;
     });
   }
@@ -810,7 +809,7 @@ class RepositoryInfo {
   final String org;
   final String name;
   final List<String> workflows;
-  final bool hasDependabot;
+  final String? dependabotFile;
   final int issueCount;
   final int prCount;
   final String defaultBranchName;
@@ -819,7 +818,7 @@ class RepositoryInfo {
     required this.org,
     required this.name,
     required this.workflows,
-    required this.hasDependabot,
+    required this.dependabotFile,
     required this.issueCount,
     required this.prCount,
     required this.defaultBranchName,
@@ -841,7 +840,8 @@ class RepositoryInfo {
       org: doc.get('org'),
       name: doc.get('name'),
       workflows: workflows,
-      hasDependabot: doc.get('hasDependabot'),
+      dependabotFile:
+          data.containsKey('dependabotFile') ? doc.get('dependabotFile') : null,
       issueCount: doc.get('issueCount'),
       prCount: doc.get('prCount'),
       defaultBranchName: doc.get('defaultBranchName'),
@@ -982,11 +982,11 @@ class Google3Dep {
     }
 
     if (hasCopybaraConfig && usesCopybaraService) {
-      return 'has config and service';
+      return 'config + service';
     } else if (hasCopybaraConfig) {
-      return 'has config';
+      return 'config';
     } else if (usesCopybaraService) {
-      return 'has service';
+      return 'service';
     } else {
       return '';
     }

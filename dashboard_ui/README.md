@@ -6,3 +6,7 @@ A Flutter web UI for the Dart Ecosystem dashboard.
 
 - `flutter build web`
 - `firebase deploy`
+
+or:
+
+`flutter build web && firebase deploy`
