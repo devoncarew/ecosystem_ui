@@ -295,11 +295,41 @@ class PackageManager {
         !packageInfo.repository!.endsWith('/')) {
       var repoInfo = packageInfo.repoInfo!;
 
+      final repo = Repository(path: repoInfo.repoOrgAndName!);
+
+      // For mono-repos, request all commits affecting the package directory.
+      // For single package repos, we just request commits affecting lib/. What
+      // we really want to do it to exclude commits from .github/. That's
+      // difficult to do with the github graphql API however. A close
+      // approximation would be README.md, pubspec.yaml, lib/, and bin/. Below,
+      // we use 'lib/' as the nearest possible approximation.
+      var commitPath = repoInfo.monoRepoPath ?? 'lib';
+
+      // Handle the case where we land a commit then publish immediately; i.e.,
+      // pretend we published 5 mins later, in order to reduce any latency in
+      // the systems to cause us to think that we didn't capture a commit in a
+      // publish.
+      var publishTime = DateTime.parse(packageInfo.published);
+      publishTime = publishTime.add(Duration(minutes: 5));
+      var queryCommitsAfter = publishTime.toIso8601String();
+
+      // Note that this filters out dependabot commits.
       var commits = await github.queryCommitsAfter(
-        repo: Repository(path: repoInfo.repoOrgAndName!),
-        afterTimestamp: packageInfo.published,
-        pathInRepo: repoInfo.monoRepoPath,
+        repo: repo,
+        afterTimestamp: queryCommitsAfter,
+        pathInRepo: commitPath,
       );
+
+      // // If we're in a single package repo, also filter out commits that just
+      // // affect .github/.
+      // if (commits.isNotEmpty && repoInfo.monoRepoPath == null) {
+      //   // TODO: this needs to be improved - we want to ignore changes that
+      //   // only affect .github/.
+      //   var githubDirCommits = await github.queryCiOnlyCommits(
+      //       repo: repo, afterTimestamp: packageInfo.published);
+      //   var githubDirShas = githubDirCommits.map((c) => c.oid).toSet();
+      //   commits.removeWhere((commit) => githubDirShas.contains(commit.oid));
+      // }
 
       if (commits.isEmpty) {
         packageInfo.unpublishedCommits = 0;
@@ -307,7 +337,6 @@ class PackageManager {
       } else {
         packageInfo.unpublishedCommits = commits.length;
 
-        // TODO: filter dependabot commits? commits into .github?
         commits.sort();
         var oldest = commits.last;
         packageInfo.unpublishedCommitDate = oldest.committedDate;

@@ -1,5 +1,6 @@
 import 'package:dashboard_ui/ui/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:pub_semver/pub_semver.dart';
 import 'package:url_launcher/url_launcher.dart' as url;
 
 import '../model/data_model.dart';
@@ -87,7 +88,6 @@ class _PackagesSheetState extends State<PackagesSheet>
       items: packages,
       startsSorted: true,
       supportsSelection: true,
-      // onSelectionChanged: _onSelectionChanged,
       onDoubleTap: (item) => _onDoubleClick(dataModel, item),
       tableDescription: description,
       actions: [
@@ -208,23 +208,22 @@ class _PackagesSheetState extends State<PackagesSheet>
             PackageInfo.validateRepositoryInfo,
           ],
         ),
-        VTableColumn<PackageInfo>(
-          label: 'Issues',
-          width: 80,
-          alignment: Alignment.centerRight,
-          transformFunction: (PackageInfo package) => package.issuesUrl ?? '',
-          renderFunction:
-              (BuildContext context, PackageInfo package, String out) {
-            var url = package.issuesUrl;
-            if (url == null) return null;
+        //   label: 'Issues',
+        //   width: 80,
+        //   alignment: Alignment.centerRight,
+        //   transformFunction: (PackageInfo package) => package.issuesUrl ?? '',
+        //   renderFunction:
+        //       (BuildContext context, PackageInfo package, String out) {
+        //     var url = package.issuesUrl;
+        //     if (url == null) return null;
 
-            return Hyperlink(
-              url: url,
-              displayText: 'link',
-              style: PackageInfo.getDisplayStyle(package),
-            );
-          },
-        ),
+        //     return Hyperlink(
+        //       url: url,
+        //       displayText: 'link',
+        //       style: PackageInfo.getDisplayStyle(package),
+        //     );
+        //   },
+        // ),
         VTableColumn(
           label: 'SDK Latency',
           width: 80,
@@ -283,6 +282,22 @@ class _PackagesSheetState extends State<PackagesSheet>
             },
           ],
         ),
+        VTableColumn<PackageInfo>(
+          label: 'Repo Version',
+          width: 90,
+          alignment: Alignment.centerRight,
+          transformFunction: (package) =>
+              package.githubVersion?.toString() ?? '',
+          styleFunction: PackageInfo.getDisplayStyle,
+          compareFunction: (a, b) {
+            var aVersion = a.githubVersion ?? Version.none;
+            var bVersion = b.githubVersion ?? Version.none;
+            return aVersion.compareTo(bVersion);
+          },
+          validators: [
+            PackageInfo.needsPublishValidator,
+          ],
+        ), // VTableColumn<PackageInfo>(
         VTableColumn(
           label: 'Publish Latency',
           width: 80,
@@ -300,7 +315,7 @@ class _PackagesSheetState extends State<PackagesSheet>
           validators: [PackageInfo.validatePublishLatency],
         ),
         VTableColumn<PackageInfo>(
-          label: 'Version',
+          label: 'Pub Version',
           width: 80,
           alignment: Alignment.centerRight,
           transformFunction: (package) => package.version.toString(),
@@ -310,7 +325,6 @@ class _PackagesSheetState extends State<PackagesSheet>
           },
           validators: [
             PackageInfo.validateVersion,
-            PackageInfo.needsPublishValidator,
           ],
         ),
         VTableColumn<PackageInfo>(

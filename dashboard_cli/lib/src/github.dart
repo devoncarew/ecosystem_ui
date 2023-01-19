@@ -188,6 +188,73 @@ class Github {
     return commits.toList();
   }
 
+  Future<List<Commit>> queryCiOnlyCommits({
+    required Repository repo,
+    required String afterTimestamp,
+  }) async {
+    final DateTime afterTime = DateTime.parse(afterTimestamp);
+
+    // https://docs.github.com/en/graphql/reference/objects#commit
+    final queryString = '''{
+      repository(owner: "${repo.org}", name: "${repo.name}") {
+        defaultBranchRef {
+          target {
+            ... on Commit {
+              history(since: "$afterTimestamp" path: ".github") {
+                edges {
+                  node {
+                    oid
+                    messageHeadline
+                    committedDate
+                    changedFilesIfAvailable
+                    author {
+                      user {
+                        login
+                      }
+                    }
+                    committer {
+                      user {
+                        login
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+''';
+    // todo: use a parser function (options.parserFn)?
+    final result = await profiler.run(
+        'github.query', query(QueryOptions(document: gql(queryString))));
+    if (result.hasException) {
+      throw result.exception!;
+    }
+
+    var commits = _getCommitsFromResult(result);
+
+    // Filter any commits not newer than 'afterTime' (i.e., where the commit ==
+    // afterTime).
+    commits = commits.where((commit) => commit.committedDate != afterTime);
+
+    // Remove commits to directories like '.github' (which shouldn't affect
+    // things like latency stats).
+    // if (filterNonContentCommits) {
+    //   commits = commits.where((commit) => commit.user != userLoginDependabot);
+    // }
+
+    // We have a list of commits which affected the .github directory; they may
+    // have affected more that just that dir though. Filter to commits that just
+    // affected one file; we're certain that those commits just affected
+    // .github.
+
+    return commits
+        .where((commit) => commit.changedFilesIfAvailable == 1)
+        .toList();
+  }
+
   Commit _getCommitFromResult(QueryResult result) {
 // {
 //   "data": {
@@ -398,12 +465,14 @@ class Commit implements Comparable<Commit> {
   final String message;
   final String user;
   final DateTime committedDate;
+  final int? changedFilesIfAvailable;
 
   Commit({
     required this.oid,
     required this.message,
     required this.user,
     required this.committedDate,
+    this.changedFilesIfAvailable,
   });
 
   factory Commit.fromQuery(Map<String, dynamic> node) {
@@ -419,6 +488,7 @@ class Commit implements Comparable<Commit> {
       message: messageHeadline,
       user: login,
       committedDate: DateTime.parse(committedDate),
+      changedFilesIfAvailable: node['changedFilesIfAvailable'],
     );
   }
 

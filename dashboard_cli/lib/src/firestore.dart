@@ -189,7 +189,6 @@ class Firestore {
     String packageName, {
     required String publisher,
     required PackageInfo packageInfo,
-    // String? analysisOptions,
   }) async {
     var repository = packageInfo.repository;
     if (repository == null) {
@@ -200,6 +199,9 @@ class Firestore {
         repository = homepage;
       }
     }
+
+    final metrics = packageInfo.metrics;
+    var hasMetrics = metrics != null;
 
     final Document doc = Document(
       fields: {
@@ -222,9 +224,9 @@ class Firestore {
             : Value(
                 timestampValue:
                     packageInfo.unpublishedCommitDate!.toIso8601String()),
-        'points': valueIntNullable(packageInfo.metrics?.points),
-        'popularity': valueIntNullable(packageInfo.metrics?.popularity),
-        'likes': valueIntNullable(packageInfo.metrics?.likes),
+        if (hasMetrics) 'points': valueIntNullable(metrics.points),
+        if (hasMetrics) 'popularity': valueIntNullable(metrics.popularity),
+        if (hasMetrics) 'likes': valueIntNullable(metrics.likes),
       },
     );
 
