@@ -668,22 +668,8 @@ class PackageInfo {
     return null;
   }
 
-  static int compareWithStatus(PackageInfo a, PackageInfo b) {
-    bool aDiscontinued = a.discontinued;
-    bool bDiscontinued = b.discontinued;
-
-    if (aDiscontinued == bDiscontinued) {
-      bool aUnlisted = a.unlisted;
-      bool bUnlisted = b.unlisted;
-
-      if (aUnlisted == bUnlisted) {
-        return a.name.compareTo(b.name);
-      } else {
-        return aUnlisted ? 1 : -1;
-      }
-    } else {
-      return aDiscontinued ? 1 : -1;
-    }
+  static int compare(PackageInfo a, PackageInfo b) {
+    return a.name.compareTo(b.name);
   }
 
   String debugDump() {

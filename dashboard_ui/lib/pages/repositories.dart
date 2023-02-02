@@ -116,6 +116,14 @@ class _RepositorySheetState extends State<RepositorySheet>
                   },
                 ),
                 VTableColumn(
+                  label: 'Branch',
+                  width: 50,
+                  grow: 0.1,
+                  transformFunction: (repo) => repo.defaultBranchName,
+                  compareFunction: (a, b) =>
+                      a.defaultBranchName.compareTo(b.defaultBranchName),
+                ),
+                VTableColumn(
                   label: 'Workflows',
                   width: 100,
                   grow: 0.2,

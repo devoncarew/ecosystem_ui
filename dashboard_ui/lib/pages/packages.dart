@@ -169,7 +169,7 @@ class _PackagesSheetState extends State<PackagesSheet>
           grow: 0.2,
           transformFunction: (package) => package.name,
           styleFunction: PackageInfo.getDisplayStyle,
-          compareFunction: PackageInfo.compareWithStatus,
+          compareFunction: PackageInfo.compare,
         ),
         VTableColumn<PackageInfo>(
           label: 'Publisher',
