@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dashboard_cli/src/utils.dart';
 import 'package:http/http.dart';
 import 'package:http/retry.dart';
+import 'package:pub_semver/pub_semver.dart';
 
 /// Utilities to query pub.dev.
 class Pub {
@@ -131,6 +132,7 @@ class PackageInfo {
   // },
 
   final Map<String, dynamic> json;
+  late Map<String, dynamic> _latest;
   final PackageOptions options;
   final PackageMetrics? metrics;
 
@@ -138,7 +140,20 @@ class PackageInfo {
     this.json, {
     required this.options,
     this.metrics,
-  });
+  }) {
+    _latest = json['latest'];
+
+    // Look for an even newer published version (for example, a pre-release
+    // version).
+    var latestVersion = Version.parse(_latest['version']);
+    for (var m in (json['versions'] as List).cast<Map<String, dynamic>>()) {
+      var version = Version.parse(m['version']);
+      if (version > latestVersion) {
+        _latest = m;
+        latestVersion = version;
+      }
+    }
+  }
 
   String get name => json['name'];
   String get version => _latest['version'];
@@ -153,7 +168,7 @@ class PackageInfo {
   int? issueCount;
   String? githubVersion;
 
-  late final Map<String, dynamic> _latest = json['latest'];
+  // late final Map<String, dynamic> _latest = json['latest'];
   late final Map<String, dynamic> _pubspec = _latest['pubspec'];
 
   bool get isDiscontinued => options.isDiscontinued;

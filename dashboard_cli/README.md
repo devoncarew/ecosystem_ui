@@ -5,7 +5,3 @@ A Dart CLI tool used to update the Dart Ecosystem dashboard.
 ## Deploying
 
 - `gcloud run deploy --source . dashboardcli`
-
-or perhaps:
-
-- `gcloud run deploy --source .`
