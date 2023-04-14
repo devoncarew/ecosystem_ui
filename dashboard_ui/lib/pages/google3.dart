@@ -52,7 +52,7 @@ class _Google3SheetState extends State<Google3Sheet>
     return VTable<Google3Dep>(
       items: deps,
       tableDescription: '${deps.length} packages',
-      startsSorted: true,
+      sortedIndex: 0,
       actions: [
         SearchField(
           hintText: 'Filter',

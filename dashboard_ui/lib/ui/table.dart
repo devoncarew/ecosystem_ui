@@ -14,7 +14,7 @@ class VTable<T> extends StatefulWidget {
 
   final List<T> items;
   final List<VTableColumn<T>> columns;
-  final bool startsSorted;
+  final int? sortedIndex;
   final bool supportsSelection;
   final ItemTapHandler<T>? onDoubleTap;
   final OnSelectionChanged<T>? onSelectionChanged;
@@ -26,7 +26,7 @@ class VTable<T> extends StatefulWidget {
   const VTable({
     required this.items,
     required this.columns,
-    this.startsSorted = false,
+    this.sortedIndex,
     this.supportsSelection = false,
     this.onDoubleTap,
     this.onSelectionChanged,
@@ -79,9 +79,11 @@ class _VTableState<T> extends State<VTable<T>> {
   }
 
   void _performInitialSort() {
-    if (widget.startsSorted && columns.first.supportsSort) {
-      columns.first.sort(sortedItems, ascending: true);
-      sortColumnIndex = 0;
+    if (widget.sortedIndex != null &&
+        columns.length > widget.sortedIndex! &&
+        columns[widget.sortedIndex!].supportsSort) {
+      columns[widget.sortedIndex!].sort(sortedItems, ascending: true);
+      sortColumnIndex = widget.sortedIndex;
     }
   }
 

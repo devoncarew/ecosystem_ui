@@ -86,7 +86,7 @@ class _PackagesSheetState extends State<PackagesSheet>
 
     return VTable<PackageInfo>(
       items: packages,
-      startsSorted: true,
+      sortedIndex: 0,
       supportsSelection: true,
       onDoubleTap: (item) => _onDoubleClick(dataModel, item),
       tableDescription: description,

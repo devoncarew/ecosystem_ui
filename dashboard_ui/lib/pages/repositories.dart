@@ -34,7 +34,7 @@ class _RepositorySheetState extends State<RepositorySheet>
             return VTable<TableRepoInfo>(
               items: repositories,
               tableDescription: '${repositories.length} repos',
-              startsSorted: true,
+              sortedIndex: 0,
               columns: [
                 VTableColumn(
                   label: 'Repository',
