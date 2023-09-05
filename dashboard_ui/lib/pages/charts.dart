@@ -235,10 +235,10 @@ class _TimeSeriesLineChart extends StatelessWidget {
             maxX: range.right,
             minY: range.bottom,
             maxY: range.top / zoom,
-            clipData:
-                FlClipData(top: true, left: true, right: true, bottom: false),
+            clipData: const FlClipData(
+                top: true, left: true, right: true, bottom: false),
           ),
-          swapAnimationDuration: kThemeAnimationDuration,
+          duration: kThemeAnimationDuration,
         ),
         Padding(
           padding: const EdgeInsets.only(left: 60, top: 22),
@@ -265,8 +265,8 @@ class _TimeSeriesLineChart extends StatelessWidget {
           getTitlesWidget: bottomTitleWidgets,
         ),
       ),
-      rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
     );
   }
 
@@ -275,7 +275,7 @@ class _TimeSeriesLineChart extends StatelessWidget {
       color: colors[group.series.indexOf(series) % colors.length],
       barWidth: 2,
       isStrokeCapRound: true,
-      dotData: FlDotData(show: false),
+      dotData: const FlDotData(show: false),
       belowBarData: BarAreaData(show: false),
       spots: series.toFlSpots(),
     );

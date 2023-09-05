@@ -21,13 +21,15 @@ class Google3 {
 
           // "name": "analyzer",
           // "is_first_party": false,
-          // "version": "7621b914e9bde81a12efcf02f1e4227998a64256",
-          // "last_updated": "2022-06-02T04:22:31.000",
-          // "pending_commits": 6,
-          // "latency_seconds": 103895
-          // "unsynced_commit_date": "2022-06-02T04:22:31.000",
-          // "has_copybara_config": true
-          // "uses_copybara_service": true
+          // "version": "",
+          // "last_updated": null,
+          // "pending_commits": 0,
+          // "latency_seconds": null,
+          // "error": "Cannot find Git URI in package metadata",
+          // "has_copybara_config": false,
+          // "uses_copybara_service": false,
+          // "sdk_package": true,
+          // "unbundled_package": false
 
           DateTime? latencyDate = map.containsKey('unsynced_commit_date')
               ? DateTime.parse(map['unsynced_commit_date'])

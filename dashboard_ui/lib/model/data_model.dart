@@ -362,18 +362,18 @@ class PackageInfo {
         : null;
 
     return PackageInfo(
-      name: data['name'],
-      publisher: data['publisher'],
+      name: data['name'] ?? '<missing>',
+      publisher: data['publisher'] ?? '<missing>',
       maintainer: maintainer,
       repository: data['repository'],
       issueTracker:
           data.containsKey('issueTracker') ? data['issueTracker'] : null,
-      version: Version.parse(data['version']),
+      version: Version.parse(data['version'] ?? '0.0.1'),
       githubVersion:
           githubVersion == null ? null : Version.parse(githubVersion),
-      discontinued: data['discontinued'],
-      unlisted: data['unlisted'],
-      pubspec: data['pubspec'],
+      discontinued: data['discontinued'] ?? false,
+      unlisted: data['unlisted'] ?? false,
+      pubspec: data['pubspec'] ?? '',
       publishedDate:
           data['publishedDate'] ?? Timestamp.fromMillisecondsSinceEpoch(0),
       unpublishedCommits: data['unpublishedCommits'],

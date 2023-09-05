@@ -94,7 +94,7 @@ class _PackagesAppState extends State<PackagesApp> {
 
     return MaterialApp(
       title: appName,
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: false),
       debugShowCheckedModeBanner: false,
       home: child,
     );
