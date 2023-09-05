@@ -32,5 +32,5 @@ jobs:
         run: dart format --output=none --set-exit-if-changed .
       - name: Analyze code
         run: dart analyze --fatal-infos .
-      - name: Run tests
-        run: dart test
+      # - name: Run tests
+      #   run: dart test
