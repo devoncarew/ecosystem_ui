@@ -725,8 +725,12 @@ class FirestorePackageInfo {
       return val == null ? null : DateTime.parse(val);
     }
 
+    if (nullableField('name') == null) {
+      print('oops, null: ${doc.name}');
+    }
+
     return FirestorePackageInfo(
-      name: nullableField('name')!,
+      name: nullableField('name') ?? '<name>',
       publisher: nullableField('publisher'),
       maintainer: nullableField('maintainer'),
       repository: nullableField('repository'),
