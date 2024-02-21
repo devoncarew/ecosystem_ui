@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:vtable/vtable.dart';
 
 import '../model/data_model.dart';
-import '../ui/table.dart';
 import '../ui/widgets.dart';
 
 class RepositorySheet extends StatefulWidget {
@@ -35,6 +35,7 @@ class _RepositorySheetState extends State<RepositorySheet>
               items: repositories,
               tableDescription: '${repositories.length} repos',
               startsSorted: true,
+              includeCopyToClipboardAction: true,
               columns: [
                 VTableColumn(
                   label: 'Repository',

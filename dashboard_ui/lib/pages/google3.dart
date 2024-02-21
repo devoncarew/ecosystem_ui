@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:vtable/vtable.dart';
 
 import '../model/data_model.dart';
-import '../ui/table.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../utils/constants.dart';
@@ -64,11 +64,9 @@ class _Google3SheetState extends State<Google3Sheet>
           },
         ),
         const SizedBox(width: 10),
-        const SizedBox(
-          height: toolbarHeight,
-          child: VerticalDivider(),
-        ),
+        const SizedBox(height: toolbarHeight, child: VerticalDivider()),
       ],
+      includeCopyToClipboardAction: true,
       columns: [
         VTableColumn(
           label: 'Package',

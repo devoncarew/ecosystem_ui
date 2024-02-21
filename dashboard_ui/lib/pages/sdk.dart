@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:vtable/vtable.dart';
 
 import '../model/data_model.dart';
-import '../ui/table.dart';
+import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../utils/constants.dart';
 import '../utils/utils.dart';
@@ -41,7 +42,9 @@ class _SDKSheetState extends State<SDKSheet>
                   displayText: 'DEPS',
                   url: 'https://github.com/dart-lang/sdk/blob/main/DEPS',
                 ),
+                SizedBox(height: toolbarHeight, child: VerticalDivider()),
               ],
+              includeCopyToClipboardAction: true,
               columns: [
                 VTableColumn(
                   label: 'Repository',

@@ -2,9 +2,9 @@ import 'package:dashboard_ui/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:url_launcher/url_launcher.dart' as url;
+import 'package:vtable/vtable.dart';
 
 import '../model/data_model.dart';
-import '../ui/table.dart';
 import '../ui/widgets.dart';
 import '../utils/utils.dart';
 
@@ -157,11 +157,9 @@ class _PackagesSheetState extends State<PackagesSheet>
           ),
         ),
         const SizedBox(width: 10),
-        const SizedBox(
-          height: toolbarHeight,
-          child: VerticalDivider(),
-        ),
+        const SizedBox(height: toolbarHeight, child: VerticalDivider()),
       ],
+      includeCopyToClipboardAction: true,
       columns: [
         VTableColumn<PackageInfo>(
           label: 'Name',
