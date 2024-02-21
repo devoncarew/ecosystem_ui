@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:vtable/vtable.dart';
 
 import '../model/data_model.dart';
-import '../ui/table.dart';
 
 class ChangelogView extends StatelessWidget {
   final DataModel dataModel;
@@ -18,6 +18,7 @@ class ChangelogView extends StatelessWidget {
       builder: (context, items, _) {
         return VTable<LogItem>(
           items: items,
+          includeCopyToClipboardAction: true,
           columns: [
             VTableColumn(
               label: 'Entity',
